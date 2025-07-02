@@ -1,0 +1,1 @@
+// app.dart 앱의 최상위 위젯(MaterialApp). GoRouter 설정을 포함하여 앱 전체의 테마와 라우팅을 관리합니다.
