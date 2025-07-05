@@ -1,7 +1,7 @@
-// lib/features/ddip_creation/domain/usecases/create_ddip_event.dart
+// lib/features/ddip_event/domain/usecases/create_ddip_event.dart
 
-import 'package:ddip/features/ddip_creation/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_creation/domain/repositories/ddip_creation_repository.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 
 class CreateDdipEvent {
   // UseCase는 실제 구현체(Impl)가 아닌, 추상적인 계약서(Repository)에만 의존합니다.

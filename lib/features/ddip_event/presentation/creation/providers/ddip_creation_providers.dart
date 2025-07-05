@@ -1,11 +1,11 @@
-// lib/features/ddip_creation/presentation/providers/ddip_creation_providers.dart
+// lib/features/ddip_event/presentation/craetion/providers/ddip_creation_providers.dart
 
 import 'package:ddip/core/providers/core_providers.dart';
-import 'package:ddip/features/ddip_creation/data/datasources/ddip_creation_remote_data_source.dart';
-import 'package:ddip/features/ddip_creation/data/repositories/ddip_creation_repository_impl.dart';
-import 'package:ddip/features/ddip_creation/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_creation/domain/repositories/ddip_creation_repository.dart';
-import 'package:ddip/features/ddip_creation/domain/usecases/create_ddip_event.dart';
+import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
+import 'package:ddip/features/ddip_event/data/repositories/ddip_event_repository_impl.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 1. DataSource Provider

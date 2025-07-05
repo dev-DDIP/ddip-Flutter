@@ -1,5 +1,5 @@
-import 'package:ddip/features/ddip_creation/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_creation/presentation/providers/ddip_creation_providers.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/creation/providers/ddip_creation_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

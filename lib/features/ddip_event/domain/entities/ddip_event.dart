@@ -1,4 +1,4 @@
-// lib/features/ddip_creation/domain/entities/ddip_event.dart
+// lib/features/ddip_event/domain/entities/ddip_event.dart
 
 // 이 클래스는 '띱 이벤트'라는 비즈니스 개념 그 자체를 정의합니다.
 // 서버 API의 필드명이 바뀌거나, 데이터베이스 구조가 바뀌어도

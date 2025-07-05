@@ -1,4 +1,4 @@
-// lib/features/ddip_creation/domain/repositories/ddip_creation_repository.dart
+// lib/features/ddip_event/domain/repositories/ddip_event_repository.dart
 
 import '../entities/ddip_event.dart';
 

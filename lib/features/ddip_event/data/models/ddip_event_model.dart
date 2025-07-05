@@ -1,4 +1,4 @@
-// lib/features/ddip_creation/data/models/ddip_event_model.dart
+// lib/features/ddip_event/data/models/ddip_event_model.dart
 
 /*
 ## DdipEventModel (Data 영역의 모델)

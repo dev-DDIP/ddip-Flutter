@@ -1,6 +1,6 @@
 // lib/main.dart
 
-import 'package:ddip/features/ddip_creation/presentation/screens/ddip_creation_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

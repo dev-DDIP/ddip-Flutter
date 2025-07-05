@@ -1,4 +1,4 @@
-// lib/features/ddip_creation/data/datasources/ddip_creation_remote_data_source.dart
+// lib/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart
 
 import 'package:dio/dio.dart';
 import '../models/ddip_event_model.dart';
