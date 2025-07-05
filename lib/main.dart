@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,8 +25,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      // 2. 앱의 첫 화면을 기본 카운터 앱 대신 우리가 만든 DdipCreationScreen으로 설정합니다.
-      home: const DdipCreationScreen(),
+      // 앱의 첫 화면을 을 등록하는 곳
+      home: const DdipFeedScreen(),
     );
   }
 }
