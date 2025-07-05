@@ -26,7 +26,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState!.validate()) {
@@ -43,33 +43,33 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
         responsePhotoUrl: null,
       );
 
-      ref.read(ddipCreationNotifierProvider.notifier).createDdipEvent(newEvent);
+      // Notifier의 메서드를 호출하고 그 결과를 기다립니다.
+      final bool success = await ref
+          .read(ddipCreationNotifierProvider.notifier)
+          .createDdipEvent(newEvent);
+
+      // 위젯이 마운트된 상태인지 확인 (비동기 작업 후 필수)
+      if (!mounted) return;
+
+      // 반환된 결과(success)에 따라 UI 로직을 처리합니다.
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('요청이 성공적으로 등록되었습니다!')),
+        );
+        Navigator.of(context).pop();
+      } else {
+        // 실패 시에는 Notifier의 state에서 에러를 가져와 보여줄 수 있습니다.
+        final error = ref.read(ddipCreationNotifierProvider).error;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류가 발생했습니다: $error')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(ddipCreationNotifierProvider);
-
-    ref.listen<AsyncValue<void>>(
-      ddipCreationNotifierProvider,
-          (previous, next) {
-        if (next.hasError && !next.isLoading) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('오류가 발생했습니다: ${next.error}')),
-          );
-        }
-        if (previous is AsyncLoading && !next.hasError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('요청이 성공적으로 등록되었습니다!')),
-          );
-          _formKey.currentState?.reset();
-          _titleController.clear();
-          _contentController.clear();
-          _rewardController.clear();
-        }
-      },
-    );
 
     return Scaffold(
       appBar: AppBar(

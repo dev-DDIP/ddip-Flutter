@@ -6,6 +6,7 @@ import 'package:ddip/features/ddip_event/data/repositories/ddip_event_repository
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/feed/providers/ddip_feed_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 백엔드 도입 전까지 fake 사용한다.
@@ -47,7 +48,7 @@ class DdipCreationNotifier extends AsyncNotifier<void> {
   }
 
   // UI에서 호출할 메서드
-  Future<void> createDdipEvent(DdipEvent event) async {
+  Future<bool> createDdipEvent(DdipEvent event) async {
     // 1. 상태를 로딩 중으로 설정
     state = const AsyncValue.loading();
 
@@ -58,5 +59,14 @@ class DdipCreationNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       await useCase(event);
     });
+
+    // [추가] state에 에러가 있는지 확인하여 성공/실패 결과를 반환
+    if (state.hasError) {
+      return false; // 실패
+    } else {
+      // 성공 시, 피드 프로바이더를 무효화하여 새로고침하도록 함
+      ref.invalidate(ddipFeedProvider);
+      return true; // 성공
+    }
   }
 }
