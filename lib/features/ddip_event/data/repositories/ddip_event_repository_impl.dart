@@ -5,10 +5,10 @@ import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 
-class DdipCreationRepositoryImpl implements DdipCreationRepository {
-  final DdipCreationRemoteDataSource remoteDataSource;
+class DdipEventRepositoryImpl implements DdipEventRepository {
+  final DdipEventRemoteDataSource remoteDataSource;
 
-  DdipCreationRepositoryImpl({required this.remoteDataSource});
+  DdipEventRepositoryImpl({required this.remoteDataSource});
 
   @override
   Future<void> createDdipEvent(DdipEvent event) async {
@@ -35,6 +35,29 @@ class DdipCreationRepositoryImpl implements DdipCreationRepository {
 
     // 변환된 Model을 사용하여 DataSource에 API 호출을 위임합니다.
     await remoteDataSource.createDdipEvent(eventModel);
+  }
+
+  // [추가] getDdipEvents 구현
+  @override
+  Future<List<DdipEvent>> getDdipEvents() async {
+    // 1. 데이터 소스(API)로부터 Model 리스트를 받아옵니다.
+    final List<DdipEventModel> eventModels = await remoteDataSource.getDdipEvents();
+
+    // 2. 받아온 Model 리스트를 Domain 계층의 Entity 리스트로 변환합니다.
+    //    이 '번역' 과정이 클린 아키텍처의 핵심입니다.
+    final List<DdipEvent> events = eventModels.map((model) => DdipEvent(
+      id: model.id,
+      title: model.title,
+      content: model.content,
+      requesterId: model.requesterId,
+      reward: model.reward,
+      latitude: model.latitude,
+      longitude: model.longitude,
+      status: model.status,
+      createdAt: model.createdAt,
+    )).toList();
+
+    return events;
   }
 }
 

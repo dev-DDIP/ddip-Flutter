@@ -15,22 +15,23 @@ DataSource는 '최종 실무자'로서, Dio라는 전문 장비를 사용해 데
 
 
  */
-abstract class DdipCreationRemoteDataSource {
+abstract class DdipEventRemoteDataSource {
   Future<void> createDdipEvent(DdipEventModel eventModel);
+  Future<List<DdipEventModel>> getDdipEvents();
 }
 
 // 위 인터페이스의 실제 구현체입니다.
-class DdipCreationRemoteDataSourceImpl implements DdipCreationRemoteDataSource {
+class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
   final Dio dio;
 
   // 생성자를 통해 Dio를 밖에서 넣어준다! 의존성주입(DI)
   /*
   실제 앱을 실행할 때: 밖에서 **'진짜 Dio'**를 만들어서 넣어줍니다.
   테스트를 할 때: 밖에서 **'가짜 Dio'**를 만들어서 넣어줍니다.
-  DdipCreationRemoteDataSourceImpl 클래스 코드는 단 한 줄도 바꿀 필요 없이,
+  DdipEventRemoteDataSourceImpl 클래스 코드는 단 한 줄도 바꿀 필요 없이,
   외부에서 어떤 부품을 넣어주느냐에 따라 동작을 바꿀 수 있습니다.
    */
-  DdipCreationRemoteDataSourceImpl({required this.dio});
+  DdipEventRemoteDataSourceImpl({required this.dio});
 
   @override
   Future<void> createDdipEvent(DdipEventModel eventModel) async {
@@ -46,6 +47,25 @@ class DdipCreationRemoteDataSourceImpl implements DdipCreationRemoteDataSource {
       // 지금은 간단하게 출력만 하지만, 나중에는 구체적인 예외 처리를 추가합니다.
       print('Error creating ddip event: $e');
       rethrow; // 에러를 다시 던져서 상위 계층에서 인지할 수 있도록 합니다.
+    }
+  }
+
+  @override
+  Future<List<DdipEventModel>> getDdipEvents() async {
+    try {
+      final response = await dio.get('/ddips'); // 실제 목록 API 경로
+
+      // 1. [해결] response.data가 List<dynamic> 타입이라고 명시적으로 알려줍니다.
+      final List<dynamic> data = response.data as List<dynamic>;
+
+      // 2. [해결] 리스트의 각 항목(item)이 Map<String, dynamic> 타입이라고 명시적으로 알려줍니다.
+      return data
+          .map((item) => DdipEventModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+    } on DioException catch (e) {
+      print('Error getting ddip events: $e');
+      rethrow;
     }
   }
 }

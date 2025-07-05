@@ -8,22 +8,24 @@ import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_reposito
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 1. DataSource Provider
-final ddipCreationDataSourceProvider =
-Provider<DdipCreationRemoteDataSource>((ref) {
+// 1. DataSource Provider: DdipEventRemoteDataSource를 제공합니다.
+final ddipEventDataSourceProvider =
+Provider<DdipEventRemoteDataSource>((ref) {
   final dio = ref.watch(dioProvider);
-  return DdipCreationRemoteDataSourceImpl(dio: dio);
+  return DdipEventRemoteDataSourceImpl(dio: dio);
 });
 
-// 2. Repository Provider
-final ddipCreationRepositoryProvider = Provider<DdipCreationRepository>((ref) {
-  final remoteDataSource = ref.watch(ddipCreationDataSourceProvider);
-  return DdipCreationRepositoryImpl(remoteDataSource: remoteDataSource);
+// 2. Repository Provider: 위에서 만든 DataSource를 주입받아 DdipEventRepository를 제공합니다.
+final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
+  // DdipEventDataSourceProvider를 watch 하도록 수정
+  final remoteDataSource = ref.watch(ddipEventDataSourceProvider);
+  return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource);
 });
 
-// 3. UseCase Provider
+// 3. UseCase Provider: 위에서 만든 Repository를 주입받아 CreateDdipEvent를 제공합니다.
 final createDdipEventUseCaseProvider = Provider<CreateDdipEvent>((ref) {
-  final repository = ref.watch(ddipCreationRepositoryProvider);
+  // DdipEventRepositoryProvider를 watch 하도록 수정
+  final repository = ref.watch(ddipEventRepositoryProvider);
   return CreateDdipEvent(repository: repository);
 });
 

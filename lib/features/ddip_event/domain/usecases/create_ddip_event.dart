@@ -5,7 +5,7 @@ import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_reposito
 
 class CreateDdipEvent {
   // UseCase는 실제 구현체(Impl)가 아닌, 추상적인 계약서(Repository)에만 의존합니다.
-  final DdipCreationRepository repository;
+  final DdipEventRepository repository;
 
   CreateDdipEvent({required this.repository});
 

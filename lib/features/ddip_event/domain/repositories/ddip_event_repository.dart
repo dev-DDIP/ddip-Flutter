@@ -4,11 +4,14 @@ import '../entities/ddip_event.dart';
 
 // '띱 생성' 기능이 데이터 계층에 요구하는 기능 목록입니다.
 // 지금은 '띱 생성' 기능 하나만 필요합니다.
-abstract class DdipCreationRepository {
+abstract class DdipEventRepository {
   // '띱' 이벤트를 생성하는 기능을 요구합니다.
   // 성공 또는 실패에 대한 결과를 반환해야 합니다.
   // (지금은 간단하게 Future<void>로 정의하고, 나중에 에러 처리를 추가하겠습니다.)
   Future<void> createDdipEvent(DdipEvent event);
+
+  // [추가] '띱 목록 가져오기' 기능 명세
+  Future<List<DdipEvent>> getDdipEvents();
 }
 
 /*
