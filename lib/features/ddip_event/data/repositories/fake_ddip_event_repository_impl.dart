@@ -7,7 +7,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     // 기존에 있던 초기 가짜 데이터는 여기에 보관합니다.
     DdipEvent(
       id: '1', title: '북문 타코야끼 트럭 왔나요?', content: '지금 가면 먹을 수 있는지 궁금해요',
-      requesterId: 'user123', reward: 1000, latitude: 35.8925, longitude: 128.614,
+      requesterId: 'user123', reward: 1000, latitude: 36.8925, longitude: 128.614,
       status: 'open', createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
     ),
     DdipEvent(
@@ -37,16 +37,14 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     // 실제 앱에서는 id를 사용해 _ddipEvents 리스트에서 해당 이벤트를 찾아 반환해야 하지만,
     // 지금은 테스트용으로 항상 동일한 상세 데이터를 반환하도록 구현합니다.
     await Future.delayed(const Duration(milliseconds: 300));
-    return DdipEvent(
-      id: id,
-      title: '테스트 상세 이벤트 (ID: $id)',
-      content: '이 데이터는 페이크 레포지토리에서 온 가짜 데이터입니다. 실제 앱에서는 id에 맞는 데이터를 찾아야 합니다.',
-      reward: 5000,
-      latitude: 35.891,
-      longitude: 128.613,
-      requesterId: 'fake_user',
-      status: 'open',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-    );
+    // 1. _ddipEvents 리스트에서 전달받은 id와 일치하는 첫 번째 이벤트를 찾습니다.
+    try {
+      final event = _ddipEvents.firstWhere((event) => event.id == id);
+      return event;
+    } catch (e) {
+      // 2. 만약 일치하는 이벤트가 없으면 에러를 발생시킵니다.
+      //    (firstWhere는 일치하는 항목이 없으면 StateError를 던집니다)
+      throw Exception('ID($id)에 해당하는 띱 이벤트를 찾을 수 없습니다.');
+    }
   }
 }
