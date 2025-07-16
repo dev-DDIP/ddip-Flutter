@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart'; // 네이버 지도 패키지 import
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/event_view_provider.dart'; // 방금 만든 프로바이더 import
 
@@ -28,6 +29,10 @@ class EventViewScreen extends ConsumerWidget {
           child: Text('오류가 발생했습니다: $error'),
         ),
         data: (event) {
+          // DdipEvent에서 위치 정보를 가져와 NLatLng 객체 생성
+          final position = NLatLng(event.latitude, event.longitude);
+
+
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -59,35 +64,45 @@ class EventViewScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // 좌표 정보
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, color: Colors.black87),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '위도: ${event.latitude.toStringAsFixed(5)}\n'
-                              '경도: ${event.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(fontSize: 14, letterSpacing: 0.5),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: NaverMap(
+                      options: NaverMapViewOptions(
+                        initialCameraPosition: NCameraPosition(
+                          target: position,
+                          zoom: 16,
                         ),
+                        // 3. 지도가 독립적으로 표시되므로 스크롤 제스처를 다시 활성화합니다.
+                        scrollGesturesEnable: true,
                       ),
-                    ],
+                      onMapReady: (controller) {
+                        final marker = NMarker(
+                          id: event.id,
+                          position: position,
+                        );
+                        controller.addOverlay(marker);
+                      },
+                    ),
                   ),
                 ),
+                const SizedBox(height: 16),
 
-                const Spacer(), // 남은 공간을 모두 차지
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.check),
+                    label: const Text('참여하기'),
                     onPressed: () {
                       // TODO: 여기에 이벤트 참여 로직을 추가합니다.
                     },
-                    child: const Text('참여하기'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
