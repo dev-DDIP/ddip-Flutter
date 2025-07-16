@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 class DdipCreationScreen extends ConsumerStatefulWidget {
   const DdipCreationScreen({super.key});
@@ -19,6 +20,8 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   final _rewardController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  NLatLng? _selectedPosition;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -29,6 +32,13 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
 
   void _submit() async {
     FocusScope.of(context).unfocus();
+
+    if (_selectedPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('지도에서 위치를 선택해주세요!')),
+      );
+      return;
+    }
 
     if (_formKey.currentState!.validate()) {
       final newEvent = DdipEvent(
@@ -127,11 +137,16 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.map_outlined),
                   label: const Text('지도에서 위치 선택'),
-                  onPressed: () {
-                    // 4. 버튼을 누르면 MapViewScreen으로 이동
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const MapViewScreen()),
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push<NLatLng?>(
+                      MaterialPageRoute(
+                          builder: (context) => const MapViewScreen()),
                     );
+                    if (result != null) {
+                      setState(() {
+                        _selectedPosition = result;
+                      });
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -142,6 +157,18 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                     elevation: 0, // 그림자 없애기
                   ),
                 ),
+                const SizedBox(height: 8),
+                if (_selectedPosition != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      '선택된 위치:\n'
+                          '위도: ${_selectedPosition!.latitude.toStringAsFixed(5)}, '
+                          '경도: ${_selectedPosition!.longitude.toStringAsFixed(5)}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ),
 
                 const SizedBox(height: 32),
                 state.isLoading
