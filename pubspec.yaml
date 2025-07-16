@@ -41,6 +41,8 @@ dependencies:
   json_annotation: ^4.9.0
   # 지도 기능 구현
   flutter_naver_map: ^1.4.0
+  # GPS 사용을 위한 패키지
+  geolocator: ^12.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
