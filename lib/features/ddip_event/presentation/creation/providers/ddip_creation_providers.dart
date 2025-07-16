@@ -22,7 +22,7 @@ Provider<DdipEventRemoteDataSource>((ref) {
 final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
   // DdipEventDataSourceProvider를 watch 하도록 수정
   final remoteDataSource = ref.watch(ddipEventDataSourceProvider);
-  return FakeDdipEventRepositoryImpl();
+  return FakeDdipEventRepositoryImpl(); // 실제 백엔드 도입 전까지는 Fake Repository를 사용할 수도 있음
   // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource);
 });
 

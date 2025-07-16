@@ -33,20 +33,62 @@ class EventViewScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 제목
                 Text(event.title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 8),
-                Text('보상: ${event.reward}원'),
+                const SizedBox(height: 12),
+
+                // 보상 및 작성자 정보
+                Row(
+                  children: [
+                    const Icon(Icons.monetization_on_outlined, size: 18, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    Text('보상: ${event.reward}원', style: const TextStyle(fontSize: 16)),
+                    const Spacer(),
+                    const Icon(Icons.person_outline, size: 18, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    Text('작성자: ${event.requesterId}', style: const TextStyle(fontSize: 16)),
+                  ],
+                ),
                 const Divider(height: 32),
-                Text(event.content),
-                const Spacer(),
+
+                // 내용
+                Text(
+                  event.content,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
+                ),
+                const SizedBox(height: 24),
+
+                // 좌표 정보
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, color: Colors.black87),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '위도: ${event.latitude.toStringAsFixed(5)}\n'
+                              '경도: ${event.longitude.toStringAsFixed(5)}',
+                          style: const TextStyle(fontSize: 14, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(), // 남은 공간을 모두 차지
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {
-                      // Todo: 여기에 이벤트 참여 로직을 추가합니다.
+                      // TODO: 여기에 이벤트 참여 로직을 추가합니다.
                     },
                     child: const Text('참여하기'),
-                ),
+                  ),
                 ),
               ],
             ),
