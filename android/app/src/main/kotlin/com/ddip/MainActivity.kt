@@ -1,4 +1,4 @@
-package com.ddip.ddip
+package com.ddip
 
 import io.flutter.embedding.android.FlutterActivity
 

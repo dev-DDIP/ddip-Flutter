@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
 
 class DdipCreationScreen extends ConsumerStatefulWidget {
   const DdipCreationScreen({super.key});
@@ -31,6 +32,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
 
     if (_formKey.currentState!.validate()) {
       final newEvent = DdipEvent(
+        // UUID는 전 세계적으로 거의 중복될 가능성이 없는 문자열 ID를 만드는 표준 방식
         id: const Uuid().v4(),
         title: _titleController.text,
         content: _contentController.text,
@@ -120,6 +122,27 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                     return null;
                   },
                 ),
+
+                const SizedBox(height: 16), // 3. 위젯들 사이에 간격 추가
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('지도에서 위치 선택'),
+                  onPressed: () {
+                    // 4. 버튼을 누르면 MapViewScreen으로 이동
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const MapViewScreen()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16),
+                    backgroundColor: Colors.white, // 버튼 배경색
+                    foregroundColor: Colors.black, // 버튼 글자/아이콘 색
+                    side: const BorderSide(color: Colors.grey), // 테두리
+                    elevation: 0, // 그림자 없애기
+                  ),
+                ),
+
                 const SizedBox(height: 32),
                 state.isLoading
                     ? const Center(child: CircularProgressIndicator())
