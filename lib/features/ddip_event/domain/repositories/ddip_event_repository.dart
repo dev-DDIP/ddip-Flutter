@@ -12,6 +12,9 @@ abstract class DdipEventRepository {
 
   // [추가] '띱 목록 가져오기' 기능 명세
   Future<List<DdipEvent>> getDdipEvents();
+
+  // 1. 아래 '계약'을 추가합니다.
+  Future<DdipEvent> getDdipEventById(String id);
 }
 
 /*

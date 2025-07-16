@@ -9,6 +9,7 @@
 우리도 이 파일을 수정해야 합니다. 즉, 외부의 변화에 매우 취약합니다.
  */
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../domain/entities/ddip_event.dart';
 
 part 'ddip_event_model.freezed.dart';
 part 'ddip_event_model.g.dart';
@@ -31,7 +32,26 @@ class DdipEventModel with _$DdipEventModel {
     @JsonKey(name: 'response_photo_url') String? responsePhotoUrl,
   }) = _DdipEventModel;
 
+  const DdipEventModel._();
+
   // 두번째 생성자, 앱 외부(주로 서버)로부터 받은 JSON 데이터를 가지고 객체를 만들 때 사용합니다.
   factory DdipEventModel.fromJson(Map<String, dynamic> json) =>
       _$DdipEventModelFromJson(json);
+
+  // Model의 필드를 Entity의 필드로 1:1 매핑하는 정확한 변환 로직입니다.
+  DdipEvent toEntity() {
+    return DdipEvent(
+      id: id,
+      title: title,
+      content: content,
+      requesterId: requesterId,
+      responderId: responderId,
+      reward: reward,
+      latitude: latitude,
+      longitude: longitude,
+      status: status,
+      createdAt: createdAt,
+      responsePhotoUrl: responsePhotoUrl,
+    );
+  }
 }

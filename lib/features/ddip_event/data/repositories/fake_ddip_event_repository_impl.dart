@@ -31,4 +31,22 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     await Future.delayed(const Duration(seconds: 2));
     return _ddipEvents;
   }
+
+  @override
+  Future<DdipEvent> getDdipEventById(String id) async {
+    // 실제 앱에서는 id를 사용해 _ddipEvents 리스트에서 해당 이벤트를 찾아 반환해야 하지만,
+    // 지금은 테스트용으로 항상 동일한 상세 데이터를 반환하도록 구현합니다.
+    await Future.delayed(const Duration(milliseconds: 300));
+    return DdipEvent(
+      id: id,
+      title: '테스트 상세 이벤트 (ID: $id)',
+      content: '이 데이터는 페이크 레포지토리에서 온 가짜 데이터입니다. 실제 앱에서는 id에 맞는 데이터를 찾아야 합니다.',
+      reward: 5000,
+      latitude: 35.891,
+      longitude: 128.613,
+      requesterId: 'fake_user',
+      status: 'open',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    );
+  }
 }

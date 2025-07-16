@@ -33,7 +33,7 @@ final GoRouter _router = GoRouter(
           path: ':eventId', // /feed/123 과 같은 동적 경로
           builder: (context, state) {
             // state.pathParameters를 통해 경로의 파라미터를 가져옵니다.
-            final eventId = int.tryParse(state.pathParameters['eventId'] ?? '') ?? 0;
+            final eventId = state.pathParameters['eventId'] ?? '0'; // id가 없는 경우 기본값
             return EventViewScreen(eventId: eventId);
           },
         ),

@@ -274,7 +274,7 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$DdipEventModelImpl implements _DdipEventModel {
+class _$DdipEventModelImpl extends _DdipEventModel {
   const _$DdipEventModelImpl({
     required this.id,
     required this.title,
@@ -287,7 +287,7 @@ class _$DdipEventModelImpl implements _DdipEventModel {
     required this.status,
     @JsonKey(name: 'created_at') required this.createdAt,
     @JsonKey(name: 'response_photo_url') this.responsePhotoUrl,
-  });
+  }) : super._();
 
   factory _$DdipEventModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$DdipEventModelImplFromJson(json);
@@ -383,7 +383,7 @@ class _$DdipEventModelImpl implements _DdipEventModel {
   }
 }
 
-abstract class _DdipEventModel implements DdipEventModel {
+abstract class _DdipEventModel extends DdipEventModel {
   const factory _DdipEventModel({
     required final String id,
     required final String title,
@@ -397,6 +397,7 @@ abstract class _DdipEventModel implements DdipEventModel {
     @JsonKey(name: 'created_at') required final DateTime createdAt,
     @JsonKey(name: 'response_photo_url') final String? responsePhotoUrl,
   }) = _$DdipEventModelImpl;
+  const _DdipEventModel._() : super._();
 
   factory _DdipEventModel.fromJson(Map<String, dynamic> json) =
       _$DdipEventModelImpl.fromJson;

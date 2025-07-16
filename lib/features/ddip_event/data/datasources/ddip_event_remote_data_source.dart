@@ -18,6 +18,7 @@ DataSource는 '최종 실무자'로서, Dio라는 전문 장비를 사용해 데
 abstract class DdipEventRemoteDataSource {
   Future<void> createDdipEvent(DdipEventModel eventModel);
   Future<List<DdipEventModel>> getDdipEvents();
+  Future<DdipEventModel> getDdipEventById(String id);
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -65,6 +66,16 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
 
     } on DioException catch (e) {
       print('Error getting ddip events: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<DdipEventModel> getDdipEventById(String id) async {
+    try {
+      final response = await dio.get('/ddip-events/$id');
+      return DdipEventModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException {
       rethrow;
     }
   }

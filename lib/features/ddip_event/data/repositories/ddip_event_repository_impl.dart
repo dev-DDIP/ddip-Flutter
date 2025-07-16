@@ -59,6 +59,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
 
     return events;
   }
+
+  @override
+  Future<DdipEvent> getDdipEventById(String id) async {
+    final eventModel = await remoteDataSource.getDdipEventById(id);
+    return eventModel.toEntity();
+  }
 }
 
 /*
