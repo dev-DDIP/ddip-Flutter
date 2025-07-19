@@ -24,6 +24,9 @@ class DdipEvent {
   final String status;
   final DateTime createdAt;
   final String? responsePhotoUrl; // 응답 사진은 아직 없을 수 있으므로 nullable
+  // 응답 사진의 위도와 경도를 저장할 필드 (nullable)
+  final double? responseLatitude;
+  final double? responseLongitude;
 
   DdipEvent({
     required this.id,
@@ -37,5 +40,8 @@ class DdipEvent {
     required this.status,
     required this.createdAt,
     this.responsePhotoUrl,
+    // 생성자에 필드 추가
+    this.responseLatitude,
+    this.responseLongitude,
   });
 }

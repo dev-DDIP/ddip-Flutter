@@ -41,21 +41,27 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   @override
   Future<List<DdipEvent>> getDdipEvents() async {
     // 1. 데이터 소스(API)로부터 Model 리스트를 받아옵니다.
-    final List<DdipEventModel> eventModels = await remoteDataSource.getDdipEvents();
+    final List<DdipEventModel> eventModels =
+        await remoteDataSource.getDdipEvents();
 
     // 2. 받아온 Model 리스트를 Domain 계층의 Entity 리스트로 변환합니다.
     //    이 '번역' 과정이 클린 아키텍처의 핵심입니다.
-    final List<DdipEvent> events = eventModels.map((model) => DdipEvent(
-      id: model.id,
-      title: model.title,
-      content: model.content,
-      requesterId: model.requesterId,
-      reward: model.reward,
-      latitude: model.latitude,
-      longitude: model.longitude,
-      status: model.status,
-      createdAt: model.createdAt,
-    )).toList();
+    final List<DdipEvent> events =
+        eventModels
+            .map(
+              (model) => DdipEvent(
+                id: model.id,
+                title: model.title,
+                content: model.content,
+                requesterId: model.requesterId,
+                reward: model.reward,
+                latitude: model.latitude,
+                longitude: model.longitude,
+                status: model.status,
+                createdAt: model.createdAt,
+              ),
+            )
+            .toList();
 
     return events;
   }
@@ -76,7 +82,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> completeDdipEvent(String eventId, String imagePath) async {
+  Future<void> completeDdipEvent(
+    String eventId,
+    String imagePath,
+    double latitude,
+    double longitude,
+  ) async {
     // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
     // remoteDataSource.completeDdipEvent(eventId); 와 같은 형태가 될 것입니다.
     return;

@@ -9,14 +9,26 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final List<DdipEvent> _ddipEvents = [
     // 기존에 있던 초기 가짜 데이터는 여기에 보관합니다.
     DdipEvent(
-      id: '1', title: '북문 타코야끼 트럭 왔나요?', content: '지금 가면 먹을 수 있는지 궁금해요',
-      requesterId: 'user123', reward: 1000, latitude: 36.8925, longitude: 128.614,
-      status: 'open', createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      id: '1',
+      title: '북문 타코야끼 트럭 왔나요?',
+      content: '지금 가면 먹을 수 있는지 궁금해요',
+      requesterId: 'user123',
+      reward: 1000,
+      latitude: 36.8925,
+      longitude: 128.614,
+      status: 'open',
+      createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
     ),
     DdipEvent(
-      id: '2', title: '센팍에 자리 있나요?', content: '친구랑 치킨 먹으려는데 빈 테이블 있는지 봐주세요!',
-      requesterId: 'user456', reward: 500, latitude: 35.890, longitude: 128.612,
-      status: 'open', createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      id: '2',
+      title: '센팍에 자리 있나요?',
+      content: '친구랑 치킨 먹으려는데 빈 테이블 있는지 봐주세요!',
+      requesterId: 'user456',
+      reward: 500,
+      latitude: 35.890,
+      longitude: 128.612,
+      status: 'open',
+      createdAt: DateTime.now().subtract(const Duration(hours: 1)),
     ),
   ];
 
@@ -24,7 +36,9 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   Future<void> createDdipEvent(DdipEvent event) async {
     print('Fake createDdipEvent success: ${event.title}');
     _ddipEvents.insert(0, event); // 최신 글이 맨 위로 오도록 insert 사용
-    await Future.delayed(const Duration(milliseconds: 500)); // 실제 네트워크처럼 약간의 딜레이
+    await Future.delayed(
+      const Duration(milliseconds: 500),
+    ); // 실제 네트워크처럼 약간의 딜레이
     return;
   }
 
@@ -84,7 +98,9 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       // 6. 리스트의 해당 인덱스 위치에, 방금 만든 새로운 객체로 교체합니다.
       _ddipEvents[index] = updatedEvent;
 
-      print('Fake acceptDdipEvent success: ID($eventId)의 상태가 in_progress로 변경되었습니다.');
+      print(
+        'Fake acceptDdipEvent success: ID($eventId)의 상태가 in_progress로 변경되었습니다.',
+      );
     } else {
       // 7. 만약 해당 ID의 이벤트가 없다면, 에러를 발생시킵니다.
       throw Exception('ID($eventId)에 해당하는 띱 이벤트를 찾을 수 없어 수락에 실패했습니다.');
@@ -92,7 +108,12 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> completeDdipEvent(String eventId, String imagePath) async {
+  Future<void> completeDdipEvent(
+    String eventId,
+    String imagePath,
+    double latitude,
+    double longitude,
+  ) async {
     // 1. 실제 네트워크처럼 딜레이를 줍니다.
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -117,12 +138,16 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         status: 'completed', // status를 'completed'로 변경
         createdAt: originalEvent.createdAt,
         responsePhotoUrl: imagePath,
+        responseLatitude: latitude,
+        responseLongitude: longitude,
       );
 
       // 6. 리스트의 기존 이벤트를 새로운 객체로 교체합니다.
       _ddipEvents[index] = updatedEvent;
 
-      print('Fake completeDdipEvent success: ID($eventId)의 상태가 completed로 변경되었습니다.');
+      print(
+        'Fake completeDdipEvent success: ID($eventId)의 상태가 completed로 변경되었습니다.',
+      );
     } else {
       // 7. 만약 이벤트를 찾지 못하면 에러를 발생시킵니다.
       throw Exception('ID($eventId)에 해당하는 띱 이벤트를 찾을 수 없어 완료에 실패했습니다.');

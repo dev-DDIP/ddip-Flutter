@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:ddip/features/ddip_event/domain/entities/completion_payload.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/accept_ddip_event.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../domain/entities/ddip_event.dart';
 
 // AcceptDdipEvent UseCase를 앱의 다른 곳에서 쓸 수 있도록 제공(Provide)합니다.
@@ -14,7 +16,8 @@ final acceptDdipEventUseCaseProvider = Provider<AcceptDdipEvent>((ref) {
 });
 
 // 상세 화면의 상태(로딩, 데이터, 에러)를 관리하는 Notifier
-class EventViewNotifier extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String> {
+class EventViewNotifier
+    extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String> {
   @override
   FutureOr<DdipEvent> build(String eventId) async {
     // 이 provider가 처음 호출될 때, 유스케이스를 통해 데이터를 가져옵니다.
@@ -43,12 +46,12 @@ class EventViewNotifier extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String
   }
 
   /// UI로부터 '요청 완료' 신호를 받아 처리하는 메서드
-  Future<void> completeEvent(String imagePath) async {
+  Future<void> completeEvent(CompletionPayload payload) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       // CompleteDdipEvent UseCase를 읽어와 실행합니다.
       final useCase = ref.read(completeDdipEventUseCaseProvider);
-      await useCase(arg, imagePath);
+      await useCase(arg, payload);
 
       // 데이터가 변경되었으므로, 최신 데이터를 다시 가져와 반환합니다.
       return ref.read(getDdipEventByIdUseCaseProvider)(arg);
@@ -57,7 +60,5 @@ class EventViewNotifier extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String
 }
 
 // Notifier를 제공하는 프로바이더
-final eventViewProvider =
-AsyncNotifierProvider.autoDispose.family<EventViewNotifier, DdipEvent, String>(
-      () => EventViewNotifier(),
-);
+final eventViewProvider = AsyncNotifierProvider.autoDispose
+    .family<EventViewNotifier, DdipEvent, String>(() => EventViewNotifier());
