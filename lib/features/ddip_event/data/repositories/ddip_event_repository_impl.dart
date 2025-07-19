@@ -74,6 +74,13 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
     // 지금은 계약을 맞추기 위해 메서드 형태만 만들어 둡니다.
     return;
   }
+
+  @override
+  Future<void> completeDdipEvent(String eventId) async {
+    // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
+    // remoteDataSource.completeDdipEvent(eventId); 와 같은 형태가 될 것입니다.
+    return;
+  }
 }
 
 /*

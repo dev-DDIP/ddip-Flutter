@@ -4,7 +4,6 @@ import 'package:ddip/features/ddip_event/domain/usecases/accept_ddip_event.dart'
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/entities/ddip_event.dart';
-import '../../../domain/usecases/get_ddip_event_by_id.dart';
 
 // AcceptDdipEvent UseCase를 앱의 다른 곳에서 쓸 수 있도록 제공(Provide)합니다.
 // Notifier가 이 Provider를 읽어서 UseCase를 사용할 수 있게 됩니다.
@@ -39,6 +38,19 @@ class EventViewNotifier extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String
 
       // 4. [중요] 데이터가 변경되었으므로, 변경된 최신 데이터를 다시 가져와서 반환합니다.
       //    여기서 반환된 값이 새로운 AsyncData의 값이 됩니다.
+      return ref.read(getDdipEventByIdUseCaseProvider)(arg);
+    });
+  }
+
+  /// UI로부터 '요청 완료' 신호를 받아 처리하는 메서드
+  Future<void> completeEvent() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      // CompleteDdipEvent UseCase를 읽어와 실행합니다.
+      final useCase = ref.read(completeDdipEventUseCaseProvider);
+      await useCase(arg);
+
+      // 데이터가 변경되었으므로, 최신 데이터를 다시 가져와 반환합니다.
       return ref.read(getDdipEventByIdUseCaseProvider)(arg);
     });
   }

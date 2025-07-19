@@ -115,7 +115,8 @@ class EventViewScreen extends ConsumerWidget {
                       icon: const Icon(Icons.camera_alt_outlined),
                       label: const Text('사진 찍고 완료하기'),
                       onPressed: () {
-                        // TODO: 다음 단계에서 '요청 완료' 기능을 여기에 연결합니다.
+                        // Notifier의 completeEvent 메서드를 호출합니다.
+                        ref.read(eventViewProvider(eventId).notifier).completeEvent();
                       },
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.green, // 진행 중 상태는 다른 색으로 표시

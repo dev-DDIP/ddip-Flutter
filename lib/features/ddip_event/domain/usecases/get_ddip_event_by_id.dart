@@ -15,9 +15,3 @@ class GetDdipEventById {
     return _repository.getDdipEventById(id);
   }
 }
-
-// 이 유스케이스를 앱 전역에서 사용할 수 있도록 프로바이더를 생성합니다.
-final getDdipEventByIdUseCaseProvider = Provider<GetDdipEventById>((ref) {
-  final repository = ref.watch(ddipEventRepositoryProvider);
-  return GetDdipEventById(repository);
-});

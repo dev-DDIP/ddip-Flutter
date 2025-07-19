@@ -90,4 +90,42 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       throw Exception('ID($eventId)에 해당하는 띱 이벤트를 찾을 수 없어 수락에 실패했습니다.');
     }
   }
+
+  @override
+  Future<void> completeDdipEvent(String eventId) async {
+    // 1. 실제 네트워크처럼 딜레이를 줍니다.
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 2. 리스트에서 수정할 이벤트의 인덱스를 찾습니다.
+    final index = _ddipEvents.indexWhere((event) => event.id == eventId);
+
+    // 3. 만약 해당 이벤트를 찾았다면,
+    if (index != -1) {
+      // 4. 기존 이벤트를 가져옵니다.
+      final originalEvent = _ddipEvents[index];
+
+      // 5. 상태(status)만 'completed'로 변경한 새로운 객체를 만듭니다.
+      final updatedEvent = DdipEvent(
+        id: originalEvent.id,
+        title: originalEvent.title,
+        content: originalEvent.content,
+        requesterId: originalEvent.requesterId,
+        responderId: originalEvent.responderId,
+        reward: originalEvent.reward,
+        latitude: originalEvent.latitude,
+        longitude: originalEvent.longitude,
+        status: 'completed', // status를 'completed'로 변경
+        createdAt: originalEvent.createdAt,
+        responsePhotoUrl: originalEvent.responsePhotoUrl,
+      );
+
+      // 6. 리스트의 기존 이벤트를 새로운 객체로 교체합니다.
+      _ddipEvents[index] = updatedEvent;
+
+      print('Fake completeDdipEvent success: ID($eventId)의 상태가 completed로 변경되었습니다.');
+    } else {
+      // 7. 만약 이벤트를 찾지 못하면 에러를 발생시킵니다.
+      throw Exception('ID($eventId)에 해당하는 띱 이벤트를 찾을 수 없어 완료에 실패했습니다.');
+    }
+  }
 }
