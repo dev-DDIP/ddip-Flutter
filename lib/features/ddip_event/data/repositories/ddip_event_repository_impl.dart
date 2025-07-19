@@ -76,7 +76,7 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> completeDdipEvent(String eventId) async {
+  Future<void> completeDdipEvent(String eventId, String imagePath) async {
     // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
     // remoteDataSource.completeDdipEvent(eventId); 와 같은 형태가 될 것입니다.
     return;

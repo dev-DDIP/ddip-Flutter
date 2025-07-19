@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # 카메라 기능
+  camera: ^0.11.2
   # 상태 관리 및 의존성 주입
   flutter_riverpod: ^2.5.1
   # 네트워크 통신

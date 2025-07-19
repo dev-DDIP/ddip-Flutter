@@ -24,7 +24,7 @@ abstract class DdipEventRepository {
   ///'띱' 요청을 완료하는 기능을 요구합니다.
   /// - eventId: 어떤 요청을 완료할지 식별하는 ID
   /// - 나중에 사진 기능을 추가할 때, 이 메서드에 이미지 파일 관련 파라미터가 추가될 예정입니다.
-  Future<void> completeDdipEvent(String eventId);
+  Future<void> completeDdipEvent(String eventId, String imagePath);
 }
 
 /*

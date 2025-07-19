@@ -43,12 +43,12 @@ class EventViewNotifier extends AutoDisposeFamilyAsyncNotifier<DdipEvent, String
   }
 
   /// UI로부터 '요청 완료' 신호를 받아 처리하는 메서드
-  Future<void> completeEvent() async {
+  Future<void> completeEvent(String imagePath) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       // CompleteDdipEvent UseCase를 읽어와 실행합니다.
       final useCase = ref.read(completeDdipEventUseCaseProvider);
-      await useCase(arg);
+      await useCase(arg, imagePath);
 
       // 데이터가 변경되었으므로, 최신 데이터를 다시 가져와 반환합니다.
       return ref.read(getDdipEventByIdUseCaseProvider)(arg);

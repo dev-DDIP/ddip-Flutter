@@ -10,8 +10,8 @@ class CompleteDdipEvent {
   CompleteDdipEvent({required this.repository});
 
   /// UseCase를 함수처럼 호출할 수 있게 해주는 'call' 메서드입니다.
-  Future<void> call(String eventId) async {
+  Future<void> call(String eventId, String imagePath) async {
     // 실제 작업은 데이터 담당관(Repository)에게 그대로 위임합니다.
-    return await repository.completeDdipEvent(eventId);
+    return await repository.completeDdipEvent(eventId, imagePath);
   }
 }

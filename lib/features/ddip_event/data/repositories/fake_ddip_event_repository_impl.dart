@@ -92,7 +92,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> completeDdipEvent(String eventId) async {
+  Future<void> completeDdipEvent(String eventId, String imagePath) async {
     // 1. 실제 네트워크처럼 딜레이를 줍니다.
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -116,7 +116,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         longitude: originalEvent.longitude,
         status: 'completed', // status를 'completed'로 변경
         createdAt: originalEvent.createdAt,
-        responsePhotoUrl: originalEvent.responsePhotoUrl,
+        responsePhotoUrl: imagePath,
       );
 
       // 6. 리스트의 기존 이벤트를 새로운 객체로 교체합니다.
