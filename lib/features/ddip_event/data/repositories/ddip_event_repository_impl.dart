@@ -65,6 +65,15 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
     final eventModel = await remoteDataSource.getDdipEventById(id);
     return eventModel.toEntity();
   }
+
+  @override
+  Future<void> acceptDdipEvent(String eventId, String responderId) async {
+    // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
+    // remoteDataSource를 통해 API를 호출하는 코드가 여기에 들어갈 것입니다.
+    // 예를 들어, remoteDataSource.acceptDdipEvent(eventId, responderId); 와 같은 형태가 될 것입니다.
+    // 지금은 계약을 맞추기 위해 메서드 형태만 만들어 둡니다.
+    return;
+  }
 }
 
 /*

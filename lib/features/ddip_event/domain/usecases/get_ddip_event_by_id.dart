@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../presentation/creation/providers/ddip_creation_providers.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 
 import '../entities/ddip_event.dart';
 import '../repositories/ddip_event_repository.dart';

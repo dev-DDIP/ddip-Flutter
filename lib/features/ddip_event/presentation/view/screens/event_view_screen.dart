@@ -89,22 +89,55 @@ class EventViewScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.check),
-                    label: const Text('참여하기'),
-                    onPressed: () {
-                      // TODO: 여기에 이벤트 참여 로직을 추가합니다.
-                    },
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(height: 16),
+                if (event.status == 'open')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check),
+                      label: const Text('참여하기'),
+                      onPressed: () {
+                        // onPressed와 같이 사용자가 직접 액션을 취하는 곳에서는 'ref.read'를 사용합니다.
+                        // 'ref.watch'는 build 메서드 안에서 값의 변화를 계속 감시할 때 사용합니다.
+                        ref.read(eventViewProvider(eventId).notifier).acceptEvent();
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  )
+                else if (event.status == 'in_progress')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: const Text('사진 찍고 완료하기'),
+                      onPressed: () {
+                        // TODO: 다음 단계에서 '요청 완료' 기능을 여기에 연결합니다.
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green, // 진행 중 상태는 다른 색으로 표시
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  )
+                else // 'completed' 또는 다른 상태일 경우
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('완료된 요청'),
+                      onPressed: null, // 버튼 비활성화
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           );

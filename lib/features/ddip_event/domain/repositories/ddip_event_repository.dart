@@ -10,11 +10,16 @@ abstract class DdipEventRepository {
   // (지금은 간단하게 Future<void>로 정의하고, 나중에 에러 처리를 추가하겠습니다.)
   Future<void> createDdipEvent(DdipEvent event);
 
-  // [추가] '띱 목록 가져오기' 기능 명세
+  // '띱 목록'을 가져오는 기능을 요구합니다.
   Future<List<DdipEvent>> getDdipEvents();
 
-  // 1. 아래 '계약'을 추가합니다.
+  // ID로 특정 '띱'을 가져오는 기능을 요구합니다.
   Future<DdipEvent> getDdipEventById(String id);
+
+  // '띱' 요청을 수락하는 기능을 요구합니다.
+  /// - eventId: 어떤 요청을 수락할지 식별하는 ID
+  /// - responderId: 누가 요청을 수락했는지 식별하는 ID (수락자)
+  Future<void> acceptDdipEvent(String eventId, String responderId);
 }
 
 /*

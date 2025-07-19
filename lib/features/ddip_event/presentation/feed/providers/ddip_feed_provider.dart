@@ -1,6 +1,6 @@
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/get_ddip_events.dart';
-import 'package:ddip/features/ddip_event/presentation/creation/providers/ddip_creation_providers.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 1. '목록 조회' 유스케이스를 제공하는 프로바이더

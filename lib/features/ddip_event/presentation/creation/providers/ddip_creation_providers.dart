@@ -7,24 +7,12 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/providers/ddip_feed_provider.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 백엔드 도입 전까지 fake 사용한다.
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
-// 1. DataSource Provider: DdipEventRemoteDataSource를 제공합니다.
-final ddipEventDataSourceProvider =
-Provider<DdipEventRemoteDataSource>((ref) {
-  final dio = ref.watch(dioProvider);
-  return DdipEventRemoteDataSourceImpl(dio: dio);
-});
-
-// 2. Repository Provider: 위에서 만든 DataSource를 주입받아 DdipEventRepository를 제공합니다.
-final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
-  // DdipEventDataSourceProvider를 watch 하도록 수정
-  final remoteDataSource = ref.watch(ddipEventDataSourceProvider);
-  return FakeDdipEventRepositoryImpl(); // 실제 백엔드 도입 전까지는 Fake Repository를 사용할 수도 있음
-  // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource);
-});
 
 // 3. UseCase Provider: 위에서 만든 Repository를 주입받아 CreateDdipEvent를 제공합니다.
 final createDdipEventUseCaseProvider = Provider<CreateDdipEvent>((ref) {
