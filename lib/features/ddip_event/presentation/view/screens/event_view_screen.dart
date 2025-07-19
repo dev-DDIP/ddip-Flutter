@@ -90,48 +90,68 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
                               zoom: 16,
                             ),
                           ),
-                          onMapReady: (controller) {
-                            // 1. 기존 오버레이들을 모두 지웁니다.
-                            controller.clearOverlays();
 
-                            // 2. 요청 마커를 생성합니다.
+                          onMapTapped: (point, latLng) {
+                            // 응답 마커가 없으면 아무것도 하지 않음
+                            if (event.responsePhotoUrl == null ||
+                                event.responseLatitude == null ||
+                                event.responseLongitude == null) {
+                              return;
+                            }
+
+                            final responsePosition = NLatLng(
+                              event.responseLatitude!,
+                              event.responseLongitude!,
+                            );
+
+                            // 탭된 위치와 응답 마커 사이의 거리를 미터(m) 단위로 계산
+                            final distance = Geolocator.distanceBetween(
+                              latLng.latitude,
+                              latLng.longitude,
+                              responsePosition.latitude,
+                              responsePosition.longitude,
+                            );
+
+                            // 거리가 25미터보다 가까우면 마커를 탭한 것으로 간주
+                            if (distance < 25) {
+                              setState(() {
+                                _showFullScreenImage = true;
+                              });
+                            }
+                          },
+
+                          onMapReady: (controller) {
+                            // onMapReady는 기존처럼 마커를 화면에 표시하는 역할만 합니다.
+                            controller.clearOverlays();
                             final requestMarker = NMarker(
                               id: event.id,
                               position: requestPosition,
                             );
                             controller.addOverlay(requestMarker);
 
-                            // 3. 응답 사진이 있다면 응답 마커도 생성합니다.
-                            if (event.responsePhotoUrl != null) {
+                            if (event.responsePhotoUrl != null &&
+                                event.responseLatitude != null &&
+                                event.responseLongitude != null) {
                               final responsePosition = NLatLng(
-                                event.latitude,
-                                event.longitude,
+                                event.responseLatitude!,
+                                event.responseLongitude!,
                               );
                               final responseMarker = NMarker(
-                                id: 'response_marker', // 탭 이벤트에서 구분할 고유 ID
+                                id: 'response_marker',
                                 position: responsePosition,
                               );
                               controller.addOverlay(responseMarker);
 
                               controller.updateCamera(
                                 NCameraUpdate.fitBounds(
-                                  NLatLngBounds(
-                                    southWest: requestPosition,
-                                    northEast: responsePosition,
-                                  ),
+                                  NLatLngBounds.from([
+                                    requestPosition,
+                                    responsePosition,
+                                  ]),
                                   padding: const EdgeInsets.all(80),
                                 ),
                               );
                             }
-
-                            controller.setOnOverlayTapListener((tappedOverlay) {
-                              // 탭된 오버레이의 ID를 확인하여 동작을 구분합니다.
-                              if (tappedOverlay.info.id == 'response_marker') {
-                                setState(() {
-                                  _showFullScreenImage = true;
-                                });
-                              }
-                            });
                           },
                         ),
                       ),

@@ -14,8 +14,8 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       content: '지금 가면 먹을 수 있는지 궁금해요',
       requesterId: 'user123',
       reward: 1000,
-      latitude: 36.8925,
-      longitude: 128.614,
+      latitude: 35.8925,
+      longitude: 128.60953,
       status: 'open',
       createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
     ),
@@ -135,7 +135,8 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         reward: originalEvent.reward,
         latitude: originalEvent.latitude,
         longitude: originalEvent.longitude,
-        status: 'completed', // status를 'completed'로 변경
+        status: 'completed',
+        // status를 'completed'로 변경
         createdAt: originalEvent.createdAt,
         responsePhotoUrl: imagePath,
         responseLatitude: latitude,
