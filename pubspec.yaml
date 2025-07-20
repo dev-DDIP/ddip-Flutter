@@ -45,7 +45,8 @@ dependencies:
   flutter_naver_map: ^1.4.0
   # GPS 사용을 위한 패키지
   geolocator: ^12.0.0
-
+  # 이 패키지는 FCM이나 외부 서버 없이 앱 자체적으로 사용자에게 알림을 보낼 수 있게 해줍니다.
+  flutter_local_notifications: ^17.1.2
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8

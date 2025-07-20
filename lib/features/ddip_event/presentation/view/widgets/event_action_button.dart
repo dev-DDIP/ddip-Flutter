@@ -1,13 +1,14 @@
 // lib/features/ddip_event/presentation/view/widgets/event_action_button.dart
 
+import 'package:ddip/core/permissions/permission_provider.dart';
+import 'package:ddip/features/camera/camera_screen.dart';
+import 'package:ddip/features/ddip_event/domain/entities/completion_payload.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/view/providers/event_view_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:ddip/features/camera/camera_screen.dart';
-import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/completion_payload.dart';
-import 'package:ddip/features/ddip_event/presentation/view/providers/event_view_provider.dart';
 
 // ConsumerStatefulWidget은 위젯 스스로 상태를 가질 수 있게 해줍니다.
 class EventActionButton extends ConsumerStatefulWidget {
@@ -45,7 +46,31 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
 
   // '사진 찍고 완료하기' 버튼을 눌렀을 때 실행될 함수
   void _completeEvent() async {
-    // 위와 동일하게, 작업 시작과 동시에 '처리 중' 상태로 변경하여 연타를 막습니다.
+    // 실제 작업을 시작하기 전에, 먼저 중앙 관제탑에게 현재 권한 상태를 물어봅니다.
+    final permission = ref.read(permissionProvider);
+
+    // 만약 권한이 거부된(denied) 상태라면,
+    if (permission == LocationPermission.denied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사진 촬영 위치 기록을 위해 권한이 필요합니다.')),
+        );
+      }
+      // 사용자에게 다시 권한을 요청합니다.
+      await ref.read(permissionProvider.notifier).requestPermission();
+      return; // 일단 현재 작업은 중단합니다. 사용자가 권한을 허용하면 다시 버튼을 누를 것입니다.
+    }
+
+    // 만약 권한이 영구적으로 거부된(deniedForever) 상태라면,
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치 권한이 영구 거부되었습니다. 앱 설정에서 허용해주세요.')),
+        );
+      }
+      return; // 더 이상 진행할 수 없으므로 작업을 중단합니다.
+    }
+
     setState(() => _isProcessing = true);
     try {
       // 기존 사진 촬영 및 완료 로직은 그대로 여기에 둡니다.
