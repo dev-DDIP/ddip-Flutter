@@ -7,6 +7,7 @@ import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
 class EventActionButton extends ConsumerStatefulWidget {
@@ -108,26 +109,49 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text('사진 찍고 제출하기'),
             onPressed: () async {
-              // 카메라 화면으로 이동하여 사진 경로를 받아옵니다.
+              // 1. 카메라 화면으로 이동하여 사진 촬영
               final imagePath = await Navigator.push<String>(
                 context,
                 MaterialPageRoute(builder: (context) => const CameraScreen()),
               );
 
-              if (imagePath != null) {
-                // TODO: 현재 위치 정보 가져오는 로직 추가
+              // 2. 사진이 성공적으로 촬영되었는지 확인
+              if (imagePath == null || !mounted) return;
+
+              // 3. 사진 제출 전, 비동기 작업(위치 정보 가져오기) 시작을 알림
+              setState(() => _isProcessing = true);
+
+              try {
+                // 4. geolocator를 사용해 현재 위치 정보 가져오기
+                final position = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.high, // 높은 정확도 요청
+                );
+
+                // 5. 실제 위치 정보로 PhotoFeedback 객체 생성
                 final newPhoto = PhotoFeedback(
                   photoId: const Uuid().v4(),
                   photoUrl: imagePath,
-                  latitude: 35.890,
-                  // 임시 위도
-                  longitude: 128.612,
-                  // 임시 경도
+                  latitude: position.latitude,
+                  // << 실제 위도 사용
+                  longitude: position.longitude,
+                  // << 실제 경도 사용
                   timestamp: DateTime.now(),
                 );
-                await _handleAction(
-                  () => notifier.addPhoto(widget.event.id, newPhoto),
-                );
+
+                // 6. Notifier를 통해 사진 제출 로직 실행
+                await notifier.addPhoto(widget.event.id, newPhoto);
+              } catch (e) {
+                // 7. 위치 정보 가져오기 실패 시 사용자에게 알림
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('위치 정보를 가져오는 데 실패했습니다: $e')),
+                  );
+                }
+              } finally {
+                // 8. 성공/실패 여부와 관계없이 로딩 상태 해제
+                if (mounted) {
+                  setState(() => _isProcessing = false);
+                }
               }
             },
             style: buttonStyle.copyWith(
