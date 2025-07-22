@@ -1,54 +1,74 @@
 // lib/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart
 
-// 1. 필요한 파일들을 import 합니다.
-//    새로 만든 공용 배너 위젯 파일을 import 합니다.
-import 'package:ddip/common/widgets/permission_status_banner.dart';
-import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/feed/providers/ddip_feed_provider.dart';
-import 'package:ddip/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ddip/common/widgets/permission_status_banner.dart';
+import 'package:ddip/features/auth/domain/entities/user.dart';
+import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 
 class DdipFeedScreen extends ConsumerWidget {
   const DdipFeedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // '띱' 목록의 상태를 감시합니다.
-    final feedState = ref.watch(ddipFeedProvider);
+    // [수정] 새로운 필터링된 프로바이더를 watch
+    final events = ref.watch(filteredDdipFeedProvider);
+    // [추가] 로딩/에러 상태를 확인하기 위해 원본 Notifier도 watch
+    final eventsState = ref.watch(ddipEventsNotifierProvider);
+    // [추가] 현재 로그인한 사용자 정보
+    final currentUser = ref.watch(authProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('띱! 요청 목록')),
+      appBar: AppBar(
+        title: Text(
+          currentUser == null ? '띱! 요청 목록' : '${currentUser.name}님 환영합니다!',
+        ),
+        actions: [
+          // [추가] 가상 로그인/로그아웃 드롭다운 메뉴
+          DropdownButton<User?>(
+            value: currentUser,
+            hint: const Text('로그인'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('로그아웃')),
+              ...mockUsers.map(
+                (user) => DropdownMenuItem(value: user, child: Text(user.name)),
+              ),
+            ],
+            onChanged: (user) {
+              ref.read(authProvider.notifier).state = user;
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const DdipCreationScreen()),
-          );
-        },
+        onPressed:
+            () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const DdipCreationScreen(),
+              ),
+            ),
         child: const Icon(Icons.add),
       ),
-      // 2. body를 Column으로 구성하여 위젯을 세로로 쌓습니다.
       body: Column(
         children: [
-          // 3. 맨 위에는 우리가 만든 공용 '상태 표시줄' 위젯을 배치합니다.
           const PermissionStatusBanner(),
-
-          // 4. 남은 모든 공간은 Expanded 위젯을 사용하여 '띱' 목록이 차지하도록 합니다.
           Expanded(
-            child: feedState.when(
+            // [수정] 원본 Notifier의 상태에 따라 로딩, 에러, 데이터 표시
+            child: eventsState.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (error, stackTrace) =>
-                      Center(child: Text('오류가 발생했습니다: $error')),
-              data: (events) {
+              error: (err, stack) => Center(child: Text('오류: $err')),
+              data: (_) {
+                // 데이터는 filteredDdipFeedProvider의 것을 사용
                 if (events.isEmpty) {
-                  return const Center(child: Text('아직 등록된 요청이 없어요!'));
+                  return const Center(child: Text('표시할 요청이 없어요!'));
                 }
                 return ListView.builder(
                   itemCount: events.length,
                   itemBuilder: (context, index) {
-                    final event = events[index];
-                    return DdipListItem(event: event);
+                    return DdipListItem(event: events[index]);
                   },
                 );
               },

@@ -19,6 +19,14 @@ abstract class DdipEventRemoteDataSource {
   Future<void> createDdipEvent(DdipEventModel eventModel);
   Future<List<DdipEventModel>> getDdipEvents();
   Future<DdipEventModel> getDdipEventById(String id);
+  Future<void> applyToEvent(String eventId, String userId);
+  Future<void> selectResponder(String eventId, String responderId);
+  Future<void> addPhoto(/* ... */); // 사진 파일 등을 전달할 파라미터 필요
+  Future<void> updatePhotoFeedback(
+    String eventId,
+    String photoId,
+    String feedback,
+  );
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -63,7 +71,6 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
       return data
           .map((item) => DdipEventModel.fromJson(item as Map<String, dynamic>))
           .toList();
-
     } on DioException catch (e) {
       print('Error getting ddip events: $e');
       rethrow;
@@ -78,5 +85,37 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
     } on DioException {
       rethrow;
     }
+  }
+
+  @override
+  Future<void> applyToEvent(String eventId, String userId) async {
+    // TODO: 백엔드 API 구현 시, POST /ddips/{eventId}/apply 와 같은 API 호출
+    print('Calling API: Apply to event $eventId by user $userId');
+    await Future.delayed(const Duration(milliseconds: 300)); // 임시 딜레이
+  }
+
+  @override
+  Future<void> selectResponder(String eventId, String responderId) async {
+    // TODO: 백엔드 API 구현 시, POST /ddips/{eventId}/select 와 같은 API 호출
+    print('Calling API: Select responder $responderId for event $eventId');
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  @override
+  Future<void> addPhoto() async {
+    // TODO: 백엔드 API 구현 (사진 업로드 등)
+    print('Calling API: Add photo');
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  @override
+  Future<void> updatePhotoFeedback(
+    String eventId,
+    String photoId,
+    String feedback,
+  ) async {
+    // TODO: 백엔드 API 구현
+    print('Calling API: Update photo feedback');
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 }

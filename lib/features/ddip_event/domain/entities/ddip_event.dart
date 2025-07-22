@@ -12,6 +12,11 @@
 오직 '띱 이벤트'라는 개념 자체만을 표현합니다.
 이 클래스는 외부의 변화로부터 완벽하게 보호되어야 합니다.
  */
+
+import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+
+enum DdipEventStatus { open, pending_selection, in_progress, completed, failed }
+
 class DdipEvent {
   final String id;
   final String title;
@@ -21,12 +26,15 @@ class DdipEvent {
   final int reward;
   final double latitude;
   final double longitude;
-  final String status;
+  final DdipEventStatus status; // 기존 String에서 enum으로 변경
   final DateTime createdAt;
   final String? responsePhotoUrl; // 응답 사진은 아직 없을 수 있으므로 nullable
   // 응답 사진의 위도와 경도를 저장할 필드 (nullable)
   final double? responseLatitude;
   final double? responseLongitude;
+  final List<String> applicants; // 지원자 userId 목록
+  final String? selectedResponderId; // 선택된 수행자 userId
+  final List<PhotoFeedback> photos; // 주고받은 사진과 피드백 목록
 
   DdipEvent({
     required this.id,
@@ -43,5 +51,39 @@ class DdipEvent {
     // 생성자에 필드 추가
     this.responseLatitude,
     this.responseLongitude,
+    this.applicants = const [], // 기본값은 빈 리스트
+    this.selectedResponderId,
+    this.photos = const [], // 기본값은 빈 리스트
   });
+
+  DdipEvent copyWith({
+    String? id,
+    String? title,
+    String? content,
+    String? requesterId,
+    DdipEventStatus? status,
+    List<String>? applicants,
+    String? selectedResponderId,
+    List<PhotoFeedback>? photos,
+    int? reward,
+    double? latitude,
+    double? longitude,
+    DateTime? createdAt,
+  }) {
+    return DdipEvent(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      requesterId: requesterId ?? this.requesterId,
+      status: status ?? this.status,
+      applicants: applicants ?? this.applicants,
+      // selectedResponderId는 null이 될 수 있으므로 별도 처리 불필요
+      selectedResponderId: selectedResponderId ?? this.selectedResponderId,
+      photos: photos ?? this.photos,
+      reward: reward ?? this.reward,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }

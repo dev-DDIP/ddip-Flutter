@@ -1,11 +1,11 @@
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/presentation/creation/providers/ddip_creation_providers.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
-import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 class DdipCreationScreen extends ConsumerStatefulWidget {
   const DdipCreationScreen({super.key});
@@ -19,6 +19,8 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   final _contentController = TextEditingController();
   final _rewardController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  bool _isLoading = false;
 
   NLatLng? _selectedPosition;
 
@@ -34,59 +36,62 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
     FocusScope.of(context).unfocus();
 
     if (_selectedPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('지도에서 위치를 선택해주세요!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('지도에서 위치를 선택해주세요!')));
       return;
     }
 
     if (_formKey.currentState!.validate()) {
+      // [수정] 로딩 시작
+      setState(() => _isLoading = true);
+
       final newEvent = DdipEvent(
         // UUID는 전 세계적으로 거의 중복될 가능성이 없는 문자열 ID를 만드는 표준 방식
         id: const Uuid().v4(),
         title: _titleController.text,
         content: _contentController.text,
         requesterId: 'temp_user_id',
+        // TODO: 추후 authProvider에서 가져와야 함
         reward: int.parse(_rewardController.text),
         latitude: _selectedPosition!.latitude,
         longitude: _selectedPosition!.longitude,
-        status: 'open',
+        status: DdipEventStatus.open,
         createdAt: DateTime.now(),
-        responsePhotoUrl: null,
+        applicants: [],
+        photos: [],
       );
 
-      // Notifier의 메서드를 호출하고 그 결과를 기다립니다.
-      final bool success = await ref
-          .read(ddipCreationNotifierProvider.notifier)
-          .createDdipEvent(newEvent);
+      try {
+        // [수정] Notifier 대신 UseCase를 직접 호출
+        await ref.read(createDdipEventUseCaseProvider).call(newEvent);
 
-      // 위젯이 마운트된 상태인지 확인 (비동기 작업 후 필수)
-      if (!mounted) return;
+        if (!mounted) return;
 
-      // 반환된 결과(success)에 따라 UI 로직을 처리합니다.
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('요청이 성공적으로 등록되었습니다!')),
-        );
+        // [수정] 목록 새로고침을 위해 Notifier를 invalidate 함
+        ref.invalidate(ddipEventsNotifierProvider);
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('요청이 성공적으로 등록되었습니다!')));
         Navigator.of(context).pop();
-      } else {
-        // 실패 시에는 Notifier의 state에서 에러를 가져와 보여줄 수 있습니다.
-        final error = ref.read(ddipCreationNotifierProvider).error;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류가 발생했습니다: $error')),
-        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+      } finally {
+        // [수정] 로딩 종료
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(ddipCreationNotifierProvider);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('새로운 띱 요청'),
-      ),
+      appBar: AppBar(title: const Text('새로운 띱 요청')),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -140,7 +145,8 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   onPressed: () async {
                     final result = await Navigator.of(context).push<NLatLng?>(
                       MaterialPageRoute(
-                          builder: (context) => const MapViewScreen()),
+                        builder: (context) => const MapViewScreen(),
+                      ),
                     );
                     if (result != null) {
                       setState(() {
@@ -151,9 +157,12 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     textStyle: const TextStyle(fontSize: 16),
-                    backgroundColor: Colors.white, // 버튼 배경색
-                    foregroundColor: Colors.black, // 버튼 글자/아이콘 색
-                    side: const BorderSide(color: Colors.grey), // 테두리
+                    backgroundColor: Colors.white,
+                    // 버튼 배경색
+                    foregroundColor: Colors.black,
+                    // 버튼 글자/아이콘 색
+                    side: const BorderSide(color: Colors.grey),
+                    // 테두리
                     elevation: 0, // 그림자 없애기
                   ),
                 ),
@@ -163,24 +172,24 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
                       '선택된 위치:\n'
-                          '위도: ${_selectedPosition!.latitude.toStringAsFixed(5)}, '
-                          '경도: ${_selectedPosition!.longitude.toStringAsFixed(5)}',
+                      '위도: ${_selectedPosition!.latitude.toStringAsFixed(5)}, '
+                      '경도: ${_selectedPosition!.longitude.toStringAsFixed(5)}',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ),
 
                 const SizedBox(height: 32),
-                state.isLoading
+                _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(
-                  onPressed: _submit,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                  child: const Text('요청 등록하기'),
-                ),
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                      child: const Text('요청 등록하기'),
+                    ),
               ],
             ),
           ),

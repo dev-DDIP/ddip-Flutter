@@ -3,6 +3,7 @@
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
 import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 
 class DdipEventRepositoryImpl implements DdipEventRepository {
@@ -24,45 +25,27 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
       title: event.title,
       content: event.content,
       requesterId: event.requesterId,
-      responderId: event.responderId,
+      selectedResponderId: event.selectedResponderId,
       reward: event.reward,
       latitude: event.latitude,
       longitude: event.longitude,
-      status: event.status,
+      status: event.status.name,
+      applicants: event.applicants,
       createdAt: event.createdAt,
-      responsePhotoUrl: event.responsePhotoUrl,
+      photos: [], // photos는 모델 변환이 필요하므로 별도 로직이 필요하지만, 생성 시에는 비어있으므로 OK
     );
 
     // 변환된 Model을 사용하여 DataSource에 API 호출을 위임합니다.
     await remoteDataSource.createDdipEvent(eventModel);
   }
 
-  // [추가] getDdipEvents 구현
   @override
   Future<List<DdipEvent>> getDdipEvents() async {
-    // 1. 데이터 소스(API)로부터 Model 리스트를 받아옵니다.
     final List<DdipEventModel> eventModels =
         await remoteDataSource.getDdipEvents();
-
-    // 2. 받아온 Model 리스트를 Domain 계층의 Entity 리스트로 변환합니다.
-    //    이 '번역' 과정이 클린 아키텍처의 핵심입니다.
+    // 모델을 엔티티로 변환
     final List<DdipEvent> events =
-        eventModels
-            .map(
-              (model) => DdipEvent(
-                id: model.id,
-                title: model.title,
-                content: model.content,
-                requesterId: model.requesterId,
-                reward: model.reward,
-                latitude: model.latitude,
-                longitude: model.longitude,
-                status: model.status,
-                createdAt: model.createdAt,
-              ),
-            )
-            .toList();
-
+        eventModels.map((model) => model.toEntity()).toList();
     return events;
   }
 
@@ -73,24 +56,33 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> acceptDdipEvent(String eventId, String responderId) async {
-    // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
-    // remoteDataSource를 통해 API를 호출하는 코드가 여기에 들어갈 것입니다.
-    // 예를 들어, remoteDataSource.acceptDdipEvent(eventId, responderId); 와 같은 형태가 될 것입니다.
-    // 지금은 계약을 맞추기 위해 메서드 형태만 만들어 둡니다.
-    return;
+  Future<void> applyToEvent(String eventId, String userId) async {
+    return remoteDataSource.applyToEvent(eventId, userId);
   }
 
   @override
-  Future<void> completeDdipEvent(
+  Future<void> selectResponder(String eventId, String responderId) async {
+    return remoteDataSource.selectResponder(eventId, responderId);
+  }
+
+  @override
+  Future<void> addPhoto(String eventId, PhotoFeedback photo) async {
+    // TODO: PhotoFeedback 엔티티를 API에 맞는 모델로 변환하는 로직 필요
+    return remoteDataSource.addPhoto();
+  }
+
+  @override
+  Future<void> updatePhotoFeedback(
     String eventId,
-    String imagePath,
-    double latitude,
-    double longitude,
+    String photoId,
+    FeedbackStatus feedback,
   ) async {
-    // TODO: 실제 백엔드 API가 준비되면 이 부분을 구현해야 합니다.
-    // remoteDataSource.completeDdipEvent(eventId); 와 같은 형태가 될 것입니다.
-    return;
+    // TODO: FeedbackStatus enum을 API에 맞는 String 값으로 변환하는 로직 필요
+    return remoteDataSource.updatePhotoFeedback(
+      eventId,
+      photoId,
+      feedback.toString(),
+    );
   }
 }
 

@@ -1,5 +1,7 @@
 // lib/features/ddip_event/domain/repositories/ddip_event_repository.dart
 
+import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+
 import '../entities/ddip_event.dart';
 
 // '띱 생성' 기능이 데이터 계층에 요구하는 기능 목록입니다.
@@ -16,19 +18,20 @@ abstract class DdipEventRepository {
   // ID로 특정 '띱'을 가져오는 기능을 요구합니다.
   Future<DdipEvent> getDdipEventById(String id);
 
-  // '띱' 요청을 수락하는 기능을 요구합니다.
-  /// - eventId: 어떤 요청을 수락할지 식별하는 ID
-  /// - responderId: 누가 요청을 수락했는지 식별하는 ID (수락자)
-  Future<void> acceptDdipEvent(String eventId, String responderId);
+  /// 특정 '띱'에 수행자가 지원하는 기능을 요구합니다.
+  Future<void> applyToEvent(String eventId, String userId);
 
-  ///'띱' 요청을 완료하는 기능을 요구합니다.
-  /// - eventId: 어떤 요청을 완료할지 식별하는 ID
-  /// - 나중에 사진 기능을 추가할 때, 이 메서드에 이미지 파일 관련 파라미터가 추가될 예정입니다.
-  Future<void> completeDdipEvent(
+  /// 요청자가 지원자 중 한 명을 최종 수행자로 선택하는 기능을 요구합니다.
+  Future<void> selectResponder(String eventId, String responderId);
+
+  /// 선택된 수행자가 '띱'에 사진을 제출하는 기능을 요구합니다.
+  Future<void> addPhoto(String eventId, PhotoFeedback photo);
+
+  /// 요청자가 제출된 사진에 대해 피드백(승인/거절)을 남기는 기능을 요구합니다.
+  Future<void> updatePhotoFeedback(
     String eventId,
-    String imagePath,
-    double latitude,
-    double longitude,
+    String photoId,
+    FeedbackStatus feedback,
   );
 }
 

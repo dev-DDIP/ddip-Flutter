@@ -1,19 +1,17 @@
 // lib/features/ddip_event/presentation/view/widgets/event_action_button.dart
 
-import 'package:ddip/core/permissions/permission_provider.dart';
-import 'package:ddip/features/camera/camera_screen.dart';
-import 'package:ddip/features/ddip_event/domain/entities/completion_payload.dart';
-import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/presentation/view/providers/event_view_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
 
-// ConsumerStatefulWidget은 위젯 스스로 상태를 가질 수 있게 해줍니다.
+import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/camera/camera_screen.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+
 class EventActionButton extends ConsumerStatefulWidget {
   final DdipEvent event;
-
   const EventActionButton({super.key, required this.event});
 
   @override
@@ -21,90 +19,22 @@ class EventActionButton extends ConsumerStatefulWidget {
 }
 
 class _EventActionButtonState extends ConsumerState<EventActionButton> {
-  // 1. '지금 처리 중인가?'를 기억하는 변수를 만듭니다. (초기값은 false)
-  // 이 변수가 버튼의 활성화/비활성화를 제어하는 스위치 역할을 합니다.
   bool _isProcessing = false;
 
-  // '참여하기' 버튼을 눌렀을 때 실행될 함수
-  void _acceptEvent() async {
-    // 2. 함수가 시작되자마자 '처리 중' 상태로 바꾸고 화면을 새로고침합니다.
-    //    이 코드가 실행되는 즉시 버튼은 비활성화되고 로딩 아이콘으로 바뀝니다.
-    setState(() => _isProcessing = true);
-
-    try {
-      // 3. 실제 비동기 작업(상태 업데이트 요청)을 실행합니다.
-      await ref.read(eventViewProvider(widget.event.id).notifier).acceptEvent();
-    } finally {
-      // 4. 작업이 성공하든, 실패해서 오류가 나든, '무조건' 실행되는 부분입니다.
-      //    작업이 끝났으니 '처리 중 아님' 상태로 되돌려 버튼을 다시 활성화합니다.
-      //    (mounted 체크는 위젯이 화면에서 사라진 후에 setState가 호출되는 에러를 방지합니다.)
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
-  }
-
-  // '사진 찍고 완료하기' 버튼을 눌렀을 때 실행될 함수
-  void _completeEvent() async {
-    // 실제 작업을 시작하기 전에, 먼저 중앙 관제탑에게 현재 권한 상태를 물어봅니다.
-    final permission = ref.read(permissionProvider);
-
-    // 만약 권한이 거부된(denied) 상태라면,
-    if (permission == LocationPermission.denied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('사진 촬영 위치 기록을 위해 권한이 필요합니다.')),
-        );
-      }
-      // 사용자에게 다시 권한을 요청합니다.
-      await ref.read(permissionProvider.notifier).requestPermission();
-      return; // 일단 현재 작업은 중단합니다. 사용자가 권한을 허용하면 다시 버튼을 누를 것입니다.
-    }
-
-    // 만약 권한이 영구적으로 거부된(deniedForever) 상태라면,
-    if (permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('위치 권한이 영구 거부되었습니다. 앱 설정에서 허용해주세요.')),
-        );
-      }
-      return; // 더 이상 진행할 수 없으므로 작업을 중단합니다.
-    }
+  // 버튼 클릭 시 비동기 작업을 처리하는 공통 함수
+  Future<void> _handleAction(Future<void> Function() action) async {
+    if (_isProcessing) return;
 
     setState(() => _isProcessing = true);
     try {
-      // 기존 사진 촬영 및 완료 로직은 그대로 여기에 둡니다.
-      NLatLng? currentLocation;
-      try {
-        final position = await Geolocator.getCurrentPosition();
-        currentLocation = NLatLng(position.latitude, position.longitude);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('위치 정보를 가져오는 데 실패했습니다: $e')));
-        }
-        return; // 위치 정보 없이는 진행 불가
-      }
-
-      if (!mounted || currentLocation == null) return;
-
-      final imagePath = await Navigator.push<String>(
-        context,
-        MaterialPageRoute(builder: (context) => const CameraScreen()),
-      );
-
-      if (imagePath != null && mounted) {
-        final payload = CompletionPayload(
-          imagePath: imagePath,
-          location: currentLocation,
-        );
-        await ref
-            .read(eventViewProvider(widget.event.id).notifier)
-            .completeEvent(payload);
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
       }
     } finally {
-      // 작업이 모두 끝나면 다시 '처리 중 아님' 상태로 복원합니다.
       if (mounted) {
         setState(() => _isProcessing = false);
       }
@@ -113,60 +43,105 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
 
   @override
   Widget build(BuildContext context) {
+    // 현재 로그인한 사용자와 Notifier를 가져옵니다.
+    final currentUser = ref.watch(authProvider);
+    final notifier = ref.read(ddipEventsNotifierProvider.notifier);
+
+    // 로그인하지 않은 사용자에게는 아무 버튼도 보여주지 않습니다.
+    if (currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    // 현재 사용자와 이벤트의 관계를 파악합니다.
+    final bool isRequester = widget.event.requesterId == currentUser.id;
+    final bool isSelectedResponder =
+        widget.event.selectedResponderId == currentUser.id;
+
+    // 공통 버튼 스타일
     final buttonStyle = FilledButton.styleFrom(
       padding: const EdgeInsets.symmetric(vertical: 16),
       textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      minimumSize: const Size(double.infinity, 50),
     );
 
-    // 이벤트 상태가 'open'일 때의 버튼 UI
-    if (widget.event.status == 'open') {
-      return SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          icon: const Icon(Icons.check),
-          // 5. _isProcessing 값에 따라 버튼에 보여줄 내용을 결정합니다.
-          //    true이면 로딩 아이콘, false이면 '참여하기' 텍스트를 보여줍니다.
-          label:
-              _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('참여하기'),
-          // 6. _isProcessing이 true이면 onPressed에 null을 전달하여 버튼을 비활성화하고,
-          //    false이면 _acceptEvent 함수를 연결하여 버튼을 활성화합니다.
-          onPressed: _isProcessing ? null : _acceptEvent,
+    // 로딩 중일 때 보여줄 위젯
+    if (_isProcessing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // 이벤트 상태에 따라 다른 버튼을 렌더링합니다.
+    switch (widget.event.status) {
+      case DdipEventStatus.open:
+        if (!isRequester && !widget.event.applicants.contains(currentUser.id)) {
+          return FilledButton.icon(
+            icon: const Icon(Icons.pan_tool_outlined),
+            label: const Text('지원하기'),
+            onPressed:
+                () =>
+                    _handleAction(() => notifier.applyToEvent(widget.event.id)),
+            style: buttonStyle,
+          );
+        }
+        // 요청자거나 이미 지원한 경우, 이 버튼은 보이지 않습니다.
+        // (지원자 선택은 EventViewScreen의 다른 위젯에서 처리)
+        return const SizedBox.shrink();
+
+      case DdipEventStatus.in_progress:
+        if (isSelectedResponder) {
+          return FilledButton.icon(
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('사진 찍고 제출하기'),
+            onPressed: () async {
+              // 카메라 화면으로 이동하여 사진 경로를 받아옵니다.
+              final imagePath = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(builder: (context) => const CameraScreen()),
+              );
+
+              if (imagePath != null) {
+                // TODO: 현재 위치 정보 가져오는 로직 추가
+                final newPhoto = PhotoFeedback(
+                  photoId: const Uuid().v4(),
+                  photoUrl: imagePath,
+                  latitude: 35.890, // 임시 위도
+                  longitude: 128.612, // 임시 경도
+                  timestamp: DateTime.now(),
+                );
+                await _handleAction(
+                  () => notifier.addPhoto(widget.event.id, newPhoto),
+                );
+              }
+            },
+            style: buttonStyle.copyWith(
+              backgroundColor: MaterialStateProperty.all(Colors.green),
+            ),
+          );
+        }
+        // 요청자인 경우, 사진 피드백 버튼은 사진 옆에 위치하는 것이 더 적합하므로
+        // 이 공용 버튼 위치에서는 아무것도 보여주지 않습니다.
+        return const SizedBox.shrink();
+
+      case DdipEventStatus.completed:
+        return FilledButton.icon(
+          icon: const Icon(Icons.check_circle_outline),
+          label: const Text('완료된 요청'),
+          onPressed: null, // 비활성화
           style: buttonStyle,
-        ),
-      );
-    }
+        );
 
-    // 이벤트 상태가 'in_progress'일 때의 버튼 UI (위와 동일한 로직 적용)
-    if (widget.event.status == 'in_progress') {
-      return SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          icon: const Icon(Icons.camera_alt_outlined),
-          label:
-              _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('사진 찍고 완료하기'),
-          onPressed: _isProcessing ? null : _completeEvent,
+      case DdipEventStatus.failed:
+        return FilledButton.icon(
+          icon: const Icon(Icons.error_outline),
+          label: const Text('실패한 요청'),
+          onPressed: null, // 비활성화
           style: buttonStyle.copyWith(
-            backgroundColor: MaterialStateProperty.all(Colors.green),
+            backgroundColor: MaterialStateProperty.all(Colors.red[700]),
           ),
-        ),
-      );
-    }
+        );
 
-    // 'completed' 상태일 때는 항상 비활성화된 버튼을 보여줍니다.
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        icon: const Icon(Icons.check_circle_outline),
-        label: const Text('완료된 요청'),
-        onPressed: null,
-        style: buttonStyle.copyWith(
-          backgroundColor: MaterialStateProperty.all(Colors.grey),
-        ),
-      ),
-    );
+      // 'pending_selection' 등 다른 상태에서는 이 버튼이 특정 동작을 하지 않으므로 숨깁니다.
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

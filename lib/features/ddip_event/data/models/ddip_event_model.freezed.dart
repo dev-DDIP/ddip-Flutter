@@ -23,20 +23,19 @@ DdipEventModel _$DdipEventModelFromJson(Map<String, dynamic> json) {
 mixin _$DdipEventModel {
   String get id => throw _privateConstructorUsedError;
   String get title => throw _privateConstructorUsedError;
-  String get content =>
-      throw _privateConstructorUsedError; // @JsonKey를 이렇게 각 필드에 직접 적용해야 합니다.
+  String get content => throw _privateConstructorUsedError;
   @JsonKey(name: 'requester_id')
   String get requesterId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'responder_id')
-  String? get responderId => throw _privateConstructorUsedError;
   int get reward => throw _privateConstructorUsedError;
   double get latitude => throw _privateConstructorUsedError;
   double get longitude => throw _privateConstructorUsedError;
-  String get status => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'response_photo_url')
-  String? get responsePhotoUrl => throw _privateConstructorUsedError;
+  String get status => throw _privateConstructorUsedError;
+  @JsonKey(name: 'selected_responder_id')
+  String? get selectedResponderId => throw _privateConstructorUsedError;
+  List<String> get applicants => throw _privateConstructorUsedError;
+  List<PhotoFeedbackModel> get photos => throw _privateConstructorUsedError;
 
   /// Serializes this DdipEventModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -60,13 +59,14 @@ abstract class $DdipEventModelCopyWith<$Res> {
     String title,
     String content,
     @JsonKey(name: 'requester_id') String requesterId,
-    @JsonKey(name: 'responder_id') String? responderId,
     int reward,
     double latitude,
     double longitude,
-    String status,
     @JsonKey(name: 'created_at') DateTime createdAt,
-    @JsonKey(name: 'response_photo_url') String? responsePhotoUrl,
+    String status,
+    @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
+    List<String> applicants,
+    List<PhotoFeedbackModel> photos,
   });
 }
 
@@ -89,13 +89,14 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
     Object? title = null,
     Object? content = null,
     Object? requesterId = null,
-    Object? responderId = freezed,
     Object? reward = null,
     Object? latitude = null,
     Object? longitude = null,
-    Object? status = null,
     Object? createdAt = null,
-    Object? responsePhotoUrl = freezed,
+    Object? status = null,
+    Object? selectedResponderId = freezed,
+    Object? applicants = null,
+    Object? photos = null,
   }) {
     return _then(
       _value.copyWith(
@@ -119,11 +120,6 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
                     ? _value.requesterId
                     : requesterId // ignore: cast_nullable_to_non_nullable
                         as String,
-            responderId:
-                freezed == responderId
-                    ? _value.responderId
-                    : responderId // ignore: cast_nullable_to_non_nullable
-                        as String?,
             reward:
                 null == reward
                     ? _value.reward
@@ -139,21 +135,31 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
                     ? _value.longitude
                     : longitude // ignore: cast_nullable_to_non_nullable
                         as double,
-            status:
-                null == status
-                    ? _value.status
-                    : status // ignore: cast_nullable_to_non_nullable
-                        as String,
             createdAt:
                 null == createdAt
                     ? _value.createdAt
                     : createdAt // ignore: cast_nullable_to_non_nullable
                         as DateTime,
-            responsePhotoUrl:
-                freezed == responsePhotoUrl
-                    ? _value.responsePhotoUrl
-                    : responsePhotoUrl // ignore: cast_nullable_to_non_nullable
+            status:
+                null == status
+                    ? _value.status
+                    : status // ignore: cast_nullable_to_non_nullable
+                        as String,
+            selectedResponderId:
+                freezed == selectedResponderId
+                    ? _value.selectedResponderId
+                    : selectedResponderId // ignore: cast_nullable_to_non_nullable
                         as String?,
+            applicants:
+                null == applicants
+                    ? _value.applicants
+                    : applicants // ignore: cast_nullable_to_non_nullable
+                        as List<String>,
+            photos:
+                null == photos
+                    ? _value.photos
+                    : photos // ignore: cast_nullable_to_non_nullable
+                        as List<PhotoFeedbackModel>,
           )
           as $Val,
     );
@@ -174,13 +180,14 @@ abstract class _$$DdipEventModelImplCopyWith<$Res>
     String title,
     String content,
     @JsonKey(name: 'requester_id') String requesterId,
-    @JsonKey(name: 'responder_id') String? responderId,
     int reward,
     double latitude,
     double longitude,
-    String status,
     @JsonKey(name: 'created_at') DateTime createdAt,
-    @JsonKey(name: 'response_photo_url') String? responsePhotoUrl,
+    String status,
+    @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
+    List<String> applicants,
+    List<PhotoFeedbackModel> photos,
   });
 }
 
@@ -202,13 +209,14 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
     Object? title = null,
     Object? content = null,
     Object? requesterId = null,
-    Object? responderId = freezed,
     Object? reward = null,
     Object? latitude = null,
     Object? longitude = null,
-    Object? status = null,
     Object? createdAt = null,
-    Object? responsePhotoUrl = freezed,
+    Object? status = null,
+    Object? selectedResponderId = freezed,
+    Object? applicants = null,
+    Object? photos = null,
   }) {
     return _then(
       _$DdipEventModelImpl(
@@ -232,11 +240,6 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
                 ? _value.requesterId
                 : requesterId // ignore: cast_nullable_to_non_nullable
                     as String,
-        responderId:
-            freezed == responderId
-                ? _value.responderId
-                : responderId // ignore: cast_nullable_to_non_nullable
-                    as String?,
         reward:
             null == reward
                 ? _value.reward
@@ -252,21 +255,31 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
                 ? _value.longitude
                 : longitude // ignore: cast_nullable_to_non_nullable
                     as double,
-        status:
-            null == status
-                ? _value.status
-                : status // ignore: cast_nullable_to_non_nullable
-                    as String,
         createdAt:
             null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
                     as DateTime,
-        responsePhotoUrl:
-            freezed == responsePhotoUrl
-                ? _value.responsePhotoUrl
-                : responsePhotoUrl // ignore: cast_nullable_to_non_nullable
+        status:
+            null == status
+                ? _value.status
+                : status // ignore: cast_nullable_to_non_nullable
+                    as String,
+        selectedResponderId:
+            freezed == selectedResponderId
+                ? _value.selectedResponderId
+                : selectedResponderId // ignore: cast_nullable_to_non_nullable
                     as String?,
+        applicants:
+            null == applicants
+                ? _value._applicants
+                : applicants // ignore: cast_nullable_to_non_nullable
+                    as List<String>,
+        photos:
+            null == photos
+                ? _value._photos
+                : photos // ignore: cast_nullable_to_non_nullable
+                    as List<PhotoFeedbackModel>,
       ),
     );
   }
@@ -280,14 +293,17 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     required this.title,
     required this.content,
     @JsonKey(name: 'requester_id') required this.requesterId,
-    @JsonKey(name: 'responder_id') this.responderId,
     required this.reward,
     required this.latitude,
     required this.longitude,
-    required this.status,
     @JsonKey(name: 'created_at') required this.createdAt,
-    @JsonKey(name: 'response_photo_url') this.responsePhotoUrl,
-  }) : super._();
+    required this.status,
+    @JsonKey(name: 'selected_responder_id') this.selectedResponderId,
+    final List<String> applicants = const [],
+    final List<PhotoFeedbackModel> photos = const [],
+  }) : _applicants = applicants,
+       _photos = photos,
+       super._();
 
   factory _$DdipEventModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$DdipEventModelImplFromJson(json);
@@ -298,13 +314,9 @@ class _$DdipEventModelImpl extends _DdipEventModel {
   final String title;
   @override
   final String content;
-  // @JsonKey를 이렇게 각 필드에 직접 적용해야 합니다.
   @override
   @JsonKey(name: 'requester_id')
   final String requesterId;
-  @override
-  @JsonKey(name: 'responder_id')
-  final String? responderId;
   @override
   final int reward;
   @override
@@ -312,17 +324,34 @@ class _$DdipEventModelImpl extends _DdipEventModel {
   @override
   final double longitude;
   @override
-  final String status;
-  @override
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
   @override
-  @JsonKey(name: 'response_photo_url')
-  final String? responsePhotoUrl;
+  final String status;
+  @override
+  @JsonKey(name: 'selected_responder_id')
+  final String? selectedResponderId;
+  final List<String> _applicants;
+  @override
+  @JsonKey()
+  List<String> get applicants {
+    if (_applicants is EqualUnmodifiableListView) return _applicants;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_applicants);
+  }
+
+  final List<PhotoFeedbackModel> _photos;
+  @override
+  @JsonKey()
+  List<PhotoFeedbackModel> get photos {
+    if (_photos is EqualUnmodifiableListView) return _photos;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_photos);
+  }
 
   @override
   String toString() {
-    return 'DdipEventModel(id: $id, title: $title, content: $content, requesterId: $requesterId, responderId: $responderId, reward: $reward, latitude: $latitude, longitude: $longitude, status: $status, createdAt: $createdAt, responsePhotoUrl: $responsePhotoUrl)';
+    return 'DdipEventModel(id: $id, title: $title, content: $content, requesterId: $requesterId, reward: $reward, latitude: $latitude, longitude: $longitude, createdAt: $createdAt, status: $status, selectedResponderId: $selectedResponderId, applicants: $applicants, photos: $photos)';
   }
 
   @override
@@ -335,18 +364,21 @@ class _$DdipEventModelImpl extends _DdipEventModel {
             (identical(other.content, content) || other.content == content) &&
             (identical(other.requesterId, requesterId) ||
                 other.requesterId == requesterId) &&
-            (identical(other.responderId, responderId) ||
-                other.responderId == responderId) &&
             (identical(other.reward, reward) || other.reward == reward) &&
             (identical(other.latitude, latitude) ||
                 other.latitude == latitude) &&
             (identical(other.longitude, longitude) ||
                 other.longitude == longitude) &&
-            (identical(other.status, status) || other.status == status) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
-            (identical(other.responsePhotoUrl, responsePhotoUrl) ||
-                other.responsePhotoUrl == responsePhotoUrl));
+            (identical(other.status, status) || other.status == status) &&
+            (identical(other.selectedResponderId, selectedResponderId) ||
+                other.selectedResponderId == selectedResponderId) &&
+            const DeepCollectionEquality().equals(
+              other._applicants,
+              _applicants,
+            ) &&
+            const DeepCollectionEquality().equals(other._photos, _photos));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -357,13 +389,14 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     title,
     content,
     requesterId,
-    responderId,
     reward,
     latitude,
     longitude,
-    status,
     createdAt,
-    responsePhotoUrl,
+    status,
+    selectedResponderId,
+    const DeepCollectionEquality().hash(_applicants),
+    const DeepCollectionEquality().hash(_photos),
   );
 
   /// Create a copy of DdipEventModel
@@ -389,13 +422,14 @@ abstract class _DdipEventModel extends DdipEventModel {
     required final String title,
     required final String content,
     @JsonKey(name: 'requester_id') required final String requesterId,
-    @JsonKey(name: 'responder_id') final String? responderId,
     required final int reward,
     required final double latitude,
     required final double longitude,
-    required final String status,
     @JsonKey(name: 'created_at') required final DateTime createdAt,
-    @JsonKey(name: 'response_photo_url') final String? responsePhotoUrl,
+    required final String status,
+    @JsonKey(name: 'selected_responder_id') final String? selectedResponderId,
+    final List<String> applicants,
+    final List<PhotoFeedbackModel> photos,
   }) = _$DdipEventModelImpl;
   const _DdipEventModel._() : super._();
 
@@ -407,13 +441,10 @@ abstract class _DdipEventModel extends DdipEventModel {
   @override
   String get title;
   @override
-  String get content; // @JsonKey를 이렇게 각 필드에 직접 적용해야 합니다.
+  String get content;
   @override
   @JsonKey(name: 'requester_id')
   String get requesterId;
-  @override
-  @JsonKey(name: 'responder_id')
-  String? get responderId;
   @override
   int get reward;
   @override
@@ -421,13 +452,17 @@ abstract class _DdipEventModel extends DdipEventModel {
   @override
   double get longitude;
   @override
-  String get status;
-  @override
   @JsonKey(name: 'created_at')
   DateTime get createdAt;
   @override
-  @JsonKey(name: 'response_photo_url')
-  String? get responsePhotoUrl;
+  String get status;
+  @override
+  @JsonKey(name: 'selected_responder_id')
+  String? get selectedResponderId;
+  @override
+  List<String> get applicants;
+  @override
+  List<PhotoFeedbackModel> get photos;
 
   /// Create a copy of DdipEventModel
   /// with the given fields replaced by the non-null parameter values.
