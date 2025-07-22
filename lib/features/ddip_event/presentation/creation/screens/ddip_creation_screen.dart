@@ -1,3 +1,4 @@
+import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
@@ -35,6 +36,14 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   void _submit() async {
     FocusScope.of(context).unfocus();
 
+    final currentUser = ref.read(authProvider);
+    if (currentUser == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요한 기능입니다.')));
+      return;
+    }
+
     if (_selectedPosition == null) {
       ScaffoldMessenger.of(
         context,
@@ -51,8 +60,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
         id: const Uuid().v4(),
         title: _titleController.text,
         content: _contentController.text,
-        requesterId: 'temp_user_id',
-        // TODO: 추후 authProvider에서 가져와야 함
+        requesterId: currentUser.id,
         reward: int.parse(_rewardController.text),
         latitude: _selectedPosition!.latitude,
         longitude: _selectedPosition!.longitude,

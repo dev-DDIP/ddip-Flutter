@@ -10,57 +10,46 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final List<DdipEvent> _ddipEvents = [
     DdipEvent(
       id: 'event_1',
-      title: '북문 앞 타코야끼 트럭 왔나요? (지원자 없음)',
+      title: '북문 앞 타코야끼 트럭 왔나요?',
       content: '지금 가면 바로 먹을 수 있는지 궁금해요. 사진 한 장만 부탁드립니다!',
       requesterId: 'requester_1',
-      // '김요청'의 ID
       reward: 1000,
       latitude: 35.8925,
       longitude: 128.60953,
       status: DdipEventStatus.open,
-      // [상태] 수행자 지원받는 중
       createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
       applicants: [],
-      // 아직 지원자 없음
       photos: [],
     ),
     DdipEvent(
       id: 'event_2',
-      title: '센트럴파크에 자리 있나요? (선택 대기 중)',
+      title: '센트럴파크에 자리 있나요?',
       content: '친구랑 치킨 먹으러는데 2명 앉을 벤치 있는지 봐주세요!',
       requesterId: 'requester_1',
-      // '김요청'의 ID
       reward: 500,
       latitude: 35.890,
       longitude: 128.612,
       status: DdipEventStatus.pending_selection,
-      // [상태] 요청자가 지원자 선택 중
       createdAt: DateTime.now().subtract(const Duration(hours: 1)),
       applicants: ['responder_1', 'responder_2'],
-      // '이수행', '박지원'이 지원한 상태
       photos: [],
     ),
     DdipEvent(
       id: 'event_3',
-      title: '공대 9호관 1층 프린터 대기줄 긴가요? (1차 사진 거절됨)',
+      title: '공대 9호관 1층 프린터 대기줄 긴가요?',
       content: 'A4 10장 뽑아야 하는데, 지금 가면 얼마나 기다릴지 사진으로 알려주세요.',
       requesterId: 'requester_2',
-      // 다른 요청자의 글
       reward: 1500,
       latitude: 35.888,
       longitude: 128.611,
       status: DdipEventStatus.in_progress,
-      // [상태] 미션 진행 중
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       applicants: ['responder_1'],
       selectedResponderId: 'responder_1',
-      // '이수행'이 선택되어 미션 수행 중
       photos: [
-        // '이수행'이 올렸던 첫 번째 사진은 거절됨
         PhotoFeedback(
           photoId: 'photo_3_1',
           photoUrl: 'assets/images/sample_printer_rejected.png',
-          // 예시 이미지 경로
           latitude: 35.888,
           longitude: 128.611,
           timestamp: DateTime.now().subtract(const Duration(minutes: 30)),

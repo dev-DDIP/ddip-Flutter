@@ -1,13 +1,13 @@
 // lib/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ddip/common/widgets/permission_status_banner.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class DdipFeedScreen extends ConsumerWidget {
   const DdipFeedScreen({super.key});
@@ -15,7 +15,7 @@ class DdipFeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // [수정] 새로운 필터링된 프로바이더를 watch
-    final events = ref.watch(filteredDdipFeedProvider);
+    final events = ref.watch(ddipFeedProvider);
     // [추가] 로딩/에러 상태를 확인하기 위해 원본 Notifier도 watch
     final eventsState = ref.watch(ddipEventsNotifierProvider);
     // [추가] 현재 로그인한 사용자 정보
