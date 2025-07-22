@@ -34,7 +34,7 @@ class DdipEvent {
   final double? responseLongitude;
   final List<String> applicants; // 지원자 userId 목록
   final String? selectedResponderId; // 선택된 수행자 userId
-  final List<PhotoFeedback> photos; // 주고받은 사진과 피드백 목록
+  final List<PhotoFeedback> photos; // 주고받은 사진과 피드백 목록!
 
   DdipEvent({
     required this.id,
