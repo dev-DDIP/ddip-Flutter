@@ -1,16 +1,21 @@
 // lib/features/ddip_event/presentation/view/widgets/applicant_list_view.dart
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ApplicantListView extends ConsumerStatefulWidget {
   final DdipEvent event;
+  final bool isRequester;
 
-  const ApplicantListView({super.key, required this.event});
+  const ApplicantListView({
+    super.key,
+    required this.event,
+    required this.isRequester,
+  });
 
   @override
   ConsumerState<ApplicantListView> createState() => _ApplicantListViewState();
@@ -97,12 +102,14 @@ class _ApplicantListViewState extends ConsumerState<ApplicantListView> {
                 // ▼▼▼ 2. 이제 applicant는 null이 아니므로 .name 접근이 안전합니다. ▼▼▼
                 title: Text(applicant.name),
                 trailing:
-                    isProcessing
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                          onPressed: () => _selectResponder(applicantId),
-                          child: const Text('선택'),
-                        ),
+                    widget.isRequester
+                        ? isProcessing
+                            ? const CircularProgressIndicator()
+                            : ElevatedButton(
+                              onPressed: () => _selectResponder(applicantId),
+                              child: const Text('선택'),
+                            )
+                        : null, // 요청자가 아니면 아무것도 표시하지 않음,
               ),
             );
           },

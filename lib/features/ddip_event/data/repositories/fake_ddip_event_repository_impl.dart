@@ -68,10 +68,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       final event = _ddipEvents[index];
       if (!event.applicants.contains(userId)) {
         final newApplicants = List<String>.from(event.applicants)..add(userId);
-        final updatedEvent = event.copyWith(
-          applicants: newApplicants,
-          status: DdipEventStatus.pending_selection,
-        );
+        final updatedEvent = event.copyWith(applicants: newApplicants);
         _ddipEvents[index] = updatedEvent;
       }
     } else {

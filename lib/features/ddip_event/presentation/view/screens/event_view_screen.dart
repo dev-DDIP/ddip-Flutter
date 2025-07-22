@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import 'package:collection/collection.dart'; // ◀◀◀ 1. 컬렉션 유틸리티 import
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/applicant_list_view.dart';
@@ -9,7 +10,6 @@ import 'package:ddip/features/ddip_event/presentation/view/widgets/photo_feedbac
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart'; // ◀◀◀ 1. 컬렉션 유틸리티 import
 
 import '../widgets/event_action_button.dart';
 import '../widgets/event_details_view.dart';
@@ -60,8 +60,7 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
         // ▼▼▼ 4. 사용자 관계 파악 로직 (이제 event가 null이 아님이 보장됨) ▼▼▼
         final currentUser = ref.watch(authProvider);
         final isRequester = currentUser?.id == event.requesterId;
-        final isPendingSelection =
-            event.status == DdipEventStatus.pending_selection;
+        final isSelectable = event.status == DdipEventStatus.open;
         final isInProgress = event.status == DdipEventStatus.in_progress;
 
         return Scaffold(
@@ -77,8 +76,11 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
                       EventDetailsView(event: event),
                       const SizedBox(height: 16),
 
-                      if (isRequester && isPendingSelection)
-                        ApplicantListView(event: event),
+                      if (isSelectable && event.applicants.isNotEmpty)
+                        ApplicantListView(
+                          event: event,
+                          isRequester: isRequester, // isRequester 값을 전달
+                        ),
 
                       if (isRequester &&
                           isInProgress &&

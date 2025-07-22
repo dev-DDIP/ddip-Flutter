@@ -1,17 +1,17 @@
 // lib/features/ddip_event/presentation/view/widgets/event_action_button.dart
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
-
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 class EventActionButton extends ConsumerStatefulWidget {
   final DdipEvent event;
+
   const EventActionButton({super.key, required this.event});
 
   @override
@@ -88,6 +88,22 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
 
       case DdipEventStatus.in_progress:
         if (isSelectedResponder) {
+          final hasPendingPhoto = widget.event.photos.any(
+            (p) => p.status == FeedbackStatus.pending,
+          );
+
+          // 피드백 대기 중인 사진이 있으면 버튼 대신 안내문 표시
+          if (hasPendingPhoto) {
+            return const Card(
+              color: Colors.amberAccent,
+              child: ListTile(
+                leading: Icon(Icons.hourglass_top_outlined),
+                title: Text('요청자의 피드백을 기다리는 중입니다.'),
+                subtitle: Text('피드백 이후 다음 사진을 보낼 수 있습니다.'),
+              ),
+            );
+          }
+
           return FilledButton.icon(
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text('사진 찍고 제출하기'),
@@ -103,8 +119,10 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
                 final newPhoto = PhotoFeedback(
                   photoId: const Uuid().v4(),
                   photoUrl: imagePath,
-                  latitude: 35.890, // 임시 위도
-                  longitude: 128.612, // 임시 경도
+                  latitude: 35.890,
+                  // 임시 위도
+                  longitude: 128.612,
+                  // 임시 경도
                   timestamp: DateTime.now(),
                 );
                 await _handleAction(
