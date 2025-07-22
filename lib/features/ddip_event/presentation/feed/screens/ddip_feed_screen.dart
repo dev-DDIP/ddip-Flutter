@@ -44,12 +44,25 @@ class DdipFeedScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed:
-            () => Navigator.of(context).push(
+        onPressed: () {
+          final user = ref.read(authProvider);
+          if (user == null) {
+            // 로그아웃 상태일 경우, SnackBar로 알림을 주고 아무것도 하지 않음
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('로그인이 필요한 기능입니다. (추후 회원가입 화면으로 이동)'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else {
+            // 로그인 상태일 경우에만 생성 화면으로 이동
+            Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => const DdipCreationScreen(),
               ),
-            ),
+            );
+          }
+        },
         child: const Icon(Icons.add),
       ),
       body: Column(
