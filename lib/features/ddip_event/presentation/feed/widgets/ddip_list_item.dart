@@ -23,10 +23,6 @@ class DdipListItem extends ConsumerWidget {
         chipColor = Colors.blue;
         label = '지원 가능';
         break;
-      case DdipEventStatus.pending_selection:
-        chipColor = Colors.orange;
-        label = '선택 대기중';
-        break;
       case DdipEventStatus.in_progress:
         chipColor = Colors.green;
         label = '진행중';
@@ -61,9 +57,8 @@ class DdipListItem extends ConsumerWidget {
     // 접근 가능 여부를 결정하는 로직
     bool canAccessDetail = false;
     // 기본적으로는 접근 불가
-    if (event.status == DdipEventStatus.open ||
-        event.status == DdipEventStatus.pending_selection) {
-      // '지원 가능' 또는 '선택 대기중' 상태는 누구나 접근 가능
+    if (event.status == DdipEventStatus.open) {
+      // '지원 가능' 상태는 누구나 접근 가능
       canAccessDetail = true;
     } else if (currentUser != null) {
       // 로그인한 경우, 내가 요청자이거나 선택된 수행자이면 접근 가능

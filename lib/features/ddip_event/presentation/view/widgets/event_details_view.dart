@@ -2,8 +2,8 @@
 
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
-import 'package:flutter/material.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ConsumerWidget으로 변경하여 ref를 사용할 수 있도록 함
@@ -21,10 +21,6 @@ class EventDetailsView extends ConsumerWidget {
       case DdipEventStatus.open:
         chipColor = Colors.blue;
         label = '지원 가능';
-        break;
-      case DdipEventStatus.pending_selection:
-        chipColor = Colors.orange;
-        label = '선택 대기중';
         break;
       case DdipEventStatus.in_progress:
         chipColor = Colors.green;
