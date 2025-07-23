@@ -80,6 +80,28 @@ void main() async {
         print('네이버 지도 인증 실패: $ex');
       },
     );
+
+    // 알림 탭 이벤트를 처리하고 화면을 이동시키는 함수 정의
+    void handleNotificationTap(String? eventId) {
+      if (eventId != null) {
+        _router.go('/feed/$eventId');
+      }
+    }
+
+    // 앱이 종료된 상태에서 알림을 탭하여 실행된 경우 처리
+    FirebaseMessaging.instance.getInitialMessage().then((
+      RemoteMessage? message,
+    ) {
+      if (message != null) {
+        handleNotificationTap(message.data['eventId'] as String?);
+      }
+    });
+
+    // 앱이 백그라운드에 있을 때 알림을 탭한 경우 처리
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      handleNotificationTap(message.data['eventId'] as String?);
+    });
+
     // 안드로이드용 초기화 설정을 정의합니다.
     // '@mipmap/ic_launcher'는 안드로이드 프로젝트의 기본 앱 아이콘을 사용하겠다는 의미입니다.
     // 알림이 올 때 이 아이콘이 상태표시줄에 표시됩니다.
@@ -96,7 +118,12 @@ void main() async {
         );
     // 최종적으로 플러그인을 초기화합니다.
     // 이 작업이 성공적으로 끝나야 앱의 다른 곳에서 알림을 생성할 수 있습니다.
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        handleNotificationTap(response.payload);
+      },
+    );
     // Android 13 이상을 대상으로 알림 권한을 요청합니다.
     // 사용자가 '허용' 또는 '허용 안함'을 선택할 수 있는 팝업이 뜹니다.
     await flutterLocalNotificationsPlugin
@@ -147,6 +174,7 @@ Future<void> _showLocalNotification(DdipNotification notification) async {
     notification.title, // 알림 제목
     notification.body, // 알림 본문
     platformDetails,
+    payload: notification.eventId,
   );
 }
 

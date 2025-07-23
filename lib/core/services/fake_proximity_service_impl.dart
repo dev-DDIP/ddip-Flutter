@@ -41,6 +41,7 @@ class FakeProximityService implements ProximityService {
       final fakeNotification = DdipNotification(
         title: '[가상 알림] "${event.title}" 요청 발생!',
         body: "${event.reward}원 보상의 새로운 요청이 근처에서 등록되었습니다.",
+        eventId: event.id,
       );
       _notificationController.add(fakeNotification);
     });

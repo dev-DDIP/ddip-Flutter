@@ -18,8 +18,13 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 class DdipNotification {
   final String title;
   final String body;
+  final String? eventId;
 
-  DdipNotification({required this.title, required this.body});
+  DdipNotification({
+    required this.title,
+    required this.body,
+    required this.eventId,
+  });
 }
 
 abstract class ProximityService {

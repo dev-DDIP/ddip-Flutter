@@ -50,6 +50,7 @@ class RealProximityService implements ProximityService {
         final notification = DdipNotification(
           title: message.notification?.title ?? '새 알림',
           body: message.notification?.body ?? '새로운 내용이 도착했습니다.',
+          eventId: message.data['eventId'] as String?,
         );
         // 변환된 알림을 스트림에 추가하여 UI에 전달합니다.
         _notificationController.add(notification);
