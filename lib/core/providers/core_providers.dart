@@ -2,8 +2,8 @@
 
 // 우리가 만든 알림 서비스 클래스를 가져옵니다.
 
+import 'package:ddip/core/services/fake_proximity_service_impl.dart';
 import 'package:ddip/core/services/proximity_service.dart';
-import 'package:ddip/core/services/real_proximity_service_impl.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,8 +33,8 @@ final dioProvider = Provider<Dio>((ref) {
 // /// 이것이 바로 '한 줄만 바꿔서 갈아끼울 수 있도록' 만드는 핵심입니다.
 final proximityServiceProvider = Provider<ProximityService>((ref) {
   // ▼▼▼ 지금은 Fake를 사용하고 있지만... ▼▼▼
-  // return FakeProximityService();
+  return FakeProximityService();
 
   // ▼▼▼ 나중에 이 한 줄로 교체하면 '진짜' 서비스가 동작하게 됩니다. ▼▼▼
-  return RealProximityService();
+  // return RealProximityService();
 });

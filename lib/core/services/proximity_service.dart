@@ -13,6 +13,8 @@
 
 // 앱 전체에서 사용할 알림 데이터의 형태를 미리 정의합니다.
 // 지금은 간단하게 제목과 내용만 담겠습니다.
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+
 class DdipNotification {
   final String title;
   final String body;
@@ -30,4 +32,7 @@ abstract class ProximityService {
   // 새로운 '띱' 알림이 도착했을 때 UI에게 알려주기 위한 통로(Stream)
   // UI는 이 Stream을 듣고 있다가, 새로운 데이터가 들어오면 화면을 갱신합니다.
   Stream<DdipNotification> get notificationStream;
+
+  // 테스트 목적으로 '띱' 생성을 시뮬레이션하는 메서드를 인터페이스에 추가
+  Future<void> simulateEventCreation(DdipEvent event);
 }

@@ -18,7 +18,9 @@ final ddipEventDataSourceProvider = Provider<DdipEventRemoteDataSource>((ref) {
 
 final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
   // final remoteDataSource = ref.watch(ddipEventDataSourceProvider);
-  return FakeDdipEventRepositoryImpl(); // 1. 실제 백엔드 도입 전까지는 Fake Repository 사용
+  return FakeDdipEventRepositoryImpl(
+    ref,
+  ); // 1. 실제 백엔드 도입 전까지는 Fake Repository 사용
   // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource); // 2. 실제 백엔드 사용
 });
 

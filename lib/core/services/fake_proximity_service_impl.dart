@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:ddip/core/services/proximity_service.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 
 // /// '계약서(ProximityService)'를 실제로 구현하는 '가짜 담당자'입니다.
 // /// 이름처럼, 이 클래스는 실제 FCM이나 GPS를 전혀 사용하지 않습니다.
@@ -19,29 +20,28 @@ import 'package:ddip/core/services/proximity_service.dart';
 class FakeProximityService implements ProximityService {
   // UI에게 알림을 전달할 통로(StreamController)를 만듭니다.
   final _notificationController = StreamController<DdipNotification>();
-  Timer? _timer;
 
   @override
   Stream<DdipNotification> get notificationStream =>
       _notificationController.stream;
 
   @override
-  Future<void> start() async {
-    // 30초마다 가짜 알림을 생성하는 타이머를 시작합니다.
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      final fakeNotification = DdipNotification(
-        title: '[테스트] 근처 요청 발생!',
-        body: '10초마다 가짜 요청이 자동으로 발생합니다.',
-      );
-      // 생성된 가짜 알림을 통로(Stream)에 흘려보냅니다.
-      _notificationController.add(fakeNotification);
-    });
-  }
+  Future<void> start() async {}
 
   @override
   Future<void> stop() async {
-    // 서비스가 중지되면 타이머를 취소하고 통로를 닫습니다.
-    _timer?.cancel();
     _notificationController.close();
+  }
+
+  // '가짜' 서비스에서는 이 메서드가 호출되면 실제로 알림을 스트림에 추가합니다.
+  @override
+  Future<void> simulateEventCreation(DdipEvent event) async {
+    await Future.delayed(const Duration(seconds: 5));
+
+    final fakeNotification = DdipNotification(
+      title: '[가상 알림] "${event.title}" 요청 발생!',
+      body: "${event.reward}원 보상의 새로운 요청이 근처에서 등록되었습니다.",
+    );
+    _notificationController.add(fakeNotification);
   }
 }

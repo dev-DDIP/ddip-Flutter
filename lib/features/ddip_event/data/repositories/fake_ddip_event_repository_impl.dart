@@ -1,11 +1,16 @@
+import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 실제 서버 API 대신, 앱의 메모리에서 가짜 데이터를 관리하는 클래스입니다.
 // 클린 아키텍처 덕분에, 나중에 이 파일만 실제 API를 호출하는 파일로 교체하면
 // 앱의 다른 부분은 전혀 수정할 필요가 없습니다.
 class FakeDdipEventRepositoryImpl implements DdipEventRepository {
+  final Ref ref; // ✨ 1. 생성자를 통해 Ref를 전달받음
+  FakeDdipEventRepositoryImpl(this.ref);
+
   // 1. [추가] 앱이 실행되는 동안 '띱' 목록을 저장할 메모리 내 리스트
   final List<DdipEvent> _ddipEvents = [
     DdipEvent(
@@ -136,9 +141,12 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   // ▼▼▼ [오류 수정] 다른 메서드 안에서가 아닌, 클래스 레벨로 위치 변경 ▼▼▼
   @override
   Future<void> createDdipEvent(DdipEvent event) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 150));
     _ddipEvents.insert(0, event);
     print('Fake createDdipEvent success: ${event.title}');
+
+    // 가짜 알림을 트리거하는 로직 추가!
+    await ref.read(proximityServiceProvider).simulateEventCreation(event);
   }
 
   @override

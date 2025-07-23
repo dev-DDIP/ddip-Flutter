@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:ddip/core/services/proximity_service.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 // /// 'ProximityService' 계약서의 '진짜' 구현체입니다.
@@ -60,5 +61,12 @@ class RealProximityService implements ProximityService {
   Future<void> stop() async {
     // StreamController를 닫아 리소스를 정리합니다.
     _notificationController.close();
+  }
+
+  // '진짜' 서비스에서는 이 메서드가 아무 동작도 하지 않아야 합니다.
+  @override
+  Future<void> simulateEventCreation(DdipEvent event) async {
+    // No operation needed. Real notifications are triggered by actual FCM messages.
+    return;
   }
 }
