@@ -1,6 +1,6 @@
 // lib/features/ddip_event/domain/repositories/ddip_event_repository.dart
 
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 
 import '../entities/ddip_event.dart';
 
@@ -25,13 +25,13 @@ abstract class DdipEventRepository {
   Future<void> selectResponder(String eventId, String responderId);
 
   /// 선택된 수행자가 '띱'에 사진을 제출하는 기능을 요구합니다.
-  Future<void> addPhoto(String eventId, PhotoFeedback photo);
+  Future<void> addPhoto(String eventId, Photo photo);
 
   /// 요청자가 제출된 사진에 대해 피드백(승인/거절)을 남기는 기능을 요구합니다.
-  Future<void> updatePhotoFeedback(
+  Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    FeedbackStatus feedback,
+    PhotoStatus status,
   );
 }
 

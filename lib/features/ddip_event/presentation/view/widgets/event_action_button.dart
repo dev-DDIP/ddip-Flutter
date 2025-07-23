@@ -3,7 +3,7 @@
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,7 +90,7 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
       case DdipEventStatus.in_progress:
         if (isSelectedResponder) {
           final hasPendingPhoto = widget.event.photos.any(
-            (p) => p.status == FeedbackStatus.pending,
+            (p) => p.status == PhotoStatus.pending,
           );
 
           // 피드백 대기 중인 사진이 있으면 버튼 대신 안내문 표시
@@ -128,9 +128,9 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
                 );
 
                 // 5. 실제 위치 정보로 PhotoFeedback 객체 생성
-                final newPhoto = PhotoFeedback(
-                  photoId: const Uuid().v4(),
-                  photoUrl: imagePath,
+                final newPhoto = Photo(
+                  id: const Uuid().v4(),
+                  url: imagePath,
                   latitude: position.latitude,
                   // << 실제 위도 사용
                   longitude: position.longitude,

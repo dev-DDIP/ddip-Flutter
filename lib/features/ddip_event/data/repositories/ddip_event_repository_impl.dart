@@ -3,7 +3,7 @@
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
 import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 
 class DdipEventRepositoryImpl implements DdipEventRepository {
@@ -66,22 +66,22 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> addPhoto(String eventId, PhotoFeedback photo) async {
+  Future<void> addPhoto(String eventId, Photo photo) async {
     // TODO: PhotoFeedback 엔티티를 API에 맞는 모델로 변환하는 로직 필요
     return remoteDataSource.addPhoto();
   }
 
   @override
-  Future<void> updatePhotoFeedback(
+  Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    FeedbackStatus feedback,
+    PhotoStatus status,
   ) async {
     // TODO: FeedbackStatus enum을 API에 맞는 String 값으로 변환하는 로직 필요
     return remoteDataSource.updatePhotoFeedback(
       eventId,
       photoId,
-      feedback.toString(),
+      status.toString(),
     );
   }
 }

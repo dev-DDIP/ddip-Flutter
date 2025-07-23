@@ -1,15 +1,17 @@
 // lib/features/ddip_event/presentation/view/screens/event_view_screen.dart
 
 import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/applicant_list_view.dart';
-import 'package:ddip/features/ddip_event/presentation/view/widgets/photo_feedback_view.dart';
+import 'package:ddip/features/ddip_event/presentation/view/widgets/photo_view.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../widgets/event_action_button.dart';
 import '../widgets/event_details_view.dart';
 import '../widgets/event_map_view.dart';
@@ -124,7 +126,7 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
                               if (isRequester &&
                                   isInProgress &&
                                   event.photos.isNotEmpty)
-                                PhotoFeedbackView(event: event),
+                                PhotoView(event: event),
                               const SizedBox(height: 24),
                               EventActionButton(event: event),
                               const SizedBox(height: 40), // 시트 하단 여백

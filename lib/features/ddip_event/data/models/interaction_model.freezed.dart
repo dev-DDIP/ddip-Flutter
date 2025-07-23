@@ -21,17 +21,15 @@ InteractionModel _$InteractionModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$InteractionModel {
+  @JsonKey(name: 'interactionId')
   String get id => throw _privateConstructorUsedError;
-  @JsonKey(name: 'actor_id')
+  @JsonKey(name: 'actorId')
   String get actorId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'actor_role')
-  String get actorRole => throw _privateConstructorUsedError; // Enum을 String으로 통신
-  @JsonKey(name: 'action_type')
-  String get actionType => throw _privateConstructorUsedError; // Enum을 String으로 통신
-  @JsonKey(name: 'message_code')
-  String? get messageCode => throw _privateConstructorUsedError; // Nullable Enum을 String으로 통신
-  @JsonKey(name: 'related_photo_id')
-  String? get relatedPhotoId => throw _privateConstructorUsedError; // Nullable
+  String get actorRole => throw _privateConstructorUsedError;
+  @JsonKey(name: 'actionType')
+  String get actionType => throw _privateConstructorUsedError;
+  String? get messageCode => throw _privateConstructorUsedError;
+  String? get relatedPhotoId => throw _privateConstructorUsedError;
   DateTime get timestamp => throw _privateConstructorUsedError;
 
   /// Serializes this InteractionModel to a JSON map.
@@ -52,12 +50,12 @@ abstract class $InteractionModelCopyWith<$Res> {
   ) = _$InteractionModelCopyWithImpl<$Res, InteractionModel>;
   @useResult
   $Res call({
-    String id,
-    @JsonKey(name: 'actor_id') String actorId,
-    @JsonKey(name: 'actor_role') String actorRole,
-    @JsonKey(name: 'action_type') String actionType,
-    @JsonKey(name: 'message_code') String? messageCode,
-    @JsonKey(name: 'related_photo_id') String? relatedPhotoId,
+    @JsonKey(name: 'interactionId') String id,
+    @JsonKey(name: 'actorId') String actorId,
+    String actorRole,
+    @JsonKey(name: 'actionType') String actionType,
+    String? messageCode,
+    String? relatedPhotoId,
     DateTime timestamp,
   });
 }
@@ -138,12 +136,12 @@ abstract class _$$InteractionModelImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    String id,
-    @JsonKey(name: 'actor_id') String actorId,
-    @JsonKey(name: 'actor_role') String actorRole,
-    @JsonKey(name: 'action_type') String actionType,
-    @JsonKey(name: 'message_code') String? messageCode,
-    @JsonKey(name: 'related_photo_id') String? relatedPhotoId,
+    @JsonKey(name: 'interactionId') String id,
+    @JsonKey(name: 'actorId') String actorId,
+    String actorRole,
+    @JsonKey(name: 'actionType') String actionType,
+    String? messageCode,
+    String? relatedPhotoId,
     DateTime timestamp,
   });
 }
@@ -216,12 +214,12 @@ class __$$InteractionModelImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$InteractionModelImpl extends _InteractionModel {
   const _$InteractionModelImpl({
-    required this.id,
-    @JsonKey(name: 'actor_id') required this.actorId,
-    @JsonKey(name: 'actor_role') required this.actorRole,
-    @JsonKey(name: 'action_type') required this.actionType,
-    @JsonKey(name: 'message_code') this.messageCode,
-    @JsonKey(name: 'related_photo_id') this.relatedPhotoId,
+    @JsonKey(name: 'interactionId') required this.id,
+    @JsonKey(name: 'actorId') required this.actorId,
+    required this.actorRole,
+    @JsonKey(name: 'actionType') required this.actionType,
+    this.messageCode,
+    this.relatedPhotoId,
     required this.timestamp,
   }) : super._();
 
@@ -229,26 +227,20 @@ class _$InteractionModelImpl extends _InteractionModel {
       _$$InteractionModelImplFromJson(json);
 
   @override
+  @JsonKey(name: 'interactionId')
   final String id;
   @override
-  @JsonKey(name: 'actor_id')
+  @JsonKey(name: 'actorId')
   final String actorId;
   @override
-  @JsonKey(name: 'actor_role')
   final String actorRole;
-  // Enum을 String으로 통신
   @override
-  @JsonKey(name: 'action_type')
+  @JsonKey(name: 'actionType')
   final String actionType;
-  // Enum을 String으로 통신
   @override
-  @JsonKey(name: 'message_code')
   final String? messageCode;
-  // Nullable Enum을 String으로 통신
   @override
-  @JsonKey(name: 'related_photo_id')
   final String? relatedPhotoId;
-  // Nullable
   @override
   final DateTime timestamp;
 
@@ -308,12 +300,12 @@ class _$InteractionModelImpl extends _InteractionModel {
 
 abstract class _InteractionModel extends InteractionModel {
   const factory _InteractionModel({
-    required final String id,
-    @JsonKey(name: 'actor_id') required final String actorId,
-    @JsonKey(name: 'actor_role') required final String actorRole,
-    @JsonKey(name: 'action_type') required final String actionType,
-    @JsonKey(name: 'message_code') final String? messageCode,
-    @JsonKey(name: 'related_photo_id') final String? relatedPhotoId,
+    @JsonKey(name: 'interactionId') required final String id,
+    @JsonKey(name: 'actorId') required final String actorId,
+    required final String actorRole,
+    @JsonKey(name: 'actionType') required final String actionType,
+    final String? messageCode,
+    final String? relatedPhotoId,
     required final DateTime timestamp,
   }) = _$InteractionModelImpl;
   const _InteractionModel._() : super._();
@@ -322,22 +314,20 @@ abstract class _InteractionModel extends InteractionModel {
       _$InteractionModelImpl.fromJson;
 
   @override
+  @JsonKey(name: 'interactionId')
   String get id;
   @override
-  @JsonKey(name: 'actor_id')
+  @JsonKey(name: 'actorId')
   String get actorId;
   @override
-  @JsonKey(name: 'actor_role')
-  String get actorRole; // Enum을 String으로 통신
+  String get actorRole;
   @override
-  @JsonKey(name: 'action_type')
-  String get actionType; // Enum을 String으로 통신
+  @JsonKey(name: 'actionType')
+  String get actionType;
   @override
-  @JsonKey(name: 'message_code')
-  String? get messageCode; // Nullable Enum을 String으로 통신
+  String? get messageCode;
   @override
-  @JsonKey(name: 'related_photo_id')
-  String? get relatedPhotoId; // Nullable
+  String? get relatedPhotoId;
   @override
   DateTime get timestamp;
 

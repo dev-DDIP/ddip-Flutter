@@ -1,7 +1,5 @@
 // lib/features/ddip_event/domain/entities/interaction.dart
 
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart'; // PhotoFeedback 엔티티 import
-
 /// 행위자의 역할을 정의하는 Enum
 enum ActorRole { requester, responder, system }
 
@@ -48,7 +46,7 @@ class Interaction {
   final String id;
   final String actorId;
   final ActorRole actorRole;
-  final ActionType action;
+  final ActionType actionType;
   final MessageCode? messageCode; // Nullable
   final String? relatedPhotoId; // Nullable (사진과 관련될 경우)
   final DateTime timestamp;
@@ -57,7 +55,7 @@ class Interaction {
     required this.id,
     required this.actorId,
     required this.actorRole,
-    required this.action,
+    required this.actionType,
     this.messageCode,
     this.relatedPhotoId,
     required this.timestamp,
@@ -77,7 +75,7 @@ class Interaction {
       id: id ?? this.id,
       actorId: actorId ?? this.actorId,
       actorRole: actorRole ?? this.actorRole,
-      action: action ?? this.action,
+      actionType: action ?? this.actionType,
       messageCode: messageCode ?? this.messageCode,
       relatedPhotoId: relatedPhotoId ?? this.relatedPhotoId,
       timestamp: timestamp ?? this.timestamp,

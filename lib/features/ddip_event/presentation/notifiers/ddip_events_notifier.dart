@@ -2,7 +2,7 @@
 
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,20 +45,20 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
   }
 
   // [신규 로직] 사진을 제출하는 메서드
-  Future<void> addPhoto(String eventId, PhotoFeedback photo) async {
+  Future<void> addPhoto(String eventId, Photo photo) async {
     final repository = _ref.read(ddipEventRepositoryProvider);
     await repository.addPhoto(eventId, photo);
     await loadEvents();
   }
 
   // [신규 로직] 사진에 피드백을 남기는 메서드
-  Future<void> updatePhotoFeedback(
+  Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    FeedbackStatus feedback,
+    PhotoStatus status,
   ) async {
     final repository = _ref.read(ddipEventRepositoryProvider);
-    await repository.updatePhotoFeedback(eventId, photoId, feedback);
+    await repository.updatePhotoStatus(eventId, photoId, status);
     await loadEvents();
   }
 }

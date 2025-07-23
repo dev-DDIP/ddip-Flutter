@@ -11,13 +11,13 @@ _$DdipEventModelImpl _$$DdipEventModelImplFromJson(Map<String, dynamic> json) =>
       id: json['id'] as String,
       title: json['title'] as String,
       content: json['content'] as String,
-      requesterId: json['requester_id'] as String,
+      requesterId: json['requesterId'] as String,
       reward: (json['reward'] as num).toInt(),
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String),
       status: json['status'] as String,
-      selectedResponderId: json['selected_responder_id'] as String?,
+      selectedResponderId: json['selectedResponderId'] as String?,
       applicants:
           (json['applicants'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -25,9 +25,7 @@ _$DdipEventModelImpl _$$DdipEventModelImplFromJson(Map<String, dynamic> json) =>
           const [],
       photos:
           (json['photos'] as List<dynamic>?)
-              ?.map(
-                (e) => PhotoFeedbackModel.fromJson(e as Map<String, dynamic>),
-              )
+              ?.map((e) => PhotoModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
       interactions:
@@ -43,13 +41,13 @@ Map<String, dynamic> _$$DdipEventModelImplToJson(
   'id': instance.id,
   'title': instance.title,
   'content': instance.content,
-  'requester_id': instance.requesterId,
+  'requesterId': instance.requesterId,
   'reward': instance.reward,
   'latitude': instance.latitude,
   'longitude': instance.longitude,
-  'created_at': instance.createdAt.toIso8601String(),
+  'createdAt': instance.createdAt.toIso8601String(),
   'status': instance.status,
-  'selected_responder_id': instance.selectedResponderId,
+  'selectedResponderId': instance.selectedResponderId,
   'applicants': instance.applicants,
   'photos': instance.photos,
   'interactions': instance.interactions,

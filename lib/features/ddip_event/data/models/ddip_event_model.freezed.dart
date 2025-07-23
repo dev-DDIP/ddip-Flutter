@@ -24,18 +24,18 @@ mixin _$DdipEventModel {
   String get id => throw _privateConstructorUsedError;
   String get title => throw _privateConstructorUsedError;
   String get content => throw _privateConstructorUsedError;
-  @JsonKey(name: 'requester_id')
+  @JsonKey(name: 'requesterId')
   String get requesterId => throw _privateConstructorUsedError;
   int get reward => throw _privateConstructorUsedError;
   double get latitude => throw _privateConstructorUsedError;
   double get longitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'created_at')
+  @JsonKey(name: 'createdAt')
   DateTime get createdAt => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
-  @JsonKey(name: 'selected_responder_id')
+  @JsonKey(name: 'selectedResponderId')
   String? get selectedResponderId => throw _privateConstructorUsedError;
   List<String> get applicants => throw _privateConstructorUsedError;
-  List<PhotoFeedbackModel> get photos => throw _privateConstructorUsedError;
+  List<PhotoModel> get photos => throw _privateConstructorUsedError;
   List<InteractionModel> get interactions => throw _privateConstructorUsedError;
 
   /// Serializes this DdipEventModel to a JSON map.
@@ -59,15 +59,15 @@ abstract class $DdipEventModelCopyWith<$Res> {
     String id,
     String title,
     String content,
-    @JsonKey(name: 'requester_id') String requesterId,
+    @JsonKey(name: 'requesterId') String requesterId,
     int reward,
     double latitude,
     double longitude,
-    @JsonKey(name: 'created_at') DateTime createdAt,
+    @JsonKey(name: 'createdAt') DateTime createdAt,
     String status,
-    @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
+    @JsonKey(name: 'selectedResponderId') String? selectedResponderId,
     List<String> applicants,
-    List<PhotoFeedbackModel> photos,
+    List<PhotoModel> photos,
     List<InteractionModel> interactions,
   });
 }
@@ -162,7 +162,7 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
                 null == photos
                     ? _value.photos
                     : photos // ignore: cast_nullable_to_non_nullable
-                        as List<PhotoFeedbackModel>,
+                        as List<PhotoModel>,
             interactions:
                 null == interactions
                     ? _value.interactions
@@ -187,15 +187,15 @@ abstract class _$$DdipEventModelImplCopyWith<$Res>
     String id,
     String title,
     String content,
-    @JsonKey(name: 'requester_id') String requesterId,
+    @JsonKey(name: 'requesterId') String requesterId,
     int reward,
     double latitude,
     double longitude,
-    @JsonKey(name: 'created_at') DateTime createdAt,
+    @JsonKey(name: 'createdAt') DateTime createdAt,
     String status,
-    @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
+    @JsonKey(name: 'selectedResponderId') String? selectedResponderId,
     List<String> applicants,
-    List<PhotoFeedbackModel> photos,
+    List<PhotoModel> photos,
     List<InteractionModel> interactions,
   });
 }
@@ -289,7 +289,7 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
             null == photos
                 ? _value._photos
                 : photos // ignore: cast_nullable_to_non_nullable
-                    as List<PhotoFeedbackModel>,
+                    as List<PhotoModel>,
         interactions:
             null == interactions
                 ? _value._interactions
@@ -307,15 +307,15 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     required this.id,
     required this.title,
     required this.content,
-    @JsonKey(name: 'requester_id') required this.requesterId,
+    @JsonKey(name: 'requesterId') required this.requesterId,
     required this.reward,
     required this.latitude,
     required this.longitude,
-    @JsonKey(name: 'created_at') required this.createdAt,
+    @JsonKey(name: 'createdAt') required this.createdAt,
     required this.status,
-    @JsonKey(name: 'selected_responder_id') this.selectedResponderId,
+    @JsonKey(name: 'selectedResponderId') this.selectedResponderId,
     final List<String> applicants = const [],
-    final List<PhotoFeedbackModel> photos = const [],
+    final List<PhotoModel> photos = const [],
     final List<InteractionModel> interactions = const [],
   }) : _applicants = applicants,
        _photos = photos,
@@ -332,7 +332,7 @@ class _$DdipEventModelImpl extends _DdipEventModel {
   @override
   final String content;
   @override
-  @JsonKey(name: 'requester_id')
+  @JsonKey(name: 'requesterId')
   final String requesterId;
   @override
   final int reward;
@@ -341,12 +341,12 @@ class _$DdipEventModelImpl extends _DdipEventModel {
   @override
   final double longitude;
   @override
-  @JsonKey(name: 'created_at')
+  @JsonKey(name: 'createdAt')
   final DateTime createdAt;
   @override
   final String status;
   @override
-  @JsonKey(name: 'selected_responder_id')
+  @JsonKey(name: 'selectedResponderId')
   final String? selectedResponderId;
   final List<String> _applicants;
   @override
@@ -357,10 +357,10 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     return EqualUnmodifiableListView(_applicants);
   }
 
-  final List<PhotoFeedbackModel> _photos;
+  final List<PhotoModel> _photos;
   @override
   @JsonKey()
-  List<PhotoFeedbackModel> get photos {
+  List<PhotoModel> get photos {
     if (_photos is EqualUnmodifiableListView) return _photos;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_photos);
@@ -452,15 +452,15 @@ abstract class _DdipEventModel extends DdipEventModel {
     required final String id,
     required final String title,
     required final String content,
-    @JsonKey(name: 'requester_id') required final String requesterId,
+    @JsonKey(name: 'requesterId') required final String requesterId,
     required final int reward,
     required final double latitude,
     required final double longitude,
-    @JsonKey(name: 'created_at') required final DateTime createdAt,
+    @JsonKey(name: 'createdAt') required final DateTime createdAt,
     required final String status,
-    @JsonKey(name: 'selected_responder_id') final String? selectedResponderId,
+    @JsonKey(name: 'selectedResponderId') final String? selectedResponderId,
     final List<String> applicants,
-    final List<PhotoFeedbackModel> photos,
+    final List<PhotoModel> photos,
     final List<InteractionModel> interactions,
   }) = _$DdipEventModelImpl;
   const _DdipEventModel._() : super._();
@@ -475,7 +475,7 @@ abstract class _DdipEventModel extends DdipEventModel {
   @override
   String get content;
   @override
-  @JsonKey(name: 'requester_id')
+  @JsonKey(name: 'requesterId')
   String get requesterId;
   @override
   int get reward;
@@ -484,17 +484,17 @@ abstract class _DdipEventModel extends DdipEventModel {
   @override
   double get longitude;
   @override
-  @JsonKey(name: 'created_at')
+  @JsonKey(name: 'createdAt')
   DateTime get createdAt;
   @override
   String get status;
   @override
-  @JsonKey(name: 'selected_responder_id')
+  @JsonKey(name: 'selectedResponderId')
   String? get selectedResponderId;
   @override
   List<String> get applicants;
   @override
-  List<PhotoFeedbackModel> get photos;
+  List<PhotoModel> get photos;
   @override
   List<InteractionModel> get interactions;
 

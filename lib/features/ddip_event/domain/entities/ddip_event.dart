@@ -1,12 +1,9 @@
 // lib/features/ddip_event/domain/entities/ddip_event.dart
 
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 
 enum DdipEventStatus { open, in_progress, completed, failed }
-
-// pending_selection 상태를 제거하고 open으로 통합하여 흐름을 단순화합니다.
-// (추후 '지원 마감' 기능이 필요할 때 다시 추가할 수 있습니다.)
 
 class DdipEvent {
   final String id;
@@ -20,7 +17,7 @@ class DdipEvent {
   final DateTime createdAt;
   final List<String> applicants;
   final String? selectedResponderId;
-  final List<PhotoFeedback> photos;
+  final List<Photo> photos;
   final List<Interaction> interactions;
 
   DdipEvent({
@@ -50,9 +47,8 @@ class DdipEvent {
     DdipEventStatus? status,
     DateTime? createdAt,
     List<String>? applicants,
-    // copyWith에서 nullable 필드를 null로 업데이트할 수 있도록 수정
     String? selectedResponderId,
-    List<PhotoFeedback>? photos,
+    List<Photo>? photos,
     List<Interaction>? interactions,
   }) {
     return DdipEvent(

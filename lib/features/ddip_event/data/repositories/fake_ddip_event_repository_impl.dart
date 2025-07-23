@@ -1,6 +1,6 @@
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -80,12 +80,12 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> addPhoto(String eventId, PhotoFeedback photo) async {
+  Future<void> addPhoto(String eventId, Photo photo) async {
     await Future.delayed(const Duration(milliseconds: 500));
     final index = _ddipEvents.indexWhere((event) => event.id == eventId);
     if (index != -1) {
       final event = _ddipEvents[index];
-      final newPhotos = List<PhotoFeedback>.from(event.photos)..add(photo);
+      final newPhotos = List<Photo>.from(event.photos)..add(photo);
       final updatedEvent = event.copyWith(photos: newPhotos);
       _ddipEvents[index] = updatedEvent;
     } else {
@@ -94,10 +94,10 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> updatePhotoFeedback(
+  Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    FeedbackStatus feedback,
+    PhotoStatus status,
   ) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final eventIndex = _ddipEvents.indexWhere((event) => event.id == eventId);
@@ -105,23 +105,17 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     if (eventIndex != -1) {
       final event = _ddipEvents[eventIndex];
       final photoIndex = event.photos.indexWhere(
-        (photo) => photo.photoId == photoId,
+        (photo) => photo.id == photoId,
       );
-
       if (photoIndex != -1) {
-        final updatedPhoto = event.photos[photoIndex].copyWith(
-          status: feedback,
-        );
-        final newPhotos = List<PhotoFeedback>.from(event.photos);
+        final updatedPhoto = event.photos[photoIndex].copyWith(status: status);
+        final newPhotos = List<Photo>.from(event.photos);
         newPhotos[photoIndex] = updatedPhoto;
 
         DdipEventStatus newEventStatus = event.status;
-        if (feedback == FeedbackStatus.approved) {
+        if (status == PhotoStatus.approved) {
           newEventStatus = DdipEventStatus.completed;
-        } else if (feedback ==
-                FeedbackStatus
-                    .rejected && // [오류 수정] Feedback -> FeedbackStatus 오타 수정
-            newPhotos.length >= 3) {
+        } else if (status == PhotoStatus.rejected && newPhotos.length >= 3) {
           newEventStatus = DdipEventStatus.failed;
         }
 

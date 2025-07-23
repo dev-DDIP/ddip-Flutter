@@ -9,23 +9,23 @@ part of 'interaction_model.dart';
 _$InteractionModelImpl _$$InteractionModelImplFromJson(
   Map<String, dynamic> json,
 ) => _$InteractionModelImpl(
-  id: json['id'] as String,
-  actorId: json['actor_id'] as String,
-  actorRole: json['actor_role'] as String,
-  actionType: json['action_type'] as String,
-  messageCode: json['message_code'] as String?,
-  relatedPhotoId: json['related_photo_id'] as String?,
+  id: json['interactionId'] as String,
+  actorId: json['actorId'] as String,
+  actorRole: json['actorRole'] as String,
+  actionType: json['actionType'] as String,
+  messageCode: json['messageCode'] as String?,
+  relatedPhotoId: json['relatedPhotoId'] as String?,
   timestamp: DateTime.parse(json['timestamp'] as String),
 );
 
 Map<String, dynamic> _$$InteractionModelImplToJson(
   _$InteractionModelImpl instance,
 ) => <String, dynamic>{
-  'id': instance.id,
-  'actor_id': instance.actorId,
-  'actor_role': instance.actorRole,
-  'action_type': instance.actionType,
-  'message_code': instance.messageCode,
-  'related_photo_id': instance.relatedPhotoId,
+  'interactionId': instance.id,
+  'actorId': instance.actorId,
+  'actorRole': instance.actorRole,
+  'actionType': instance.actionType,
+  'messageCode': instance.messageCode,
+  'relatedPhotoId': instance.relatedPhotoId,
   'timestamp': instance.timestamp.toIso8601String(),
 };

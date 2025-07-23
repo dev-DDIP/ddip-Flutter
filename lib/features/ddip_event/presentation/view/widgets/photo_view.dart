@@ -1,42 +1,37 @@
-// lib/features/ddip_event/presentation/view/widgets/photo_feedback_view.dart
+// lib/features/ddip_event/presentation/view/widgets/photo_view.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 
-/// 제출된 사진 목록과 피드백(승인/거절) 버튼을 제공하는 UI 위젯입니다.
-class PhotoFeedbackView extends ConsumerStatefulWidget {
+class PhotoView extends ConsumerStatefulWidget {
   final DdipEvent event;
-
-  const PhotoFeedbackView({super.key, required this.event});
+  const PhotoView({super.key, required this.event});
 
   @override
-  ConsumerState<PhotoFeedbackView> createState() => _PhotoFeedbackViewState();
+  ConsumerState<PhotoView> createState() => _PhotoViewState();
 }
 
-class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
+class _PhotoViewState extends ConsumerState<PhotoView> {
   String? _processingPhotoId;
 
-  Future<void> _updateFeedback(String photoId, FeedbackStatus feedback) async {
+  Future<void> _updateStatus(String photoId, PhotoStatus status) async {
     if (_processingPhotoId != null) return;
-
     setState(() {
       _processingPhotoId = photoId;
     });
-
     try {
       await ref
           .read(ddipEventsNotifierProvider.notifier)
-          .updatePhotoFeedback(widget.event.id, photoId, feedback);
-
+          .updatePhotoStatus(widget.event.id, photoId, status);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              feedback == FeedbackStatus.approved
+              status == PhotoStatus.approved
                   ? '사진을 승인했습니다. 거래가 완료됩니다.'
                   : '사진을 거절했습니다. 수행자에게 재요청합니다.',
             ),
@@ -76,7 +71,7 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
           itemCount: widget.event.photos.length,
           itemBuilder: (context, index) {
             final photo = widget.event.photos[index];
-            final isProcessing = _processingPhotoId == photo.photoId;
+            final isProcessing = _processingPhotoId == photo.id;
 
             return Card(
               clipBehavior: Clip.antiAlias,
@@ -84,7 +79,7 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
               child: Column(
                 children: [
                   Image.file(
-                    File(photo.photoUrl),
+                    File(photo.url),
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -103,14 +98,13 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
     );
   }
 
-  /// 사진의 상태에 따라 다른 UI(버튼 또는 상태 칩)를 반환하는 헬퍼 메서드
-  Widget _buildFeedbackSection(PhotoFeedback photo, bool isProcessing) {
+  Widget _buildFeedbackSection(Photo photo, bool isProcessing) {
     if (isProcessing) {
       return const Center(child: CircularProgressIndicator());
     }
 
     switch (photo.status) {
-      case FeedbackStatus.pending:
+      case PhotoStatus.pending:
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -118,9 +112,7 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.thumb_up_alt_outlined),
                 label: const Text('승인'),
-                onPressed:
-                    () =>
-                        _updateFeedback(photo.photoId, FeedbackStatus.approved),
+                onPressed: () => _updateStatus(photo.id, PhotoStatus.approved),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -132,9 +124,7 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.thumb_down_alt_outlined),
                 label: const Text('거절'),
-                onPressed:
-                    () =>
-                        _updateFeedback(photo.photoId, FeedbackStatus.rejected),
+                onPressed: () => _updateStatus(photo.id, PhotoStatus.rejected),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
@@ -143,14 +133,14 @@ class _PhotoFeedbackViewState extends ConsumerState<PhotoFeedbackView> {
             ),
           ],
         );
-      case FeedbackStatus.approved:
+      case PhotoStatus.approved:
         return const Chip(
           label: Text('승인됨'),
           backgroundColor: Colors.green,
           labelStyle: TextStyle(color: Colors.white),
           avatar: Icon(Icons.check_circle, color: Colors.white),
         );
-      case FeedbackStatus.rejected:
+      case PhotoStatus.rejected:
         return const Chip(
           label: Text('거절됨'),
           backgroundColor: Colors.red,

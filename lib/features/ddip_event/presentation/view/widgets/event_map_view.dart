@@ -1,7 +1,7 @@
 // lib/features/ddip_event/presentation/view/widgets/event_map_view.dart
 
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -93,24 +93,24 @@ class _EventMapViewState extends State<EventMapView> {
     for (final photo in widget.event.photos) {
       NOverlayImage icon;
       switch (photo.status) {
-        case FeedbackStatus.approved:
+        case PhotoStatus.approved:
           icon = approvedPhotoIcon;
           break;
-        case FeedbackStatus.rejected:
+        case PhotoStatus.rejected:
           icon = rejectedPhotoIcon;
           break;
-        case FeedbackStatus.pending:
+        case PhotoStatus.pending:
           icon = pendingPhotoIcon;
           break;
       }
       final photoMarker = NMarker(
-        id: photo.photoId,
+        id: photo.id,
         position: NLatLng(photo.latitude, photo.longitude),
         icon: icon,
       );
       photoMarker.setZIndex(20);
       photoMarker.setOnTapListener((_) {
-        widget.onPhotoMarkerTapped(photo.photoUrl);
+        widget.onPhotoMarkerTapped(photo.url);
       });
       markers.add(photoMarker);
     }
