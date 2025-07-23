@@ -1,14 +1,15 @@
-// lib/features/ddip_event/presentation/view/widgets/photo_view.dart
-
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PhotoView extends ConsumerStatefulWidget {
   final DdipEvent event;
+
   const PhotoView({super.key, required this.event});
 
   @override
@@ -18,25 +19,29 @@ class PhotoView extends ConsumerStatefulWidget {
 class _PhotoViewState extends ConsumerState<PhotoView> {
   String? _processingPhotoId;
 
-  Future<void> _updateStatus(String photoId, PhotoStatus status) async {
+  // ✨ [수정] 함수 정의를 이름 기반(named) 파라미터로 변경
+  Future<void> _updateStatus({
+    required String photoId,
+    required PhotoStatus status,
+    MessageCode? messageCode,
+  }) async {
     if (_processingPhotoId != null) return;
     setState(() {
       _processingPhotoId = photoId;
     });
     try {
+      // ✨ [수정] Notifier 호출 시 이름 기반 파라미터 사용
       await ref
           .read(ddipEventsNotifierProvider.notifier)
-          .updatePhotoStatus(widget.event.id, photoId, status);
+          .updatePhotoStatus(widget.event.id, photoId, status, messageCode);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              status == PhotoStatus.approved
-                  ? '사진을 승인했습니다. 거래가 완료됩니다.'
-                  : '사진을 거절했습니다. 수행자에게 재요청합니다.',
-            ),
-          ),
-        );
+        final message =
+            status == PhotoStatus.approved
+                ? '사진을 승인했습니다. 거래가 완료됩니다.'
+                : '사진을 거절하고 재요청했습니다.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (mounted) {
@@ -46,10 +51,68 @@ class _PhotoViewState extends ConsumerState<PhotoView> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _processingPhotoId = null;
-        });
+        setState(() => _processingPhotoId = null);
       }
+    }
+  }
+
+  void _showRejectionReasons(String photoId) {
+    final rejectionCodes = [
+      MessageCode.blurred,
+      MessageCode.tooFar,
+      MessageCode.wrongSubject,
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children:
+                rejectionCodes.map((code) {
+                  return ListTile(
+                    leading: Icon(_getIconForMessageCode(code)),
+                    title: Text(_getTextForMessageCode(code)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      // ✨ [수정] 함수 호출을 이름 기반 파라미터 형식으로 변경 (이 부분은 이미 올바르게 되어 있었음)
+                      _updateStatus(
+                        photoId: photoId,
+                        status: PhotoStatus.rejected,
+                        messageCode: code,
+                      );
+                    },
+                  );
+                }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  String _getTextForMessageCode(MessageCode code) {
+    switch (code) {
+      case MessageCode.blurred:
+        return "사진이 흐려요. 다시 찍어주세요.";
+      case MessageCode.tooFar:
+        return "너무 멀어요. 가까이서 찍어주세요.";
+      case MessageCode.wrongSubject:
+        return "요청한 대상이 아니에요.";
+      default:
+        return "기타";
+    }
+  }
+
+  IconData _getIconForMessageCode(MessageCode code) {
+    switch (code) {
+      case MessageCode.blurred:
+        return Icons.blur_on;
+      case MessageCode.tooFar:
+        return Icons.zoom_in;
+      case MessageCode.wrongSubject:
+        return Icons.wrong_location;
+      default:
+        return Icons.help_outline;
     }
   }
 
@@ -112,7 +175,12 @@ class _PhotoViewState extends ConsumerState<PhotoView> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.thumb_up_alt_outlined),
                 label: const Text('승인'),
-                onPressed: () => _updateStatus(photo.id, PhotoStatus.approved),
+                // ✨ [수정] 함수 호출을 이름 기반 파라미터로 변경하고, messageCode는 필요 없으므로 생략
+                onPressed:
+                    () => _updateStatus(
+                      photoId: photo.id,
+                      status: PhotoStatus.approved,
+                    ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -124,7 +192,8 @@ class _PhotoViewState extends ConsumerState<PhotoView> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.thumb_down_alt_outlined),
                 label: const Text('거절'),
-                onPressed: () => _updateStatus(photo.id, PhotoStatus.rejected),
+                // ✨ [수정] 거절 버튼은 Bottom Sheet를 띄우는 `_showRejectionReasons` 함수를 호출하도록 수정
+                onPressed: () => _showRejectionReasons(photo.id),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,

@@ -1,8 +1,10 @@
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 // 실제 서버 API 대신, 앱의 메모리에서 가짜 데이터를 관리하는 클래스입니다.
 // 클린 아키텍처 덕분에, 나중에 이 파일만 실제 API를 호출하는 파일로 교체하면
@@ -98,6 +100,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     String eventId,
     String photoId,
     PhotoStatus status,
+    MessageCode? messageCode,
   ) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final eventIndex = _ddipEvents.indexWhere((event) => event.id == eventId);
@@ -119,9 +122,30 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           newEventStatus = DdipEventStatus.failed;
         }
 
+        final newInteractions = List<Interaction>.from(event.interactions);
+        final actionType =
+            status == PhotoStatus.approved
+                ? ActionType.approve
+                : ActionType.requestRevision;
+
+        newInteractions.add(
+          Interaction(
+            id: const Uuid().v4(),
+            actorId: event.requesterId,
+            // 요청자가 이 행동의 주체
+            actorRole: ActorRole.requester,
+            actionType: actionType,
+            messageCode: messageCode,
+            // 사용자가 선택한 거절 사유
+            relatedPhotoId: photoId,
+            timestamp: DateTime.now(),
+          ),
+        );
+
         final updatedEvent = event.copyWith(
           photos: newPhotos,
           status: newEventStatus,
+          interactions: newInteractions,
         );
         _ddipEvents[eventIndex] = updatedEvent;
       } else {

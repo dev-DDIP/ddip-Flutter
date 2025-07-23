@@ -2,6 +2,7 @@
 
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,9 +57,10 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     String eventId,
     String photoId,
     PhotoStatus status,
+    MessageCode? messageCode,
   ) async {
     final repository = _ref.read(ddipEventRepositoryProvider);
-    await repository.updatePhotoStatus(eventId, photoId, status);
+    await repository.updatePhotoStatus(eventId, photoId, status, messageCode);
     await loadEvents();
   }
 }

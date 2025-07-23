@@ -3,6 +3,7 @@
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
 import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 
@@ -76,6 +77,7 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
     String eventId,
     String photoId,
     PhotoStatus status,
+    MessageCode? messageCode,
   ) async {
     // TODO: FeedbackStatus enum을 API에 맞는 String 값으로 변환하는 로직 필요
     return remoteDataSource.updatePhotoFeedback(

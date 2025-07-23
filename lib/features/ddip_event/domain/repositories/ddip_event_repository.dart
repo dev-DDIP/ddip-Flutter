@@ -1,5 +1,6 @@
 // lib/features/ddip_event/domain/repositories/ddip_event_repository.dart
 
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 
 import '../entities/ddip_event.dart';
@@ -32,6 +33,7 @@ abstract class DdipEventRepository {
     String eventId,
     String photoId,
     PhotoStatus status,
+    MessageCode? messageCode,
   );
 }
 
