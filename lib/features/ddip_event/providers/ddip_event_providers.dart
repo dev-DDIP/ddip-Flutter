@@ -1,16 +1,14 @@
 // lib/features/ddip_event/providers/ddip_event_providers.dart
 
+import 'package:collection/collection.dart';
 import 'package:ddip/core/providers/core_providers.dart';
-import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
-import 'package:ddip/features/ddip_event/data/repositories/ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 
 // --- 1. Data 계층 프로바이더 ---
 final ddipEventDataSourceProvider = Provider<DdipEventRemoteDataSource>((ref) {
@@ -20,8 +18,8 @@ final ddipEventDataSourceProvider = Provider<DdipEventRemoteDataSource>((ref) {
 
 final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
   // final remoteDataSource = ref.watch(ddipEventDataSourceProvider);
-  return FakeDdipEventRepositoryImpl(); // 실제 백엔드 도입 전까지는 Fake Repository 사용
-  // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource);
+  return FakeDdipEventRepositoryImpl(); // 1. 실제 백엔드 도입 전까지는 Fake Repository 사용
+  // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource); // 2. 실제 백엔드 사용
 });
 
 // --- 2. Domain 계층 프로바이더 (UseCase) ---

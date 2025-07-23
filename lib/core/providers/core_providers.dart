@@ -1,9 +1,9 @@
 // lib/core/providers/core_providers.dart
 
 // 우리가 만든 알림 서비스 클래스를 가져옵니다.
-import 'package:ddip/core/services/notification_service.dart';
-// 알림 서비스가 필요로 하는 '띱 이벤트 저장소' 프로바이더를 가져옵니다.
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+
+import 'package:ddip/core/services/proximity_service.dart';
+import 'package:ddip/core/services/real_proximity_service_impl.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,18 +23,18 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-/// NotificationService를 생성하고 관리하는 Riverpod Provider입니다.
-///
-/// 이 프로바이더의 역할은 앱 전체에서 단 하나의 NotificationService 인스턴스만 존재하도록 보장하고,
-/// 필요할 때 이 인스턴스를 쉽게 가져다 쓸 수 있는 '창구' 역할을 합니다.
-final notificationServiceProvider = Provider<NotificationService>((ref) {
-  // 1. NotificationService를 만들려면 'DdipEventRepository'라는 부품이 필요합니다.
-  //    ref.watch를 사용해 다른 프로바이더(ddipEventRepositoryProvider)로부터
-  //    그 부품을 먼저 가져옵니다.
-  final repository = ref.watch(ddipEventRepositoryProvider);
+// ▼▼▼ [추가] proximityServiceProvider를 정의합니다. ▼▼▼
+// /// 앱의 백그라운드 동작(위치, 알림)을 총괄하는 서비스의 Provider입니다.
+// ///
+// /// 지금은 '가짜 서비스(FakeProximityService)'를 제공하도록 설정합니다.
+// /// 나중에 실제 FCM과 GPS를 사용하는 '진짜 서비스'가 완성되면,
+// /// 이 Provider 내부에서 생성하는 클래스만 바꿔주면(Fake -> Real),
+// /// 앱의 다른 코드는 전혀 건드리지 않고도 기능을 교체할 수 있습니다.
+// /// 이것이 바로 '한 줄만 바꿔서 갈아끼울 수 있도록' 만드는 핵심입니다.
+final proximityServiceProvider = Provider<ProximityService>((ref) {
+  // ▼▼▼ 지금은 Fake를 사용하고 있지만... ▼▼▼
+  // return FakeProximityService();
 
-  // 2. 가져온 부품을 사용하여 NotificationService를 최종적으로 조립(생성)하고 반환합니다.
-  //    이제 앱의 다른 곳에서는 이 notificationServiceProvider를 통해
-  //    잘 조립된 NotificationService를 언제든지 사용할 수 있습니다.
-  return NotificationService(ddipEventRepository: repository);
+  // ▼▼▼ 나중에 이 한 줄로 교체하면 '진짜' 서비스가 동작하게 됩니다. ▼▼▼
+  return RealProximityService();
 });

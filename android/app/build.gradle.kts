@@ -5,6 +5,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase 설정을 적용하기 위한 google-services 플러그인을 추가
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties()

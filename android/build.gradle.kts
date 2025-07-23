@@ -1,3 +1,14 @@
+// Firebase 설정을 위한 google-services 플러그인의 경로를 지정합니다.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.3")
+    }
+}
+
 allprojects {
     repositories {
         google()
