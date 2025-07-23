@@ -34,5 +34,5 @@ abstract class ProximityService {
   Stream<DdipNotification> get notificationStream;
 
   // 테스트 목적으로 '띱' 생성을 시뮬레이션하는 메서드를 인터페이스에 추가
-  Future<void> simulateEventCreation(DdipEvent event);
+  void simulateEventCreation(DdipEvent event);
 }

@@ -35,13 +35,14 @@ class FakeProximityService implements ProximityService {
 
   // '가짜' 서비스에서는 이 메서드가 호출되면 실제로 알림을 스트림에 추가합니다.
   @override
-  Future<void> simulateEventCreation(DdipEvent event) async {
-    await Future.delayed(const Duration(seconds: 5));
-
-    final fakeNotification = DdipNotification(
-      title: '[가상 알림] "${event.title}" 요청 발생!',
-      body: "${event.reward}원 보상의 새로운 요청이 근처에서 등록되었습니다.",
-    );
-    _notificationController.add(fakeNotification);
+  void simulateEventCreation(DdipEvent event) {
+    // 5초 뒤에 실행되도록 '예약'만 하고, 이 함수는 바로 다음 줄로 넘어감
+    Future.delayed(const Duration(seconds: 3), () {
+      final fakeNotification = DdipNotification(
+        title: '[가상 알림] "${event.title}" 요청 발생!',
+        body: "${event.reward}원 보상의 새로운 요청이 근처에서 등록되었습니다.",
+      );
+      _notificationController.add(fakeNotification);
+    });
   }
 }

@@ -146,7 +146,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     print('Fake createDdipEvent success: ${event.title}');
 
     // 가짜 알림을 트리거하는 로직 추가!
-    await ref.read(proximityServiceProvider).simulateEventCreation(event);
+    ref.read(proximityServiceProvider).simulateEventCreation(event);
   }
 
   @override

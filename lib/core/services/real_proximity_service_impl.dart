@@ -65,7 +65,7 @@ class RealProximityService implements ProximityService {
 
   // '진짜' 서비스에서는 이 메서드가 아무 동작도 하지 않아야 합니다.
   @override
-  Future<void> simulateEventCreation(DdipEvent event) async {
+  void simulateEventCreation(DdipEvent event) {
     // No operation needed. Real notifications are triggered by actual FCM messages.
     return;
   }
