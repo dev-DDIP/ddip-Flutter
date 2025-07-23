@@ -1,5 +1,6 @@
 // lib/features/ddip_event/domain/entities/ddip_event.dart
 
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
 
 enum DdipEventStatus { open, in_progress, completed, failed }
@@ -20,6 +21,7 @@ class DdipEvent {
   final List<String> applicants;
   final String? selectedResponderId;
   final List<PhotoFeedback> photos;
+  final List<Interaction> interactions;
 
   DdipEvent({
     required this.id,
@@ -34,6 +36,7 @@ class DdipEvent {
     this.applicants = const [],
     this.selectedResponderId,
     this.photos = const [],
+    this.interactions = const [],
   });
 
   DdipEvent copyWith({
@@ -50,6 +53,7 @@ class DdipEvent {
     // copyWith에서 nullable 필드를 null로 업데이트할 수 있도록 수정
     String? selectedResponderId,
     List<PhotoFeedback>? photos,
+    List<Interaction>? interactions,
   }) {
     return DdipEvent(
       id: id ?? this.id,
@@ -64,6 +68,7 @@ class DdipEvent {
       applicants: applicants ?? this.applicants,
       selectedResponderId: selectedResponderId ?? this.selectedResponderId,
       photos: photos ?? this.photos,
+      interactions: interactions ?? this.interactions,
     );
   }
 }

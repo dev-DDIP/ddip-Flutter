@@ -30,6 +30,11 @@ _$DdipEventModelImpl _$$DdipEventModelImplFromJson(Map<String, dynamic> json) =>
               )
               .toList() ??
           const [],
+      interactions:
+          (json['interactions'] as List<dynamic>?)
+              ?.map((e) => InteractionModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$$DdipEventModelImplToJson(
@@ -47,4 +52,5 @@ Map<String, dynamic> _$$DdipEventModelImplToJson(
   'selected_responder_id': instance.selectedResponderId,
   'applicants': instance.applicants,
   'photos': instance.photos,
+  'interactions': instance.interactions,
 };

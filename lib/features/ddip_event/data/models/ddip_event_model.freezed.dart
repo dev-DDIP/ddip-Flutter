@@ -36,6 +36,7 @@ mixin _$DdipEventModel {
   String? get selectedResponderId => throw _privateConstructorUsedError;
   List<String> get applicants => throw _privateConstructorUsedError;
   List<PhotoFeedbackModel> get photos => throw _privateConstructorUsedError;
+  List<InteractionModel> get interactions => throw _privateConstructorUsedError;
 
   /// Serializes this DdipEventModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -67,6 +68,7 @@ abstract class $DdipEventModelCopyWith<$Res> {
     @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
     List<String> applicants,
     List<PhotoFeedbackModel> photos,
+    List<InteractionModel> interactions,
   });
 }
 
@@ -97,6 +99,7 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
     Object? selectedResponderId = freezed,
     Object? applicants = null,
     Object? photos = null,
+    Object? interactions = null,
   }) {
     return _then(
       _value.copyWith(
@@ -160,6 +163,11 @@ class _$DdipEventModelCopyWithImpl<$Res, $Val extends DdipEventModel>
                     ? _value.photos
                     : photos // ignore: cast_nullable_to_non_nullable
                         as List<PhotoFeedbackModel>,
+            interactions:
+                null == interactions
+                    ? _value.interactions
+                    : interactions // ignore: cast_nullable_to_non_nullable
+                        as List<InteractionModel>,
           )
           as $Val,
     );
@@ -188,6 +196,7 @@ abstract class _$$DdipEventModelImplCopyWith<$Res>
     @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
     List<String> applicants,
     List<PhotoFeedbackModel> photos,
+    List<InteractionModel> interactions,
   });
 }
 
@@ -217,6 +226,7 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
     Object? selectedResponderId = freezed,
     Object? applicants = null,
     Object? photos = null,
+    Object? interactions = null,
   }) {
     return _then(
       _$DdipEventModelImpl(
@@ -280,6 +290,11 @@ class __$$DdipEventModelImplCopyWithImpl<$Res>
                 ? _value._photos
                 : photos // ignore: cast_nullable_to_non_nullable
                     as List<PhotoFeedbackModel>,
+        interactions:
+            null == interactions
+                ? _value._interactions
+                : interactions // ignore: cast_nullable_to_non_nullable
+                    as List<InteractionModel>,
       ),
     );
   }
@@ -301,8 +316,10 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     @JsonKey(name: 'selected_responder_id') this.selectedResponderId,
     final List<String> applicants = const [],
     final List<PhotoFeedbackModel> photos = const [],
+    final List<InteractionModel> interactions = const [],
   }) : _applicants = applicants,
        _photos = photos,
+       _interactions = interactions,
        super._();
 
   factory _$DdipEventModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -349,9 +366,18 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     return EqualUnmodifiableListView(_photos);
   }
 
+  final List<InteractionModel> _interactions;
+  @override
+  @JsonKey()
+  List<InteractionModel> get interactions {
+    if (_interactions is EqualUnmodifiableListView) return _interactions;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_interactions);
+  }
+
   @override
   String toString() {
-    return 'DdipEventModel(id: $id, title: $title, content: $content, requesterId: $requesterId, reward: $reward, latitude: $latitude, longitude: $longitude, createdAt: $createdAt, status: $status, selectedResponderId: $selectedResponderId, applicants: $applicants, photos: $photos)';
+    return 'DdipEventModel(id: $id, title: $title, content: $content, requesterId: $requesterId, reward: $reward, latitude: $latitude, longitude: $longitude, createdAt: $createdAt, status: $status, selectedResponderId: $selectedResponderId, applicants: $applicants, photos: $photos, interactions: $interactions)';
   }
 
   @override
@@ -378,7 +404,11 @@ class _$DdipEventModelImpl extends _DdipEventModel {
               other._applicants,
               _applicants,
             ) &&
-            const DeepCollectionEquality().equals(other._photos, _photos));
+            const DeepCollectionEquality().equals(other._photos, _photos) &&
+            const DeepCollectionEquality().equals(
+              other._interactions,
+              _interactions,
+            ));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -397,6 +427,7 @@ class _$DdipEventModelImpl extends _DdipEventModel {
     selectedResponderId,
     const DeepCollectionEquality().hash(_applicants),
     const DeepCollectionEquality().hash(_photos),
+    const DeepCollectionEquality().hash(_interactions),
   );
 
   /// Create a copy of DdipEventModel
@@ -430,6 +461,7 @@ abstract class _DdipEventModel extends DdipEventModel {
     @JsonKey(name: 'selected_responder_id') final String? selectedResponderId,
     final List<String> applicants,
     final List<PhotoFeedbackModel> photos,
+    final List<InteractionModel> interactions,
   }) = _$DdipEventModelImpl;
   const _DdipEventModel._() : super._();
 
@@ -463,6 +495,8 @@ abstract class _DdipEventModel extends DdipEventModel {
   List<String> get applicants;
   @override
   List<PhotoFeedbackModel> get photos;
+  @override
+  List<InteractionModel> get interactions;
 
   /// Create a copy of DdipEventModel
   /// with the given fields replaced by the non-null parameter values.

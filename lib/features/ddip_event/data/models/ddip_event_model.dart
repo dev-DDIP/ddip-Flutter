@@ -1,9 +1,9 @@
 // lib/features/ddip_event/data/models/ddip_event_model.dart
 
-import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/data/models/interaction_model.dart';
 import 'package:ddip/features/ddip_event/data/models/photo_feedback_model.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo_feedback.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'ddip_event_model.freezed.dart';
 part 'ddip_event_model.g.dart';
@@ -26,6 +26,7 @@ class DdipEventModel with _$DdipEventModel {
     @JsonKey(name: 'selected_responder_id') String? selectedResponderId,
     @Default([]) List<String> applicants,
     @Default([]) List<PhotoFeedbackModel> photos,
+    @Default([]) List<InteractionModel> interactions,
   }) = _DdipEventModel;
 
   const DdipEventModel._();
@@ -53,6 +54,10 @@ class DdipEventModel with _$DdipEventModel {
       applicants: applicants,
       selectedResponderId: selectedResponderId,
       photos: photos.map((photoModel) => photoModel.toEntity()).toList(),
+      interactions:
+          interactions
+              .map((interactionModel) => interactionModel.toEntity())
+              .toList(),
     );
   }
 }
