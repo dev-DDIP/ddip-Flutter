@@ -5,7 +5,86 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+
+// 말풍선 UI를 위한 재사용 위젯
+class _ChatBubble extends StatelessWidget {
+  final Interaction interaction;
+  final String message;
+  final bool isMe; // 내가 보낸 메시지인지 여부 (오른쪽 정렬)
+
+  const _ChatBubble({
+    required this.interaction,
+    required this.message,
+    required this.isMe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 시간 포맷을 '오후 2:30' 과 같이 변경
+    final timeString = DateFormat(
+      'a h:mm',
+      'ko_KR',
+    ).format(interaction.timestamp);
+
+    return Align(
+      // isMe 값에 따라 정렬 방향 결정
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.blue[100] : Colors.grey[200],
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft:
+                isMe ? const Radius.circular(16) : const Radius.circular(0),
+            bottomRight:
+                isMe ? const Radius.circular(0) : const Radius.circular(16),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(message, style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 4),
+            Text(
+              timeString,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 시스템 메시지 UI를 위한 재사용 위젯
+class _SystemMessage extends StatelessWidget {
+  final String message;
+
+  const _SystemMessage({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[300], // 시스템 메시지 배경색
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+      ),
+    );
+  }
+}
 
 /// 이벤트의 모든 상호작용 기록을 타임라인 형태로 보여주는 위젯
 class InteractionTimelineView extends ConsumerWidget {
@@ -13,31 +92,46 @@ class InteractionTimelineView extends ConsumerWidget {
 
   const InteractionTimelineView({super.key, required this.event});
 
-  // 각 Interaction 객체를 사용자 친화적인 텍스트로 변환하는 헬퍼 함수
-  String _formatInteractionMessage(Interaction interaction, WidgetRef ref) {
+  // ActorRole이 'SYSTEM'일 때 표시할 메시지를 생성하는 함수
+  String _getSystemMessage(Interaction interaction) {
+    switch (interaction.actionType) {
+      case ActionType.expire:
+        return '⏳ 30분 동안 지원자가 없어 요청이 만료되었습니다.';
+      case ActionType.rewardPaid:
+        return '💰 미션이 완료되어 수행자에게 보상이 지급되었습니다.';
+      case ActionType
+          .selectResponder: // 이 액션은 요청자가 하지만, 시스템 알림으로 보여주는 것이 더 자연스러움
+        final responderName =
+            mockUsers
+                .firstWhere((user) => user.id == event.selectedResponderId)
+                .name;
+        return '🤝 ${responderName}님과 매칭되었습니다. 지금부터 미션을 시작해주세요!';
+      default:
+        return '시스템 알림이 도착했습니다.';
+    }
+  }
+
+  // 사용자(requester, responder)가 보낸 메시지 내용을 생성하는 함수
+  String _getChatMessage(Interaction interaction) {
     final actorName =
         mockUsers.firstWhere((user) => user.id == interaction.actorId).name;
-
     switch (interaction.actionType) {
       case ActionType.create:
-        return '$actorName님이 요청을 생성했습니다.';
+        return '제가 이 요청을 생성했어요.';
       case ActionType.apply:
-        return '$actorName님이 지원했습니다.';
-      case ActionType.selectResponder:
-        return '요청자가 $actorName님을 수행자로 선택했습니다.';
+        return '제가 이 요청에 지원했어요.';
       case ActionType.submitPhoto:
-        return '$actorName님이 사진을 제출했습니다.';
+        return '사진을 제출했어요. 확인해주세요!';
       case ActionType.approve:
-        return '요청자가 제출된 사진을 승인했습니다.';
+        return '사진을 확인했어요. 미션 완료!';
       case ActionType.requestRevision:
-        // 거절 사유(messageCode)가 있는 경우 함께 표시
         final reason = _formatMessageCode(interaction.messageCode);
-        return '요청자가 사진 수정을 요청했습니다: "$reason"';
+        return '사진을 다시 찍어주시겠어요?\n- 사유: "$reason"';
       case ActionType.reportSituation:
         final situation = _formatMessageCode(interaction.messageCode);
-        return '$actorName님이 현장 상황을 보고했습니다: "$situation"';
+        return '현장 상황을 보고드려요.\n- 내용: "$situation"';
       default:
-        return '알 수 없는 활동이 기록되었습니다.';
+        return '새로운 활동이 기록되었습니다.';
     }
   }
 
@@ -61,66 +155,61 @@ class InteractionTimelineView extends ConsumerWidget {
     }
   }
 
-  // 각 ActionType에 맞는 아이콘을 반환하는 헬퍼 함수
-  IconData _getIconForAction(ActionType actionType) {
-    switch (actionType) {
-      case ActionType.create:
-        return Icons.add_circle_outline;
-      case ActionType.apply:
-        return Icons.pan_tool_outlined;
-      case ActionType.selectResponder:
-        return Icons.how_to_reg_outlined;
-      case ActionType.submitPhoto:
-        return Icons.camera_alt_outlined;
-      case ActionType.approve:
-        return Icons.thumb_up_alt_outlined;
-      case ActionType.requestRevision:
-        return Icons.thumb_down_alt_outlined;
-      case ActionType.reportSituation:
-        return Icons.report_problem_outlined;
-      default:
-        return Icons.history;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 상호작용이 없으면 아무것도 표시하지 않음
-    if (event.interactions.isEmpty) {
+    // 한국 시간 포맷을 위해 초기화
+    initializeDateFormatting('ko_KR');
+
+    // 현재 로그인한 사용자 정보를 가져옵니다.
+    final currentUser = ref.watch(authProvider);
+    if (currentUser == null || event.interactions.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    // 상호작용 목록을 시간순으로 정렬 (오래된 것이 위로)
+    final sortedInteractions = List<Interaction>.from(event.interactions)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 8.0, top: 24.0, bottom: 8.0),
-          child: Text('활동 기록', style: Theme.of(context).textTheme.titleMedium),
+          child: Text('대화 기록', style: Theme.of(context).textTheme.titleMedium),
         ),
-        // 상호작용 목록을 시간순으로 표시
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: event.interactions.length,
+          itemCount: sortedInteractions.length,
           itemBuilder: (context, index) {
-            final interaction = event.interactions[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 4.0),
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Icon(
-                    _getIconForAction(interaction.actionType),
-                    size: 20,
-                  ),
-                ),
-                title: Text(_formatInteractionMessage(interaction, ref)),
-                subtitle: Text(
-                  DateFormat(
-                    'yyyy년 MM월 dd일 HH:mm',
-                  ).format(interaction.timestamp),
-                ),
-              ),
-            );
+            final interaction = sortedInteractions[index];
+
+            // ActorRole에 따라 다른 위젯을 반환합니다.
+            switch (interaction.actorRole) {
+              case ActorRole.system:
+                // 시스템이 보낸 메시지일 경우
+                return _SystemMessage(message: _getSystemMessage(interaction));
+
+              case ActorRole.requester:
+              case ActorRole.responder:
+                // 요청자 또는 응답자가 보낸 메시지일 경우
+                final bool isMe = interaction.actorId == currentUser.id;
+                final String message = _getChatMessage(interaction);
+
+                // 수행자 선택(selectResponder)은 시스템 메시지로 처리했으므로 여기서는 건너뜁니다.
+                if (interaction.actionType == ActionType.selectResponder) {
+                  return const SizedBox.shrink();
+                }
+
+                return _ChatBubble(
+                  interaction: interaction,
+                  message: message,
+                  isMe: isMe,
+                );
+
+              default:
+                return const SizedBox.shrink(); // 혹시 모를 예외 처리
+            }
           },
         ),
       ],
