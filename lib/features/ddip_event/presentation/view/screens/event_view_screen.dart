@@ -55,6 +55,8 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
 
         final currentUser = ref.watch(authProvider);
         final isRequester = currentUser?.id == event.requesterId;
+        final isSelectedResponder =
+            currentUser?.id == event.selectedResponderId; // ✨ [추가] 수행자 여부 확인
         final isSelectable = event.status == DdipEventStatus.open;
         final isInProgress = event.status == DdipEventStatus.in_progress;
 
@@ -123,10 +125,14 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
                                   event: event,
                                   isRequester: isRequester,
                                 ),
-                              if (isRequester &&
-                                  isInProgress &&
+                              // ✨ [수정] PhotoView가 보이는 조건을 '요청자' 또는 '선택된 수행자'로 확장
+                              if ((isRequester || isSelectedResponder) &&
                                   event.photos.isNotEmpty)
-                                PhotoView(event: event),
+                                PhotoView(
+                                  event: event,
+                                  isRequester:
+                                      isRequester, // ✨ [추가] 현재 사용자가 요청자인지 여부를 전달
+                                ),
                               const SizedBox(height: 24),
                               EventActionButton(event: event),
                               const SizedBox(height: 40), // 시트 하단 여백
