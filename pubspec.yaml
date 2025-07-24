@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # intl 패키지는 날짜, 시간, 숫자 및 메시지의 국제화를 지원
+  intl: ^0.17.0
   # Firebase 핵심 기능과 메시징 패키지를 추가
   firebase_core: ^3.1.1
   firebase_messaging: ^15.0.2

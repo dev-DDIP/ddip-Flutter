@@ -2,13 +2,13 @@
 
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/applicant_list_view.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/event_action_button.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/event_details_view.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/event_map_view.dart';
+import 'package:ddip/features/ddip_event/presentation/view/widgets/interaction_timeline_view.dart';
 import 'package:ddip/features/ddip_event/presentation/view/widgets/photo_view.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
@@ -114,6 +114,12 @@ class _EventViewScreenState extends ConsumerState<EventViewScreen> {
                               isInProgress &&
                               event.photos.isNotEmpty)
                             PhotoView(event: event),
+
+                          // 상호작용 타임라인 위젯을 여기에 추가합니다.
+                          if (isRequester ||
+                              (currentUser != null &&
+                                  event.selectedResponderId == currentUser.id))
+                            InteractionTimelineView(event: event),
 
                           const SizedBox(height: 24),
                           // 이벤트 상태에 따라 다른 버튼을 보여주는 위젯
