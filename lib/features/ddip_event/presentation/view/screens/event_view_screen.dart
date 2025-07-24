@@ -1,180 +1,232 @@
-// lib/features/ddip_event/presentation/view/screens/event_view_screen.dart
+// lib/features/ddip_event/presentation/view/widgets/event_action_button.dart
 
-import 'dart:io';
-
-import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/presentation/view/widgets/applicant_list_view.dart';
-import 'package:ddip/features/ddip_event/presentation/view/widgets/photo_view.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
 
-import '../widgets/event_action_button.dart';
-import '../widgets/event_details_view.dart';
-import '../widgets/event_map_view.dart';
+class EventActionButton extends ConsumerStatefulWidget {
+  final DdipEvent event;
 
-class EventViewScreen extends ConsumerStatefulWidget {
-  final String eventId;
-
-  const EventViewScreen({super.key, required this.eventId});
-
+  const EventActionButton({super.key, required this.event});
   @override
-  ConsumerState<EventViewScreen> createState() => _EventViewScreenState();
+  ConsumerState<EventActionButton> createState() => _EventActionButtonState();
 }
 
-class _EventViewScreenState extends ConsumerState<EventViewScreen> {
-  String? _fullScreenImageUrl;
+class _EventActionButtonState extends ConsumerState<EventActionButton> {
+  bool _isProcessing = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final eventsAsyncValue = ref.watch(ddipEventsNotifierProvider);
+  /// 버튼 클릭 시 비동기 작업을 처리하는 공통 함수
+  Future<void> _handleAction(Future<void> Function() action) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
 
-    return eventsAsyncValue.when(
-      loading:
-          () => Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: CircularProgressIndicator()),
-          ),
-      error:
-          (err, stack) => Scaffold(
-            appBar: AppBar(title: const Text('오류')),
-            body: Center(child: Text('오류가 발생했습니다: $err')),
-          ),
-      data: (events) {
-        final event = events.firstWhereOrNull((e) => e.id == widget.eventId);
-
-        if (event == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('오류')),
-            body: const Center(child: Text('요청 정보를 찾을 수 없습니다.')),
-          );
-        }
-
-        final currentUser = ref.watch(authProvider);
-        final isRequester = currentUser?.id == event.requesterId;
-        final isSelectedResponder =
-            currentUser?.id == event.selectedResponderId; // ✨ [추가] 수행자 여부 확인
-        final isSelectable = event.status == DdipEventStatus.open;
-        final isInProgress = event.status == DdipEventStatus.in_progress;
-
-        // [수정] Scaffold가 Stack을 감싸는 구조로 변경
-        return Scaffold(
-          body: Stack(
-            children: [
-              // 1. 배경: 지도가 전체 화면을 차지합니다.
-              EventMapView(
-                event: event,
-                onPhotoMarkerTapped: (photoUrl) {
-                  setState(() {
-                    _fullScreenImageUrl = photoUrl;
-                  });
-                },
-              ),
-
-              // 2. 전경: 드래그 가능한 상세 정보 시트
-              DraggableScrollableSheet(
-                initialChildSize: 0.35, // 처음에는 35% 높이로 시작
-                minChildSize: 0.15, // 최소 15% 높이
-                maxChildSize: 0.9, // 최대로 90%까지 확장
-                builder: (
-                  BuildContext context,
-                  ScrollController scrollController,
-                ) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).canvasColor,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    // 3. 시트 내부 콘텐츠는 ListView로 스크롤 가능하게 만듭니다.
-                    child: ListView(
-                      controller: scrollController, // 시트와 스크롤 동기화
-                      padding: EdgeInsets.zero,
-                      children: [
-                        // 시트 상단의 핸들바
-                        Center(
-                          child: Container(
-                            width: 40,
-                            height: 5,
-                            margin: const EdgeInsets.symmetric(vertical: 12.0),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                        // 4. 기존 위젯들을 시트 안으로 이동
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              EventDetailsView(event: event),
-                              if (isSelectable && event.applicants.isNotEmpty)
-                                ApplicantListView(
-                                  event: event,
-                                  isRequester: isRequester,
-                                ),
-                              // ✨ [수정] PhotoView가 보이는 조건을 '요청자' 또는 '선택된 수행자'로 확장
-                              if ((isRequester || isSelectedResponder) &&
-                                  event.photos.isNotEmpty)
-                                PhotoView(
-                                  event: event,
-                                  isRequester:
-                                      isRequester, // ✨ [추가] 현재 사용자가 요청자인지 여부를 전달
-                                ),
-                              const SizedBox(height: 24),
-                              EventActionButton(event: event),
-                              const SizedBox(height: 40), // 시트 하단 여백
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              // 5. 전체 화면 이미지 뷰 (기존과 동일)
-              if (_fullScreenImageUrl != null)
-                GestureDetector(
-                  onTap: () => setState(() => _fullScreenImageUrl = null),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.85),
-                    alignment: Alignment.center,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Image.file(File(_fullScreenImageUrl!)),
-                    ),
-                  ),
+  /// 사진 제출 또는 상황 보고를 위한 다이얼로그를 띄우는 함수
+  Future<Map<String, dynamic>?> _showSubmissionOptionsDialog() async {
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('수행 옵션 선택'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                const Text('현장 상황을 선택해주세요.'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  child: const Text('단순 사진 제출'),
+                  onPressed:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.submitPhoto,
+                      }),
                 ),
-
-              // 6. 지도 위에 떠있는 뒤로가기 버튼 (AppBar 대체)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 10,
-                child: CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.5),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => context.pop(),
-                  ),
+                const Divider(height: 24),
+                const Text('또는, 특별한 상황 보고:'),
+                ListTile(
+                  title: const Text('재료가 소진되어 마감됐어요.'),
+                  onTap:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.reportSituation,
+                        'message': MessageCode.soldOut,
+                      }),
                 ),
-              ),
-            ],
+                ListTile(
+                  title: const Text('대기 줄이 너무 길어요.'),
+                  onTap:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.reportSituation,
+                        'message': MessageCode.longQueue,
+                      }),
+                ),
+                ListTile(
+                  title: const Text('요청 장소가 현재 닫혀있어요.'),
+                  onTap:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.reportSituation,
+                        'message': MessageCode.placeClosed,
+                      }),
+                ),
+              ],
+            ),
           ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('취소'),
+              onPressed: () => Navigator.pop(context, null),
+            ),
+          ],
         );
       },
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUser = ref.watch(authProvider);
+    final notifier = ref.read(ddipEventsNotifierProvider.notifier);
+
+    if (currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isRequester = widget.event.requesterId == currentUser.id;
+    final bool isSelectedResponder =
+        widget.event.selectedResponderId == currentUser.id;
+
+    final buttonStyle = FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      minimumSize: const Size(double.infinity, 50),
+    );
+
+    if (_isProcessing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    switch (widget.event.status) {
+      case DdipEventStatus.open:
+        if (!isRequester && !widget.event.applicants.contains(currentUser.id)) {
+          return FilledButton.icon(
+            icon: const Icon(Icons.pan_tool_outlined),
+            label: const Text('지원하기'),
+            onPressed:
+                () =>
+                    _handleAction(() => notifier.applyToEvent(widget.event.id)),
+            style: buttonStyle,
+          );
+        }
+        return const SizedBox.shrink();
+
+      case DdipEventStatus.in_progress:
+        if (isSelectedResponder) {
+          final hasPendingPhoto = widget.event.photos.any(
+            (p) => p.status == PhotoStatus.pending,
+          );
+          if (hasPendingPhoto) {
+            return const Card(
+              color: Colors.amberAccent,
+              child: ListTile(
+                leading: Icon(Icons.hourglass_top_outlined),
+                title: Text('요청자의 피드백을 기다리는 중입니다.'),
+                subtitle: Text('피드백 이후 다음 사진을 보낼 수 있습니다.'),
+              ),
+            );
+          }
+
+          return FilledButton.icon(
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('사진 찍고 제출하기'),
+            onPressed: () async {
+              final imagePath = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(builder: (context) => const CameraScreen()),
+              );
+              if (imagePath == null || !mounted) return;
+
+              final submissionResult = await _showSubmissionOptionsDialog();
+              if (submissionResult == null || !mounted) return;
+
+              setState(() => _isProcessing = true);
+
+              try {
+                final position = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.high,
+                );
+
+                final newPhoto = Photo(
+                  id: const Uuid().v4(),
+                  url: imagePath,
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  timestamp: DateTime.now(),
+                );
+
+                // Notifier의 addPhoto 메서드에 선택된 옵션 전달
+                await notifier.addPhoto(
+                  widget.event.id,
+                  newPhoto,
+                  action: submissionResult['action'] as ActionType,
+                  messageCode: submissionResult['message'] as MessageCode?,
+                );
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _isProcessing = false);
+                }
+              }
+            },
+            style: buttonStyle.copyWith(
+              backgroundColor: MaterialStateProperty.all(Colors.green),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+
+      case DdipEventStatus.completed:
+        return FilledButton.icon(
+          icon: const Icon(Icons.check_circle_outline),
+          label: const Text('완료된 요청'),
+          onPressed: null,
+          style: buttonStyle,
+        );
+
+      case DdipEventStatus.failed:
+        return FilledButton.icon(
+          icon: const Icon(Icons.error_outline),
+          label: const Text('실패한 요청'),
+          onPressed: null,
+          style: buttonStyle.copyWith(
+            backgroundColor: MaterialStateProperty.all(Colors.red[700]),
+          ),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

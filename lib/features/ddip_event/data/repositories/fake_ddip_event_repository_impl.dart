@@ -1,4 +1,5 @@
 import 'package:ddip/core/providers/core_providers.dart';
+import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
@@ -82,13 +83,40 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> addPhoto(String eventId, Photo photo) async {
+  Future<void> addPhoto(
+    String eventId,
+    Photo photo, {
+    required ActionType action,
+    MessageCode? messageCode,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 500));
     final index = _ddipEvents.indexWhere((event) => event.id == eventId);
     if (index != -1) {
       final event = _ddipEvents[index];
+      final currentUser = ref.read(authProvider);
+      if (currentUser == null) throw Exception("User not logged in");
+
+      // 1. 새로운 사진을 photos 리스트에 추가합니다.
       final newPhotos = List<Photo>.from(event.photos)..add(photo);
-      final updatedEvent = event.copyWith(photos: newPhotos);
+
+      // 2. 새로운 Interaction 로그를 생성합니다.
+      final newInteraction = Interaction(
+        id: const Uuid().v4(),
+        actorId: currentUser.id,
+        actorRole: ActorRole.responder,
+        actionType: action,
+        messageCode: messageCode,
+        relatedPhotoId: photo.id, // 이 상호작용이 어떤 사진과 관련있는지 명시
+        timestamp: DateTime.now(),
+      );
+      final newInteractions = List<Interaction>.from(event.interactions)
+        ..add(newInteraction);
+
+      // 3. 사진과 상호작용 로그가 모두 업데이트된 새로운 이벤트 객체를 만듭니다.
+      final updatedEvent = event.copyWith(
+        photos: newPhotos,
+        interactions: newInteractions,
+      );
       _ddipEvents[index] = updatedEvent;
     } else {
       throw Exception('Event not found');
@@ -99,49 +127,51 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    PhotoStatus status,
+    PhotoStatus status, {
     MessageCode? messageCode,
-  ) async {
+  }) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final eventIndex = _ddipEvents.indexWhere((event) => event.id == eventId);
 
     if (eventIndex != -1) {
       final event = _ddipEvents[eventIndex];
-      final photoIndex = event.photos.indexWhere(
-        (photo) => photo.id == photoId,
-      );
+      final currentUser = ref.read(authProvider);
+      if (currentUser == null) throw Exception("User not logged in");
+
+      final photoIndex = event.photos.indexWhere((p) => p.id == photoId);
       if (photoIndex != -1) {
+        // 1. 사진의 상태를 업데이트합니다.
         final updatedPhoto = event.photos[photoIndex].copyWith(status: status);
         final newPhotos = List<Photo>.from(event.photos);
         newPhotos[photoIndex] = updatedPhoto;
 
+        // 2. 이벤트의 최종 상태를 결정합니다.
         DdipEventStatus newEventStatus = event.status;
         if (status == PhotoStatus.approved) {
           newEventStatus = DdipEventStatus.completed;
-        } else if (status == PhotoStatus.rejected && newPhotos.length >= 3) {
+        } else if (status == PhotoStatus.rejected &&
+            newPhotos.where((p) => p.status == PhotoStatus.rejected).length >=
+                3) {
           newEventStatus = DdipEventStatus.failed;
         }
 
-        final newInteractions = List<Interaction>.from(event.interactions);
-        final actionType =
-            status == PhotoStatus.approved
-                ? ActionType.approve
-                : ActionType.requestRevision;
-
-        newInteractions.add(
-          Interaction(
-            id: const Uuid().v4(),
-            actorId: event.requesterId,
-            // 요청자가 이 행동의 주체
-            actorRole: ActorRole.requester,
-            actionType: actionType,
-            messageCode: messageCode,
-            // 사용자가 선택한 거절 사유
-            relatedPhotoId: photoId,
-            timestamp: DateTime.now(),
-          ),
+        // 3. 새로운 Interaction 로그를 생성합니다.
+        final newInteraction = Interaction(
+          id: const Uuid().v4(),
+          actorId: currentUser.id,
+          actorRole: ActorRole.requester,
+          actionType:
+              status == PhotoStatus.approved
+                  ? ActionType.approve
+                  : ActionType.requestRevision,
+          messageCode: messageCode,
+          relatedPhotoId: photoId,
+          timestamp: DateTime.now(),
         );
+        final newInteractions = List<Interaction>.from(event.interactions)
+          ..add(newInteraction);
 
+        // 4. 모든 변경사항을 반영한 최종 이벤트 객체를 만듭니다.
         final updatedEvent = event.copyWith(
           photos: newPhotos,
           status: newEventStatus,

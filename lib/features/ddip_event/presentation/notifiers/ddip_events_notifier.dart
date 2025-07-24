@@ -46,9 +46,20 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
   }
 
   // [신규 로직] 사진을 제출하는 메서드
-  Future<void> addPhoto(String eventId, Photo photo) async {
+  Future<void> addPhoto(
+    String eventId,
+    Photo photo, {
+    ActionType action = ActionType.submitPhoto,
+    MessageCode? messageCode,
+  }) async {
     final repository = _ref.read(ddipEventRepositoryProvider);
-    await repository.addPhoto(eventId, photo);
+    // Repository에 그대로 전달합니다.
+    await repository.addPhoto(
+      eventId,
+      photo,
+      action: action,
+      messageCode: messageCode,
+    );
     await loadEvents();
   }
 
@@ -56,11 +67,17 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
   Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    PhotoStatus status,
+    PhotoStatus status, {
     MessageCode? messageCode,
-  ) async {
+  }) async {
     final repository = _ref.read(ddipEventRepositoryProvider);
-    await repository.updatePhotoStatus(eventId, photoId, status, messageCode);
+    // Repository에 그대로 전달합니다.
+    await repository.updatePhotoStatus(
+      eventId,
+      photoId,
+      status,
+      messageCode: messageCode,
+    );
     await loadEvents();
   }
 }

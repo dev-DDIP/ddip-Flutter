@@ -67,7 +67,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<void> addPhoto(String eventId, Photo photo) async {
+  Future<void> addPhoto(
+    String eventId,
+    Photo photo, {
+    required ActionType action,
+    MessageCode? messageCode,
+  }) async {
     // TODO: PhotoFeedback 엔티티를 API에 맞는 모델로 변환하는 로직 필요
     return remoteDataSource.addPhoto();
   }
@@ -76,9 +81,9 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   Future<void> updatePhotoStatus(
     String eventId,
     String photoId,
-    PhotoStatus status,
+    PhotoStatus status, {
     MessageCode? messageCode,
-  ) async {
+  }) async {
     // TODO: FeedbackStatus enum을 API에 맞는 String 값으로 변환하는 로직 필요
     return remoteDataSource.updatePhotoFeedback(
       eventId,
