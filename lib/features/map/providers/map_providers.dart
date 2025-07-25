@@ -1,17 +1,26 @@
-// [최종 수정] Provider의 상태 타입을 MapState로 정확히 명시
+// lib/features/map/providers/map_providers.dart
 import 'package:ddip/features/map/presentation/notifiers/map_marker_notifier.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// [수정] MapState 클래스 정의를 Notifier 파일에서 이곳으로 이동
+// [수정] MapState 클래스: 개별 마커의 추가/수정/삭제를 용이하게 하기 위해
+// Set<NMarker> 대신 Map<String, NMarker>를 사용합니다.
 class MapState {
-  final Set<NMarker> markers;
+  // key: 마커의 고유 ID, value: NMarker 객체
+  final Map<String, NMarker> markers;
   final NLatLngBounds? bounds;
 
   MapState({required this.markers, this.bounds});
+
+  // 상태를 쉽게 업데이트하기 위한 copyWith 메서드
+  MapState copyWith({Map<String, NMarker>? markers, NLatLngBounds? bounds}) {
+    return MapState(
+      markers: markers ?? this.markers,
+      bounds: bounds ?? this.bounds,
+    );
+  }
 }
 
-// [수정] Provider가 관리하는 상태 타입을 AsyncValue<Set<NMarker>>에서 AsyncValue<MapState>로 변경
 final mapMarkerNotifierProvider =
     StateNotifierProvider.autoDispose<MapMarkerNotifier, AsyncValue<MapState>>((
       ref,

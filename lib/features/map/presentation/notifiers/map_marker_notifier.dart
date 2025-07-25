@@ -1,10 +1,7 @@
-// [최종 개선] 점진적 로딩과 지능형 업데이트를 모두 적용
-import 'dart:math';
-
+// lib/features/map/presentation/notifiers/map_marker_notifier.dart
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
-import 'package:ddip/features/map/presentation/widgets/cluster_marker.dart';
-import 'package:ddip/features/map/presentation/widgets/declutter_marker.dart';
+import 'package:ddip/features/map/presentation/widgets/pulsing_marker_icon.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -15,134 +12,139 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
   final Ref _ref;
   BuildContext? _context;
   final Map<String, NOverlayImage> _imageCache = {};
+  bool _initialBoundsFitted = false;
 
-  List<DdipEvent> _currentEvents = [];
-
-  // [추가] GPS 위치를 저장할 클래스 멤버 변수 선언
-  Position? _currentPosition;
-  late Function(String, String) _onPhotoMarkerTapCallback;
-  bool _isCurrentlyClustered = false;
-
-  MapMarkerNotifier(this._ref) : super(const AsyncValue.loading());
+  MapMarkerNotifier(this._ref)
+    : super(AsyncValue.data(MapState(markers: {}, bounds: null)));
 
   void setContext(BuildContext context) {
     _context = context;
   }
 
-  /// [신규] 점진적 로딩을 수행하는 새로운 초기화 함수
-  Future<void> loadInitialMarkers({
+  Future<void> initialize({
     required List<DdipEvent> events,
-    required Position? currentPosition, // 이 값을 저장해야 함
     required void Function(String eventId, String photoId) onPhotoMarkerTap,
   }) async {
     if (_context == null || !mounted) return;
-    state = const AsyncValue.loading();
+    _initialBoundsFitted = false;
 
-    _currentEvents = events;
-    // [추가] 전달받은 GPS 위치를 클래스 멤버 변수에 저장
-    _currentPosition = currentPosition;
-    _onPhotoMarkerTapCallback = onPhotoMarkerTap;
-    _isCurrentlyClustered = false;
+    state = AsyncValue.data(MapState(markers: {}, bounds: null));
 
+    _loadUserLocation();
+    _processEvents(events, onPhotoMarkerTap);
+  }
+
+  Future<void> _loadUserLocation() async {
     try {
-      final allMarkers = await _generateAllMarkers();
-      final allPositions = allMarkers.map((m) => m.position).toList();
-      final bounds =
-          allPositions.isNotEmpty ? NLatLngBounds.from(allPositions) : null;
-      state = AsyncValue.data(MapState(markers: allMarkers, bounds: bounds));
-    } catch (e, s) {
-      state = AsyncValue.error(e, s);
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+
+      final marker = await _createMyLocationMarker(position);
+
+      final currentMarkers = Map.of(
+        state.value?.markers ?? <String, NMarker>{},
+      );
+      currentMarkers[marker.info.id] = marker;
+
+      // ▼▼▼ [추가] 새로운 마커가 추가될 때마다 경계를 다시 계산하여 상태를 업데이트합니다. ▼▼▼
+      _updateStateWithNewMarkers(currentMarkers);
+      // ▲▲▲ 여기까지 추가 ▲▲▲
+    } catch (e) {
+      print("사용자 위치 로딩 실패: $e");
     }
   }
 
-  Future<void> updateMarkersForIdle({
-    required NCameraPosition cameraPosition,
-  }) async {
-    if (_context == null || !mounted || state.isLoading) return;
-
-    final double zoom = cameraPosition.zoom;
-    final bool shouldBeClustered = zoom < 14;
-
-    if (shouldBeClustered == _isCurrentlyClustered) {
-      return;
+  Future<void> _processEvents(
+    List<DdipEvent> events,
+    void Function(String eventId, String photoId) onPhotoMarkerTap,
+  ) async {
+    final eventMarkers = <String, NMarker>{};
+    for (final event in events) {
+      final marker = await _createEventMarker(event);
+      eventMarkers[marker.info.id] = marker;
     }
 
-    _isCurrentlyClustered = shouldBeClustered;
+    if (mounted) {
+      final currentMarkers = Map.of(
+        state.value?.markers ?? <String, NMarker>{},
+      );
+      currentMarkers.addAll(eventMarkers);
 
-    try {
-      final Set<NMarker> updatedMarkers;
-      if (shouldBeClustered) {
-        updatedMarkers = await _generateClusteredMarkers(zoom);
-      } else {
-        // 이제 _generateAllMarkers는 _currentPosition을 정상적으로 참조 가능
-        updatedMarkers = await _generateAllMarkers();
-      }
-      state = AsyncValue.data(MapState(markers: updatedMarkers, bounds: null));
-    } catch (e, s) {
-      state = AsyncValue.error(e, s);
+      // ▼▼▼ [추가] 이벤트 마커들이 추가된 후에도 경계를 다시 계산합니다. ▼▼▼
+      _updateStateWithNewMarkers(currentMarkers);
+      // ▲▲▲ 여기까지 추가 ▲▲▲
     }
-  }
 
-  // --- Private Helper Functions ---
-  Future<Set<NMarker>> _generateEventAndPhotoMarkers() async {
-    final Set<NMarker> markers = {};
-    for (final event in _currentEvents) {
-      markers.add(await _createSimpleMarker(event));
+    for (final event in events) {
       for (final photo in event.photos) {
-        markers.add(
-          await _createPhotoMarker(event.id, photo, _onPhotoMarkerTapCallback),
+        if (!mounted) return;
+
+        final loadingMarker = await _createPhotoMarker(
+          event.id,
+          photo,
+          onPhotoMarkerTap,
+          isLoading: true,
         );
+
+        final currentMarkers = Map.of(
+          state.value?.markers ?? <String, NMarker>{},
+        );
+        currentMarkers[loadingMarker.info.id] = loadingMarker;
+
+        // ▼▼▼ [추가] 로딩 마커가 추가될 때도 경계를 다시 계산하여 사용자가 로딩 위치를 볼 수 있게 합니다. ▼▼▼
+        _updateStateWithNewMarkers(currentMarkers);
+        // ▲▲▲ 여기까지 추가 ▲▲▲
+
+        final finalMarker = await _createPhotoMarker(
+          event.id,
+          photo,
+          onPhotoMarkerTap,
+          isLoading: false,
+        );
+
+        if (mounted) {
+          final updatedMarkers = Map.of(
+            state.value?.markers ?? <String, NMarker>{},
+          );
+          updatedMarkers[finalMarker.info.id] = finalMarker;
+
+          // ▼▼▼ [추가] 최종 마커로 교체된 후에도 마지막으로 경계를 다시 계산합니다. ▼▼▼
+          _updateStateWithNewMarkers(updatedMarkers);
+          // ▲▲▲ 여기까지 추가 ▲▲▲
+        }
       }
     }
-    return markers;
   }
 
-  // --- Private Helper Functions ---
-  Future<Set<NMarker>> _generateAllMarkers() async {
-    final Set<NMarker> markers = {};
-    // [수정] 이제 이 변수는 정상적으로 클래스 멤버를 가리킴
-    if (_currentPosition != null) {
-      markers.add(await _createMyLocationMarker(_currentPosition!));
+  void _updateStateWithNewMarkers(Map<String, NMarker> newMarkers) {
+    if (!mounted) return;
+
+    NLatLngBounds? newBounds;
+    final markerValues = newMarkers.values.toList();
+
+    // 아직 초기 범위 조정이 실행되지 않았고,
+    // '사용자 위치'와 '요청 위치' 마커가 모두 준비되었을 때만 실행
+    if (!_initialBoundsFitted &&
+        newMarkers.containsKey('my_location') &&
+        newMarkers.isNotEmpty && // events 마커가 하나 이상 있다는 의미
+        newMarkers.keys
+            .firstWhere((k) => k != 'my_location', orElse: () => '')
+            .isNotEmpty) {
+      final positions = markerValues.map((m) => m.position).toList();
+      newBounds = NLatLngBounds.from(positions);
+      _initialBoundsFitted = true; // 플래그를 true로 바꿔 다시 실행되지 않도록 함
     }
-    for (final event in _currentEvents) {
-      markers.add(await _createSimpleMarker(event));
-      for (final photo in event.photos) {
-        markers.add(
-          await _createPhotoMarker(event.id, photo, _onPhotoMarkerTapCallback),
-        );
-      }
-    }
-    return markers;
+
+    state = AsyncValue.data(
+      state.value!.copyWith(
+        markers: newMarkers,
+        // newBounds가 null이 아닐 경우에만 (즉, 위의 조건이 충족될 때만) bounds를 업데이트
+        bounds: newBounds ?? state.value?.bounds,
+      ),
+    );
   }
 
-  Future<Set<NMarker>> _generateClusteredMarkers(double zoom) async {
-    final Set<NMarker> markers = {};
-    final clusters = _createClusters(_currentEvents, zoom);
-
-    for (var entry in clusters.entries) {
-      final clusterEvents = entry.value;
-      if (clusterEvents.length == 1) {
-        markers.add(await _createSimpleMarker(clusterEvents.first));
-      } else {
-        final clusterKey = 'cluster_${clusterEvents.length}';
-        final clusterIcon = await _getCachedOverlayImage(
-          clusterKey,
-          ClusterMarker(count: clusterEvents.length),
-        );
-        markers.add(
-          NMarker(
-            id: 'cluster_${entry.key}',
-            position: NLatLng(
-              clusterEvents.first.latitude,
-              clusterEvents.first.longitude,
-            ),
-            icon: clusterIcon,
-          ),
-        );
-      }
-    }
-    return markers;
-  }
+  // --- 마커 생성 헬퍼 함수들 (내부 구현은 변경 없음) ---
 
   Future<NOverlayImage> _getCachedOverlayImage(
     String key,
@@ -160,11 +162,7 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
   Future<NMarker> _createMyLocationMarker(Position position) async {
     final icon = await _getCachedOverlayImage(
       'my_location',
-      const DeclutterMarker(
-        icon: Icons.my_location,
-        color: Colors.purple,
-        offset: Offset.zero,
-      ),
+      const PulsingMarkerIcon(icon: Icons.my_location, color: Colors.purple),
     );
     final marker = NMarker(
       id: 'my_location',
@@ -175,14 +173,10 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
     return marker;
   }
 
-  Future<NMarker> _createSimpleMarker(DdipEvent event) async {
+  Future<NMarker> _createEventMarker(DdipEvent event) async {
     final icon = await _getCachedOverlayImage(
-      'simple_event_marker',
-      const DeclutterMarker(
-        icon: Icons.flag,
-        color: Colors.blue,
-        offset: Offset.zero,
-      ),
+      'event_marker',
+      const PulsingMarkerIcon(icon: Icons.flag, color: Colors.blue),
     );
     final marker = NMarker(
       id: event.id,
@@ -196,11 +190,13 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
   Future<NMarker> _createPhotoMarker(
     String eventId,
     Photo photo,
-    void Function(String, String) onTap,
-  ) async {
+    void Function(String, String) onTap, {
+    bool isLoading = false,
+  }) async {
     IconData iconData;
     Color color;
     String cacheKey;
+
     switch (photo.status) {
       case PhotoStatus.approved:
         iconData = Icons.check_circle;
@@ -218,10 +214,19 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
         cacheKey = 'photo_pending';
         break;
     }
-    final icon = await _getCachedOverlayImage(
-      cacheKey,
-      DeclutterMarker(icon: iconData, color: color, offset: Offset.zero),
+
+    if (isLoading) {
+      cacheKey = '${cacheKey}_loading';
+    }
+
+    final iconWidget = PulsingMarkerIcon(
+      icon: iconData,
+      color: color,
+      isLoading: isLoading,
     );
+
+    final icon = await _getCachedOverlayImage(cacheKey, iconWidget);
+
     final marker = NMarker(
       id: photo.id,
       position: NLatLng(photo.latitude, photo.longitude),
@@ -230,21 +235,5 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
     marker.setZIndex(20);
     marker.setOnTapListener((_) => onTap(eventId, photo.id));
     return marker;
-  }
-
-  Map<String, List<DdipEvent>> _createClusters(
-    List<DdipEvent> events,
-    double zoom,
-  ) {
-    final Map<String, List<DdipEvent>> clusters = {};
-    final gridSize = 0.5 / (pow(2, zoom - 10));
-    for (var event in events) {
-      final gridX = (event.longitude / gridSize).floor();
-      final gridY = (event.latitude / gridSize).floor();
-      final key = '$gridX-$gridY';
-      if (!clusters.containsKey(key)) clusters[key] = [];
-      clusters[key]!.add(event);
-    }
-    return clusters;
   }
 }
