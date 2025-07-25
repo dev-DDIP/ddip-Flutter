@@ -1,5 +1,7 @@
 // lib/features/map/providers/map_providers.dart
 import 'package:ddip/features/map/presentation/notifiers/map_marker_notifier.dart';
+import 'package:ddip/features/map/presentation/services/map_overlay_service.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,3 +35,9 @@ final mapMarkerNotifierProvider =
     ) {
       return MapMarkerNotifier(ref);
     });
+
+// family를 사용하여 BuildContext를 전달받을 수 있게 합니다.
+final mapOverlayServiceProvider = Provider.autoDispose
+    .family<MapOverlayService, BuildContext>(
+      (ref, context) => MapOverlayService(context),
+    );
