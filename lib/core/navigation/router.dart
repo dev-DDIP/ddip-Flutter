@@ -1,9 +1,9 @@
 // lib/core/navigation/router.dart
 
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/view/screens/event_view_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/view/screens/full_screen_photo_view.dart';
 import 'package:go_router/go_router.dart';
 
 final GoRouter router = GoRouter(
@@ -21,7 +21,7 @@ final GoRouter router = GoRouter(
           path: ':eventId', // /feed/{eventId}
           builder: (context, state) {
             final eventId = state.pathParameters['eventId'] ?? '0';
-            return EventViewScreen(eventId: eventId);
+            return EventDetailScreen(eventId: eventId);
           },
           routes: [
             // ▼▼▼ 사진 상세 페이지를 위한 경로 추가 ▼▼▼

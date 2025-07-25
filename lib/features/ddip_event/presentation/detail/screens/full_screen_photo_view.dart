@@ -1,5 +1,4 @@
-// lib/features/ddip_event/presentation/view/screens/full_screen_photo_view.dart
-
+// [신규] 리팩토링으로 누락되었던 파일을 올바른 경로에 생성
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
@@ -13,7 +12,6 @@ import 'package:go_router/go_router.dart';
 class FullScreenPhotoView extends ConsumerStatefulWidget {
   final String eventId;
   final String photoId;
-
   const FullScreenPhotoView({
     super.key,
     required this.eventId,
@@ -58,7 +56,42 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
   }
 
   Future<MessageCode?> _showRejectionReasonDialog() async {
-    // ... (photo_detail_panel 에서 가져온 코드와 동일)
+    // 거절 사유 선택 다이얼로그 (내용은 기존과 동일)
+    return await showDialog<MessageCode>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('사진 거절 사유 선택'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('사진이 흐려요'),
+                  onTap: () => Navigator.pop(context, MessageCode.blurred),
+                ),
+                ListTile(
+                  title: const Text('너무 멀리서 찍었어요'),
+                  onTap: () => Navigator.pop(context, MessageCode.tooFar),
+                ),
+                ListTile(
+                  title: const Text('요청한 대상이 아니에요'),
+                  onTap: () => Navigator.pop(context, MessageCode.wrongSubject),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('취소'),
+              onPressed: () {
+                Navigator.pop(context, null);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

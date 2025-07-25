@@ -1,5 +1,3 @@
-// lib/features/ddip_event/presentation/view/widgets/applicant_list_view.dart
-
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
@@ -10,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class ApplicantListView extends ConsumerStatefulWidget {
   final DdipEvent event;
   final bool isRequester;
-
   const ApplicantListView({
     super.key,
     required this.event,
@@ -26,7 +23,6 @@ class _ApplicantListViewState extends ConsumerState<ApplicantListView> {
 
   Future<void> _selectResponder(String applicantId) async {
     if (_processingApplicantId != null) return;
-
     setState(() {
       _processingApplicantId = applicantId;
     });
@@ -35,7 +31,6 @@ class _ApplicantListViewState extends ConsumerState<ApplicantListView> {
       await ref
           .read(ddipEventsNotifierProvider.notifier)
           .selectResponder(widget.event.id, applicantId);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('수행자를 선택했습니다! 미션이 시작됩니다.')),
@@ -58,17 +53,6 @@ class _ApplicantListViewState extends ConsumerState<ApplicantListView> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.event.applicants.isEmpty) {
-      return const Card(
-        margin: EdgeInsets.symmetric(vertical: 8.0),
-        child: ListTile(
-          leading: Icon(Icons.person_search_outlined, color: Colors.grey),
-          title: Text('아직 지원자가 없습니다.'),
-          subtitle: Text('조금만 더 기다려주세요!'),
-        ),
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -85,31 +69,25 @@ class _ApplicantListViewState extends ConsumerState<ApplicantListView> {
           itemCount: widget.event.applicants.length,
           itemBuilder: (context, index) {
             final applicantId = widget.event.applicants[index];
-
-            // ▼▼▼ 1. orElse를 사용하여 applicant가 null이 되지 않도록 보장 ▼▼▼
             final User applicant = mockUsers.firstWhere(
               (user) => user.id == applicantId,
-              // 만약 mockUsers 리스트에 해당 ID가 없으면, 기본 User 객체를 반환
               orElse: () => User(id: applicantId, name: '알 수 없는 사용자'),
             );
-
             final isProcessing = _processingApplicantId == applicantId;
-
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
-                // ▼▼▼ 2. 이제 applicant는 null이 아니므로 .name 접근이 안전합니다. ▼▼▼
                 title: Text(applicant.name),
                 trailing:
                     widget.isRequester
-                        ? isProcessing
+                        ? (isProcessing
                             ? const CircularProgressIndicator()
                             : ElevatedButton(
                               onPressed: () => _selectResponder(applicantId),
                               child: const Text('선택'),
-                            )
-                        : null, // 요청자가 아니면 아무것도 표시하지 않음,
+                            ))
+                        : null,
               ),
             );
           },

@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/core/services/proximity_service.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/view/screens/event_view_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +31,7 @@ final GoRouter _router = GoRouter(
           path: ':eventId', // /feed/123 과 같은 동적 경로
           builder: (context, state) {
             final eventId = state.pathParameters['eventId'] ?? '0';
-            return EventViewScreen(eventId: eventId);
+            return EventDetailScreen(eventId: eventId);
           },
         ),
       ],

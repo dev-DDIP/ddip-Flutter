@@ -1,18 +1,13 @@
-// lib/features/ddip_event/presentation/view/widgets/event_details_view.dart
-
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ConsumerWidget으로 변경하여 ref를 사용할 수 있도록 함
 class EventDetailsView extends ConsumerWidget {
   final DdipEvent event;
-
   const EventDetailsView({super.key, required this.event});
 
-  // 상태(Status)에 따라 뱃지(Chip)의 색상과 텍스트를 결정하는 헬퍼 메서드
   Widget _buildStatusChip(DdipEventStatus status) {
     Color chipColor;
     String label;
@@ -46,12 +41,10 @@ class EventDetailsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ID를 이름으로 변환하기 위해 사용자 정보를 가져옴
     final requester = mockUsers.firstWhere(
       (user) => user.id == event.requesterId,
       orElse: () => User(id: event.requesterId, name: '알 수 없는 작성자'),
     );
-
     User? selectedResponder;
     if (event.selectedResponderId != null) {
       selectedResponder = mockUsers.firstWhere(
@@ -63,7 +56,6 @@ class EventDetailsView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 제목과 상태 뱃지를 함께 표시
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,8 +71,6 @@ class EventDetailsView extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-
-        // 작성자, 보상, 선택된 수행자 정보 표시
         Row(
           children: [
             const Icon(Icons.person_outline, size: 18, color: Colors.black54),
@@ -120,7 +110,6 @@ class EventDetailsView extends ConsumerWidget {
             ],
           ),
         ],
-
         const Divider(height: 32),
         Text(event.content, style: const TextStyle(fontSize: 16, height: 1.5)),
         const SizedBox(height: 24),

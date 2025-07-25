@@ -1,7 +1,7 @@
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/creation/widgets/location_picker_screen.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
-import 'package:ddip/features/map_view/presentation/screens/map_view_screen.dart'; // 1. 방금 만든 지도 화면 import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -153,7 +153,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   onPressed: () async {
                     final result = await Navigator.of(context).push<NLatLng?>(
                       MaterialPageRoute(
-                        builder: (context) => const MapViewScreen(),
+                        builder: (context) => const LocationPickerScreen(),
                       ),
                     );
                     if (result != null) {

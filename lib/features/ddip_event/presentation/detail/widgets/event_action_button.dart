@@ -1,5 +1,3 @@
-// lib/features/ddip_event/presentation/view/widgets/event_action_button.dart
-
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
@@ -13,8 +11,8 @@ import 'package:uuid/uuid.dart';
 
 class EventActionButton extends ConsumerStatefulWidget {
   final DdipEvent event;
-
   const EventActionButton({super.key, required this.event});
+
   @override
   ConsumerState<EventActionButton> createState() => _EventActionButtonState();
 }
@@ -110,7 +108,6 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
     final bool isRequester = widget.event.requesterId == currentUser.id;
     final bool isSelectedResponder =
         widget.event.selectedResponderId == currentUser.id;
-
     final buttonStyle = FilledButton.styleFrom(
       padding: const EdgeInsets.symmetric(vertical: 16),
       textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -203,7 +200,6 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
           );
         }
         return const SizedBox.shrink();
-
       case DdipEventStatus.completed:
         return FilledButton.icon(
           icon: const Icon(Icons.check_circle_outline),
@@ -211,7 +207,6 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
           onPressed: null,
           style: buttonStyle,
         );
-
       case DdipEventStatus.failed:
         return FilledButton.icon(
           icon: const Icon(Icons.error_outline),
@@ -221,9 +216,6 @@ class _EventActionButtonState extends ConsumerState<EventActionButton> {
             backgroundColor: MaterialStateProperty.all(Colors.red[700]),
           ),
         );
-
-      default:
-        return const SizedBox.shrink();
     }
   }
 }
