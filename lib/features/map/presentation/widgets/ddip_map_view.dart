@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
   final List<DdipEvent> events;
+
   const DdipMapView({super.key, required this.events});
 
   @override
@@ -41,7 +42,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             // 전체를 지우고 다시 그리는 방식으로 단순화하여 상태 불일치 방지
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
-
+            _mapController!.addOverlayAll(mapState.polylines.values.toSet());
             // bounds 정보가 있을 때만 카메라 이동
             if (mapState.bounds != null) {
               _mapController!.updateCamera(
@@ -82,6 +83,15 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
                 context.push('/feed/$eventId/photo/$photoId');
               },
             );
+      },
+      onCameraIdle: () async {
+        if (_mapController != null) {
+          final position = await _mapController!.getCameraPosition();
+          // Notifier에 현재 줌 레벨을 전달하여 오버레이 업데이트를 요청합니다.
+          ref
+              .read(mapMarkerNotifierProvider.notifier)
+              .updateOverlaysForZoom(position.zoom);
+        }
       },
       // onCameraIdle은 클러스터링 등 추가 기능 구현 시 활용 가능
     );

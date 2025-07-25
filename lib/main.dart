@@ -1,11 +1,9 @@
 // lib/main.dart
 import 'dart:io';
 
+import 'package:ddip/core/navigation/router.dart';
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/core/services/proximity_service.dart';
-import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
-import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -13,31 +11,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
-// GoRouter 설정은 그대로 사용합니다.
-final GoRouter _router = GoRouter(
-  initialLocation: '/feed',
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/feed',
-      builder: (context, state) => const DdipFeedScreen(),
-      routes: [
-        GoRoute(
-          path: 'create', //  /feed/create
-          builder: (context, state) => const DdipCreationScreen(),
-        ),
-        GoRoute(
-          path: ':eventId', // /feed/123 과 같은 동적 경로
-          builder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '0';
-            return EventDetailScreen(eventId: eventId);
-          },
-        ),
-      ],
-    ),
-  ],
-);
 
 // 백그라운드 메시지 핸들러
 // 이 함수는 반드시 클래스 외부에, 최상위 레벨에 존재해야 합니다.
@@ -84,7 +57,7 @@ void main() async {
     // 알림 탭 이벤트를 처리하고 화면을 이동시키는 함수 정의
     void handleNotificationTap(String? eventId) {
       if (eventId != null) {
-        _router.go('/feed/$eventId');
+        router.go('/feed/$eventId');
       }
     }
 
@@ -184,7 +157,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      routerConfig: _router,
+      routerConfig: router,
       title: '띱(DDIP)',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

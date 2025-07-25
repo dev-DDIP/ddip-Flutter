@@ -8,14 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class MapState {
   // key: 마커의 고유 ID, value: NMarker 객체
   final Map<String, NMarker> markers;
+  final Map<String, NPolylineOverlay> polylines;
   final NLatLngBounds? bounds;
 
-  MapState({required this.markers, this.bounds});
+  MapState({required this.markers, this.polylines = const {}, this.bounds});
 
   // 상태를 쉽게 업데이트하기 위한 copyWith 메서드
-  MapState copyWith({Map<String, NMarker>? markers, NLatLngBounds? bounds}) {
+  MapState copyWith({
+    Map<String, NMarker>? markers,
+    Map<String, NPolylineOverlay>? polylines,
+    NLatLngBounds? bounds,
+  }) {
     return MapState(
       markers: markers ?? this.markers,
+      polylines: polylines ?? this.polylines,
       bounds: bounds ?? this.bounds,
     );
   }
