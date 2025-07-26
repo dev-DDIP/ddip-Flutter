@@ -68,6 +68,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         ),
       ),
       onMapReady: (controller) async {
+        _mapController = controller;
         final initialPosition = await controller.getCameraPosition();
         ref
             .read(mapMarkerNotifierProvider.notifier)
@@ -81,9 +82,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             );
       },
       onCameraIdle: () async {
-        if (_mapController != null) {
+        if (_initialCameraFitted && _mapController != null) {
           final position = await _mapController!.getCameraPosition();
-          // [수정] 카메라 이동이 멈추면 Notifier의 updateOverlays 호출
           ref
               .read(mapMarkerNotifierProvider.notifier)
               .updateOverlays(
