@@ -1,4 +1,5 @@
-// [신규] 클러스터 마커 UI를 위한 위젯
+// lib/features/map/presentation/widgets/cluster_marker.dart
+
 import 'package:flutter/material.dart';
 
 class ClusterMarker extends StatelessWidget {
@@ -14,6 +15,9 @@ class ClusterMarker extends StatelessWidget {
         color: Colors.teal,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5),
+        ],
       ),
       child: Center(
         child: Text(

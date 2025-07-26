@@ -1,5 +1,6 @@
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/ddip_event/data/repositories/mock_ddip_event_data.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
@@ -14,35 +15,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final Ref ref; // ✨ 1. 생성자를 통해 Ref를 전달받음
   FakeDdipEventRepositoryImpl(this.ref);
 
-  // 1. [추가] 앱이 실행되는 동안 '띱' 목록을 저장할 메모리 내 리스트
-  final List<DdipEvent> _ddipEvents = [
-    DdipEvent(
-      id: 'event_1',
-      title: '북문 앞 타코야끼 트럭 왔나요?',
-      content: '지금 가면 바로 먹을 수 있는지 궁금해요. 사진 한 장만 부탁드립니다!',
-      requesterId: 'requester_1',
-      // 김요청
-      reward: 1000,
-      latitude: 35.8925,
-      longitude: 128.60953,
-      status: DdipEventStatus.open,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
-      applicants: [], // 시나리오 1: 지원자 아직 없음
-    ),
-    DdipEvent(
-      id: 'event_2',
-      title: '센트럴파크에 2명 앉을 벤치 있나요?',
-      content: '친구랑 치킨 먹으러는데 자리 있는지 봐주세요!',
-      requesterId: 'requester_1',
-      // 김요청
-      reward: 500,
-      latitude: 35.890,
-      longitude: 128.612,
-      status: DdipEventStatus.open,
-      createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-      applicants: ['responder_1', 'responder_2'], // 시나리오 2: 여러 명 지원한 상태
-    ),
-  ];
+  final List<DdipEvent> _ddipEvents = List.from(mockDdipEvents);
 
   @override
   Future<void> applyToEvent(String eventId, String userId) async {
@@ -106,7 +79,8 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         actorRole: ActorRole.responder,
         actionType: action,
         messageCode: messageCode,
-        relatedPhotoId: photo.id, // 이 상호작용이 어떤 사진과 관련있는지 명시
+        relatedPhotoId: photo.id,
+        // 이 상호작용이 어떤 사진과 관련있는지 명시
         timestamp: DateTime.now(),
       );
       final newInteractions = List<Interaction>.from(event.interactions)

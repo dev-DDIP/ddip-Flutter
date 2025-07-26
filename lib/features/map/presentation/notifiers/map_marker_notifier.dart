@@ -1,6 +1,7 @@
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -12,10 +13,13 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
 
   // [수정] Notifier의 유일한 public 메서드
   Future<void> updateOverlays({
+    required NaverMapController mapController,
     required BuildContext context,
     required List<DdipEvent> events,
     required double zoom,
     required void Function(String eventId, String photoId) onPhotoMarkerTap,
+    required void Function(String eventId) onEventMarkerTap,
+    String? selectedEventId,
     Position? myLocation,
   }) async {
     state = const AsyncValue.loading();
@@ -25,9 +29,12 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
 
       // 2. 서비스에게 모든 오버레이 생성을 위임합니다.
       final mapState = await overlayService.buildOverlays(
+        mapController: mapController,
         events: events,
         zoom: zoom,
         onPhotoMarkerTap: onPhotoMarkerTap,
+        onEventMarkerTap: onEventMarkerTap,
+        selectedEventId: selectedEventId,
         myLocation: myLocation,
       );
 

@@ -1,5 +1,8 @@
 // lib/features/map/presentation/widgets/ddip_map_view.dart
+
+import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -48,22 +51,47 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   Future<void> _updateMarkers() async {
     if (_mapController == null) return;
     final position = await _mapController!.getCameraPosition();
+    final selectedEventId = ref.read(feedViewInteractionProvider);
+
     ref
         .read(mapMarkerNotifierProvider.notifier)
         .updateOverlays(
+          // ✨ [수정] pixel-based 클러스터링 계산을 위해 mapController를 전달합니다.
+          mapController: _mapController!,
           context: context,
           events: widget.events,
           zoom: position.zoom,
           myLocation: _myLocation,
-          // 저장된 내 위치를 전달
           onPhotoMarkerTap: (eventId, photoId) {
             context.push('/feed/$eventId/photo/$photoId');
           },
+          onEventMarkerTap: (String eventId) {
+            ref.read(feedViewInteractionProvider.notifier).state = eventId;
+          },
+          selectedEventId: selectedEventId,
         );
   }
 
   @override
   Widget build(BuildContext context) {
+    // [신규] 상호작용 Provider를 listen하여, 리스트에서 아이템이 선택되었을 때 지도를 이동시킵니다.
+    ref.listen<String?>(feedViewInteractionProvider, (previous, next) {
+      if (next != null && next != previous) {
+        // 선택된 이벤트 ID가 변경되면, 해당 이벤트 위치로 지도를 이동합니다.
+        final selectedEvent = widget.events.firstWhereOrNull(
+          (e) => e.id == next,
+        );
+        if (selectedEvent != null && _mapController != null) {
+          _mapController!.updateCamera(
+            NCameraUpdate.scrollAndZoomTo(
+              target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
+              zoom: 16, // 상세보기에 적합한 줌 레벨로 이동
+            ),
+          );
+        }
+      }
+    });
+
     ref.listen<AsyncValue<MapState>>(mapMarkerNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
@@ -112,6 +140,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       onCameraIdle: () async {
         if (_mapController != null) {
           // 카메라 이동 시 마커 업데이트 (GPS 호출 없음)
+          final position = await _mapController!.getCameraPosition();
+          print('Current Zoom Level: ${position.zoom}');
           _updateMarkers();
         }
       },
