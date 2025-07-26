@@ -2,6 +2,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 // [수정] Notifier가 이제 UI 프레임워크에 의존하지 않습니다. (BuildContext 없음)
 class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
@@ -15,6 +16,7 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
     required List<DdipEvent> events,
     required double zoom,
     required void Function(String eventId, String photoId) onPhotoMarkerTap,
+    Position? myLocation,
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -26,6 +28,7 @@ class MapMarkerNotifier extends StateNotifier<AsyncValue<MapState>> {
         events: events,
         zoom: zoom,
         onPhotoMarkerTap: onPhotoMarkerTap,
+        myLocation: myLocation,
       );
 
       // 3. 서비스로부터 받은 결과로 상태를 업데이트합니다.

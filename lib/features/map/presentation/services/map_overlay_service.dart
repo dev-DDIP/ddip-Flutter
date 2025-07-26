@@ -21,17 +21,15 @@ class MapOverlayService {
     required List<DdipEvent> events,
     required double zoom,
     required void Function(String eventId, String photoId) onPhotoMarkerTap,
+    Position? myLocation,
   }) async {
     final newMarkers = <String, NMarker>{};
     final newPolylines = <String, NPolylineOverlay>{};
 
-    // 1. 내 위치 마커 추가
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      final myLocationMarker = await _createMyLocationMarker(position);
+    // 1. 내 위치 마커 추가 (전달받은 위치 사용)
+    if (myLocation != null) {
+      final myLocationMarker = await _createMyLocationMarker(myLocation);
       newMarkers[myLocationMarker.info.id] = myLocationMarker;
-    } catch (e) {
-      print("사용자 위치 로딩 실패: $e");
     }
 
     // 2. 줌 레벨에 따라 마커 분산(Declutter) 또는 일반 마커 생성
@@ -179,7 +177,6 @@ class MapOverlayService {
   }
 
   Future<NMarker> _createMyLocationMarker(Position position) async {
-    // ... (기존 _createMyLocationMarker 로직 전체를 여기에 복사)
     final icon = await _getCachedOverlayImage(
       'my_location',
       const PulsingMarkerIcon(icon: Icons.my_location, color: Colors.purple),
@@ -194,16 +191,17 @@ class MapOverlayService {
   }
 
   Future<NMarker> _createEventMarker(DdipEvent event) async {
-    // ... (기존 _createEventMarker 로직 전체를 여기에 복사)
     final icon = await _getCachedOverlayImage(
       'event_marker',
       const PulsingMarkerIcon(icon: Icons.flag, color: Colors.blue),
     );
+
     final marker = NMarker(
       id: event.id,
       position: NLatLng(event.latitude, event.longitude),
       icon: icon,
     );
+
     marker.setZIndex(10);
     return marker;
   }
@@ -214,7 +212,6 @@ class MapOverlayService {
     void Function(String, String) onTap, {
     bool isLoading = false,
   }) async {
-    // ... (기존 _createPhotoMarker 로직 전체를 여기에 복사)
     IconData iconData;
     Color color;
     String cacheKey;

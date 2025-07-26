@@ -4,6 +4,7 @@ import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
@@ -18,10 +19,47 @@ class DdipMapView extends ConsumerStatefulWidget {
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
   bool _initialCameraFitted = false; // 초기 카메라 조정 여부 플래그
+  Position? _myLocation;
 
   @override
   void initState() {
     super.initState();
+    // 위젯이 생성될 때 딱 한 번만 내 위치를 가져옵니다.
+    _fetchMyLocationOnce();
+  }
+
+  // 내 위치를 한 번만 가져오는 함수
+  Future<void> _fetchMyLocationOnce() async {
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _myLocation = position;
+        });
+        // 위치를 성공적으로 가져온 후, 마커를 다시 그리도록 요청
+        _updateMarkers();
+      }
+    } catch (e) {
+      print("최초 사용자 위치 로딩 실패: $e");
+    }
+  }
+
+  // 마커 업데이트 로직을 별도 함수로 분리
+  Future<void> _updateMarkers() async {
+    if (_mapController == null) return;
+    final position = await _mapController!.getCameraPosition();
+    ref
+        .read(mapMarkerNotifierProvider.notifier)
+        .updateOverlays(
+          context: context,
+          events: widget.events,
+          zoom: position.zoom,
+          myLocation: _myLocation,
+          // 저장된 내 위치를 전달
+          onPhotoMarkerTap: (eventId, photoId) {
+            context.push('/feed/$eventId/photo/$photoId');
+          },
+        );
   }
 
   @override
@@ -69,31 +107,12 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       ),
       onMapReady: (controller) async {
         _mapController = controller;
-        final initialPosition = await controller.getCameraPosition();
-        ref
-            .read(mapMarkerNotifierProvider.notifier)
-            .updateOverlays(
-              context: context,
-              events: widget.events,
-              zoom: initialPosition.zoom,
-              onPhotoMarkerTap: (eventId, photoId) {
-                context.push('/feed/$eventId/photo/$photoId');
-              },
-            );
+        _updateMarkers();
       },
       onCameraIdle: () async {
-        if (_initialCameraFitted && _mapController != null) {
-          final position = await _mapController!.getCameraPosition();
-          ref
-              .read(mapMarkerNotifierProvider.notifier)
-              .updateOverlays(
-                context: context,
-                events: widget.events,
-                zoom: position.zoom,
-                onPhotoMarkerTap: (eventId, photoId) {
-                  context.push('/feed/$eventId/photo/$photoId');
-                },
-              );
+        if (_mapController != null) {
+          // 카메라 이동 시 마커 업데이트 (GPS 호출 없음)
+          _updateMarkers();
         }
       },
       // onCameraIdle은 클러스터링 등 추가 기능 구현 시 활용 가능
