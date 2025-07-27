@@ -66,6 +66,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             context.push('/feed/$eventId/photo/$photoId');
           },
           onEventMarkerTap: (String eventId) {
+            print('✅ [DEBUG] 1. 마커 탭됨: Event ID = $eventId');
             // 1. 선택된 이벤트 ID를 업데이트합니다.
             ref.read(selectedEventIdProvider.notifier).state = eventId;
             // 2. 바텀 시트를 '개요' 상태로 변경합니다.
@@ -140,8 +141,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         _updateMarkers();
       },
       onMapTapped: (point, latLng) {
-        // 지도를 탭하면 선택을 해제하고 바텀 시트를 최소화합니다.
-        ref.read(selectedEventIdProvider.notifier).state = null;
         ref.read(feedBottomSheetStateProvider.notifier).state =
             FeedBottomSheetState.peek;
       },
