@@ -65,7 +65,7 @@ class MapOverlayService {
       }
     }
 
-    return MapState(markers: newMarkers, polylines: const {});
+    return MapState(markers: newMarkers);
   }
 
   /// 줌 레벨에 따라 동적인 지리적 거리로 이벤트를 그룹화하는 함수

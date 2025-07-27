@@ -101,7 +101,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           if (_mapController != null && mounted) {
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
-            _mapController!.addOverlayAll(mapState.polylines.values.toSet());
 
             // [수정] 카메라 제어 로직이 View로 이동
             if (!_initialCameraFitted && mapState.markers.length >= 2) {
