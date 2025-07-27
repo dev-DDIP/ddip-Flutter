@@ -10,8 +10,9 @@ import 'package:go_router/go_router.dart';
 // ConsumerWidget으로 변경하여 ref를 사용할 수 있도록 함
 class DdipListItem extends ConsumerWidget {
   final DdipEvent event;
+  final bool isPeek;
 
-  const DdipListItem({super.key, required this.event});
+  const DdipListItem({super.key, required this.event, this.isPeek = false});
 
   // 상태(Status)에 따라 뱃지(Chip)의 색상과 텍스트를 결정하는 헬퍼 메서드
   Widget _buildStatusChip(DdipEventStatus status) {
@@ -74,26 +75,27 @@ class DdipListItem extends ConsumerWidget {
         event.status == DdipEventStatus.failed;
 
     return Opacity(
-      // 접근 불가하거나 완료된 항목은 반투명 처리
       opacity: !canAccessDetail || isFinished ? 0.5 : 1.0,
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-        title: Text(
-          event.title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+      // isPeek 상태일 때는 배경색을 투명하게 처리
+      child: Container(
+        color: isPeek ? Colors.transparent : null,
+        child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+          title: Text(
+            event.title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text('작성자: ${requester.name} | 보상: ${event.reward}원'),
+          trailing: _buildStatusChip(event.status),
+          onTap:
+              canAccessDetail
+                  ? () {
+                    context.push('/feed/${event.id}');
+                  }
+                  : null,
         ),
-        // 부제(subtitle)에 작성자 이름과 보상 금액 표시
-        subtitle: Text('작성자: ${requester.name} | 보상: ${event.reward}원'),
-        trailing: _buildStatusChip(event.status),
-        // 접근 가능 여부에 따라 onTap 기능 제어
-        onTap:
-            canAccessDetail
-                ? () {
-                  context.push('/feed/${event.id}');
-                }
-                : null, // 접근 불가 시 탭 비활성화
       ),
     );
   }

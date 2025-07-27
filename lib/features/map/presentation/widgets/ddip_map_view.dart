@@ -51,7 +51,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   Future<void> _updateMarkers() async {
     if (_mapController == null) return;
     final position = await _mapController!.getCameraPosition();
-    final selectedEventId = ref.read(feedViewInteractionProvider);
+    final selectedEventId = ref.read(selectedEventIdProvider);
 
     ref
         .read(mapMarkerNotifierProvider.notifier)
@@ -66,7 +66,11 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             context.push('/feed/$eventId/photo/$photoId');
           },
           onEventMarkerTap: (String eventId) {
-            ref.read(feedViewInteractionProvider.notifier).state = eventId;
+            // 1. 선택된 이벤트 ID를 업데이트합니다.
+            ref.read(selectedEventIdProvider.notifier).state = eventId;
+            // 2. 바텀 시트를 '개요' 상태로 변경합니다.
+            ref.read(feedBottomSheetStateProvider.notifier).state =
+                FeedBottomSheetState.overview;
           },
           selectedEventId: selectedEventId,
         );
@@ -74,10 +78,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
-    // [신규] 상호작용 Provider를 listen하여, 리스트에서 아이템이 선택되었을 때 지도를 이동시킵니다.
-    ref.listen<String?>(feedViewInteractionProvider, (previous, next) {
+    ref.listen<String?>(selectedEventIdProvider, (previous, next) {
       if (next != null && next != previous) {
-        // 선택된 이벤트 ID가 변경되면, 해당 이벤트 위치로 지도를 이동합니다.
         final selectedEvent = widget.events.firstWhereOrNull(
           (e) => e.id == next,
         );
@@ -85,7 +87,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           _mapController!.updateCamera(
             NCameraUpdate.scrollAndZoomTo(
               target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
-              zoom: 16, // 상세보기에 적합한 줌 레벨로 이동
+              zoom: 16,
             ),
           );
         }
@@ -136,6 +138,12 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       onMapReady: (controller) async {
         _mapController = controller;
         _updateMarkers();
+      },
+      onMapTapped: (point, latLng) {
+        // 지도를 탭하면 선택을 해제하고 바텀 시트를 최소화합니다.
+        ref.read(selectedEventIdProvider.notifier).state = null;
+        ref.read(feedBottomSheetStateProvider.notifier).state =
+            FeedBottomSheetState.peek;
       },
       onCameraIdle: () async {
         if (_mapController != null) {

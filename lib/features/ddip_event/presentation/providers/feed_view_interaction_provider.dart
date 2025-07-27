@@ -2,13 +2,27 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 지도와 리스트 뷰의 상호작용 상태를 관리하는 Provider입니다.
-///
-/// 이 Provider는 현재 사용자가 선택한 이벤트의 ID('selectedEventId')를 상태로 가집니다.
-/// 이 값이 변경되면, 지도와 리스트 UI가 각각 반응하여 업데이트됩니다.
-/// 예를 들어, 지도에서 마커를 탭하면 이 Provider의 상태가 업데이트되고,
-/// 리스트는 해당 아이템으로 스크롤되는 식입니다.
-final feedViewInteractionProvider = StateProvider.autoDispose<String?>((ref) {
-  // 초기 상태는 아무것도 선택되지 않았음을 의미하는 null입니다.
+/// 피드 화면 바텀 시트의 상태를 정의합니다.
+enum FeedBottomSheetState {
+  /// 핸들만 살짝 보이는 최소화 상태
+  peek,
+
+  /// 선택된 이벤트의 개요만 보여주는 상태
+  overview,
+
+  /// 전체 이벤트 목록을 보여주는 상태
+  fullList,
+}
+
+/// 바텀 시트의 현재 UI 상태를 관리하는 Provider입니다.
+final feedBottomSheetStateProvider =
+    StateProvider.autoDispose<FeedBottomSheetState>((ref) {
+      // 초기 상태는 최소화(peek) 상태입니다.
+      return FeedBottomSheetState.peek;
+    });
+
+/// 사용자가 지도나 리스트에서 선택한 이벤트의 ID를 관리하는 Provider입니다.
+final selectedEventIdProvider = StateProvider.autoDispose<String?>((ref) {
+  // 초기에는 아무것도 선택되지 않았습니다.
   return null;
 });
