@@ -24,6 +24,36 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
   static const double _fullListFraction = 0.90;
 
   @override
+  void initState() {
+    super.initState();
+    // [수정 2] 위젯이 빌드된 후, 상태 변화를 감지하는 리스너 설정
+    // initState에서 ref를 직접 사용하면 안되므로, addPostFrameCallback을 사용해 안전하게 호출합니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // selectedEventIdProvider의 상태 변화를 '구독'합니다.
+      ref.listen<String?>(selectedEventIdProvider, (previous, next) {
+        // [핵심 로직] '이벤트 오버뷰' 상태에서 '전체 목록' 상태로 돌아올 때를 감지
+        // (previous는 ID가 있었고, next는 ID가 없어졌을 때)
+        if (previous != null && next == null) {
+          // 컨트롤러를 사용해 바텀 시트를 'peek' 상태로 애니메이션합니다.
+          if (_scrollController.isAttached) {
+            _scrollController.animateTo(
+              _peekFraction, // 목표 높이
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+            );
+          }
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose(); // 컨트롤러 리소스 해제
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen<FeedBottomSheetState>(feedBottomSheetStateProvider, (
       prev,
@@ -102,22 +132,21 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
                   }
 
                   if (selectedEvent != null) {
+                    // ▼▼▼ 여기가 핵심 수정 포인트입니다! ▼▼▼
                     return EventOverviewCard(
                       event: selectedEvent,
                       onBackToList: () {
-                        // 1. 선택된 이벤트 ID를 해제합니다.
-                        // 이 코드가 실행되면 FeedBottomSheet가 새로운 속성(minChildSize: 0.10)으로
-                        // 재빌드되도록 예약됩니다.
+                        // [1단계] 데이터 상태 변경: 선택된 이벤트를 해제합니다.
+                        // 이 코드가 실행되면, 다음 build 사이클에서 isEventSelected가 false가 되고
+                        // DraggableScrollableSheet의 minChildSize와 snapSizes가
+                        // '전체 목록' 모드에 맞게 변경되도록 예약됩니다.
                         ref.read(selectedEventIdProvider.notifier).state = null;
 
-                        // ✨ 2. microtask를 사용해 다음 프레임이 그려지기 직전에 상태를 변경합니다.
-                        Future.microtask(() {
-                          // 이 시점에는 FeedBottomSheet가 이미 새로운 속성으로 재빌드되었으므로
-                          // 안전하게 'peek' 상태로의 애니메이션을 요청할 수 있습니다.
-                          ref
-                              .read(feedBottomSheetStateProvider.notifier)
-                              .state = FeedBottomSheetState.peek;
-                        });
+                        // [2단계] UI 상태 변경: 바텀 시트에게 '전체 목록' 상태로 가라고 명확히 명령합니다.
+                        // 이 코드가 실행되면, build 메서드 상단의 ref.listen이 이 상태 변화를 감지하고
+                        // 컨트롤러를 사용해 _fullListFraction(0.9) 높이로 애니메이션을 실행합니다.
+                        ref.read(feedBottomSheetStateProvider.notifier).state =
+                            FeedBottomSheetState.fullList;
                       },
                       onViewDetails: () {
                         context.push('/feed/${selectedEvent.id}');
