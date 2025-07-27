@@ -68,14 +68,12 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
         FeedBottomSheetState.fullList => _fullListFraction,
       };
 
-      // 현재 사이즈와 목표 사이즈가 다를 때만 애니메이션 실행
-      if ((_scrollController.size - targetFraction).abs() > 0.01) {
-        _scrollController.animateTo(
-          targetFraction,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
+      // [수정] if 문을 제거하여 상태 변경 시 '무조건' 애니메이션을 실행하도록 합니다.
+      _scrollController.animateTo(
+        targetFraction,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
     });
 
     // [핵심 수정] 데이터 로딩 상태를 숨기는 ddipFeedProvider 대신,

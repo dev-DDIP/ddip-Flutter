@@ -66,12 +66,27 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             context.push('/feed/$eventId/photo/$photoId');
           },
           onEventMarkerTap: (String eventId) {
-            print('✅ [DEBUG] 1. 마커 탭됨: Event ID = $eventId');
-            // 1. 선택된 이벤트 ID를 업데이트합니다.
-            ref.read(selectedEventIdProvider.notifier).state = eventId;
-            // 2. 바텀 시트를 '개요' 상태로 변경합니다.
-            ref.read(feedBottomSheetStateProvider.notifier).state =
-                FeedBottomSheetState.overview;
+            // ▼▼▼ 여기가 최종 수정 포인트입니다! ▼▼▼
+
+            final selectedIdNotifier = ref.read(
+              selectedEventIdProvider.notifier,
+            );
+            final bottomSheetNotifier = ref.read(
+              feedBottomSheetStateProvider.notifier,
+            );
+
+            // 1. 새로운 이벤트 ID로 즉시 업데이트
+            selectedIdNotifier.state = eventId;
+
+            // 2. [핵심 로직] 리스너를 다시 트리거하기 위해 상태를 잠시 변경했다가 되돌립니다.
+            //    이렇게 하면 ref.listen이 'peekOverview' -> 'overview' 라는
+            //    명확한 상태 변화를 감지하여, 최소화된 시트를 다시 펼치게 됩니다.
+            if (bottomSheetNotifier.state == FeedBottomSheetState.overview) {
+              bottomSheetNotifier.state = FeedBottomSheetState.peekOverview;
+            }
+
+            // 3. 최종 목표 상태인 'overview'로 설정하여 시트를 펼칩니다.
+            bottomSheetNotifier.state = FeedBottomSheetState.overview;
           },
           selectedEventId: selectedEventId,
         );
