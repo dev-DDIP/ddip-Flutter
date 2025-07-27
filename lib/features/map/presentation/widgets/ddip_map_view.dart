@@ -140,8 +140,18 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         _updateMarkers();
       },
       onMapTapped: (point, latLng) {
-        ref.read(feedBottomSheetStateProvider.notifier).state =
-            FeedBottomSheetState.peek;
+        // ✨ 현재 선택된 이벤트가 있는지 확인
+        final selectedEvent = ref.read(selectedEventIdProvider);
+
+        if (selectedEvent != null) {
+          // ✨ 이벤트가 선택된 상태에서 지도를 탭하면 peekOverview 상태로 전환
+          ref.read(feedBottomSheetStateProvider.notifier).state =
+              FeedBottomSheetState.peekOverview;
+        } else {
+          // ✨ 선택된 이벤트가 없으면 기존 peek 상태로 전환
+          ref.read(feedBottomSheetStateProvider.notifier).state =
+              FeedBottomSheetState.peek;
+        }
       },
       onCameraIdle: () async {
         if (_mapController != null) {

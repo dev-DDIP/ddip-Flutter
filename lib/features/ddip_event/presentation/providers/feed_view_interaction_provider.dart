@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum FeedBottomSheetState {
   /// 핸들만 살짝 보이는 최소화 상태
   peek,
+  peekOverview,
 
   /// 선택된 이벤트의 개요만 보여주는 상태
   overview,
