@@ -1,3 +1,5 @@
+// lib/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart
+
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,29 +16,31 @@ class FeedSheetStrategy extends StateNotifier<double> {
 
   FeedSheetStrategy(this._ref) : super(peekFraction);
 
+  /// UI(사용자 드래그)에 의해 변경된 높이를 Strategy의 상태와 동기화합니다.
+  /// 이 메서드가 '역방향' 소통의 핵심입니다.
+  void syncHeightFromUI(double currentHeight) {
+    // 현재 Strategy가 알고 있는 높이와 UI의 실제 높이가 다를 때만
+    // 상태를 업데이트하여 불필요한 재빌드를 방지합니다.
+    if ((state - currentHeight).abs() > 0.001) {
+      state = currentHeight;
+    }
+  }
+
   /// 사용자가 특정 이벤트를 선택했을 때 호출됩니다.
   void showOverview(String eventId) {
-    // 1. 어떤 이벤트가 선택되었는지 앱 전체에 알립니다.
     _ref.read(selectedEventIdProvider.notifier).state = eventId;
-    // 2. 바텀시트 상태를 '오버뷰' 높이로 변경합니다.
-    if (state == overviewFraction) state = -1.0; // 강제 동기화 로직
     state = overviewFraction;
   }
 
   /// 사용자가 지도를 탐색할 때(탭, 드래그) 호출됩니다.
   void minimize() {
     final selectedEventId = _ref.read(selectedEventIdProvider);
-    final targetHeight =
-        selectedEventId != null ? peekOverviewFraction : peekFraction;
-
-    if (state == targetHeight) state = -1.0;
-    state = targetHeight;
+    state = selectedEventId != null ? peekOverviewFraction : peekFraction;
   }
 
   /// 전체 목록을 봐야 할 때 호출됩니다. (예: 오버뷰에서 '뒤로가기')
   void showFullList() {
     _ref.read(selectedEventIdProvider.notifier).state = null;
-    if (state == fullListFraction) state = -1.0;
     state = fullListFraction;
   }
 }
