@@ -1,5 +1,3 @@
-// lib/features/map/presentation/widgets/ddip_map_view.dart
-
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
@@ -21,17 +19,15 @@ class DdipMapView extends ConsumerStatefulWidget {
 
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
-  bool _initialCameraFitted = false; // 초기 카메라 조정 여부 플래그
+  bool _initialCameraFitted = false;
   Position? _myLocation;
 
   @override
   void initState() {
     super.initState();
-    // 위젯이 생성될 때 딱 한 번만 내 위치를 가져옵니다.
     _fetchMyLocationOnce();
   }
 
-  // 내 위치를 한 번만 가져오는 함수
   Future<void> _fetchMyLocationOnce() async {
     try {
       final position = await Geolocator.getCurrentPosition();
@@ -39,7 +35,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         setState(() {
           _myLocation = position;
         });
-        // 위치를 성공적으로 가져온 후, 마커를 다시 그리도록 요청
         _updateMarkers();
       }
     } catch (e) {
@@ -47,16 +42,15 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     }
   }
 
-  // 마커 업데이트 로직을 별도 함수로 분리
   Future<void> _updateMarkers() async {
     if (_mapController == null) return;
     final position = await _mapController!.getCameraPosition();
     final selectedEventId = ref.read(selectedEventIdProvider);
+    final strategy = ref.read(feedSheetStrategyProvider.notifier);
 
     ref
         .read(mapMarkerNotifierProvider.notifier)
         .updateOverlays(
-          // ✨ [수정] pixel-based 클러스터링 계산을 위해 mapController를 전달합니다.
           mapController: _mapController!,
           context: context,
           events: widget.events,
@@ -66,27 +60,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             context.push('/feed/$eventId/photo/$photoId');
           },
           onEventMarkerTap: (String eventId) {
-            // ▼▼▼ 여기가 최종 수정 포인트입니다! ▼▼▼
-
-            final selectedIdNotifier = ref.read(
-              selectedEventIdProvider.notifier,
-            );
-            final bottomSheetNotifier = ref.read(
-              feedBottomSheetStateProvider.notifier,
-            );
-
-            // 1. 새로운 이벤트 ID로 즉시 업데이트
-            selectedIdNotifier.state = eventId;
-
-            // 2. [핵심 로직] 리스너를 다시 트리거하기 위해 상태를 잠시 변경했다가 되돌립니다.
-            //    이렇게 하면 ref.listen이 'peekOverview' -> 'overview' 라는
-            //    명확한 상태 변화를 감지하여, 최소화된 시트를 다시 펼치게 됩니다.
-            if (bottomSheetNotifier.state == FeedBottomSheetState.overview) {
-              bottomSheetNotifier.state = FeedBottomSheetState.peekOverview;
-            }
-
-            // 3. 최종 목표 상태인 'overview'로 설정하여 시트를 펼칩니다.
-            bottomSheetNotifier.state = FeedBottomSheetState.overview;
+            // Strategy에게 오버뷰를 보여달라고 간단히 명령합니다.
+            strategy.showOverview(eventId);
           },
           selectedEventId: selectedEventId,
         );
@@ -94,6 +69,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
+    // 선택된 이벤트가 바뀌면 카메라를 해당 위치로 이동시킵니다.
     ref.listen<String?>(selectedEventIdProvider, (previous, next) {
       if (next != null && next != previous) {
         final selectedEvent = widget.events.firstWhereOrNull(
@@ -110,6 +86,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       }
     });
 
+    // 마커 데이터가 갱신되면 지도 위에 다시 그립니다.
     ref.listen<AsyncValue<MapState>>(mapMarkerNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
@@ -117,7 +94,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
 
-            // [수정] 카메라 제어 로직이 View로 이동
             if (!_initialCameraFitted && mapState.markers.length >= 2) {
               final positions =
                   mapState.markers.values.map((m) => m.position).toList();
@@ -137,6 +113,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       );
     });
 
+    final strategy = ref.read(feedSheetStrategyProvider.notifier);
+
     return NaverMap(
       options: NaverMapViewOptions(
         initialCameraPosition: NCameraPosition(
@@ -149,34 +127,27 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
                   : const NLatLng(35.890, 128.612), // 경북대학교 기본 위치
           zoom: 15,
         ),
+        locationButtonEnable: true,
       ),
       onMapReady: (controller) async {
         _mapController = controller;
         _updateMarkers();
       },
       onMapTapped: (point, latLng) {
-        // ✨ 현재 선택된 이벤트가 있는지 확인
-        final selectedEvent = ref.read(selectedEventIdProvider);
-
-        if (selectedEvent != null) {
-          // ✨ 이벤트가 선택된 상태에서 지도를 탭하면 peekOverview 상태로 전환
-          ref.read(feedBottomSheetStateProvider.notifier).state =
-              FeedBottomSheetState.peekOverview;
-        } else {
-          // ✨ 선택된 이벤트가 없으면 기존 peek 상태로 전환
-          ref.read(feedBottomSheetStateProvider.notifier).state =
-              FeedBottomSheetState.peek;
+        // Strategy에게 바텀시트를 최소화하라고 명령합니다.
+        strategy.minimize();
+      },
+      onCameraChange: (NCameraUpdateReason reason, bool animated) {
+        // 사용자의 제스처(드래그, 줌 등)로 인해 카메라가 움직였을 때만
+        if (reason == NCameraUpdateReason.gesture) {
+          strategy.minimize();
         }
       },
       onCameraIdle: () async {
         if (_mapController != null) {
-          // 카메라 이동 시 마커 업데이트 (GPS 호출 없음)
-          final position = await _mapController!.getCameraPosition();
-          print('Current Zoom Level: ${position.zoom}');
           _updateMarkers();
         }
       },
-      // onCameraIdle은 클러스터링 등 추가 기능 구현 시 활용 가능
     );
   }
 }

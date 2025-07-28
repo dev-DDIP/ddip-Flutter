@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/widgets/event_overview_card.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,85 +19,44 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
   final DraggableScrollableController _scrollController =
       DraggableScrollableController();
 
-  static const double _peekFraction = 0.10;
-  static const double _peekOverviewFraction = 0.25;
-  static const double _overviewFraction = 0.50;
-  static const double _fullListFraction = 0.90;
-
-  @override
-  void initState() {
-    super.initState();
-    // [수정 2] 위젯이 빌드된 후, 상태 변화를 감지하는 리스너 설정
-    // initState에서 ref를 직접 사용하면 안되므로, addPostFrameCallback을 사용해 안전하게 호출합니다.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // selectedEventIdProvider의 상태 변화를 '구독'합니다.
-      ref.listen<String?>(selectedEventIdProvider, (previous, next) {
-        // [핵심 로직] '이벤트 오버뷰' 상태에서 '전체 목록' 상태로 돌아올 때를 감지
-        // (previous는 ID가 있었고, next는 ID가 없어졌을 때)
-        if (previous != null && next == null) {
-          // 컨트롤러를 사용해 바텀 시트를 'peek' 상태로 애니메이션합니다.
-          if (_scrollController.isAttached) {
-            _scrollController.animateTo(
-              _peekFraction, // 목표 높이
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-            );
-          }
-        }
-      });
-    });
-  }
-
   @override
   void dispose() {
-    _scrollController.dispose(); // 컨트롤러 리소스 해제
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<FeedBottomSheetState>(feedBottomSheetStateProvider, (
-      prev,
-      next,
-    ) {
-      if (!mounted || !_scrollController.isAttached) return;
-
-      final targetFraction = switch (next) {
-        FeedBottomSheetState.peek => _peekFraction,
-        FeedBottomSheetState.peekOverview => _peekOverviewFraction,
-        FeedBottomSheetState.overview => _overviewFraction,
-        FeedBottomSheetState.fullList => _fullListFraction,
-      };
-
-      // [수정] if 문을 제거하여 상태 변경 시 '무조건' 애니메이션을 실행하도록 합니다.
-      _scrollController.animateTo(
-        targetFraction,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-      );
+    // Strategy가 관리하는 높이(double) 상태가 변경될 때마다,
+    // 컨트롤러를 이용해 바텀시트 높이를 애니메이션합니다.
+    ref.listen<double>(feedSheetStrategyProvider, (previous, next) {
+      if (_scrollController.isAttached) {
+        _scrollController.animateTo(
+          next,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
     });
 
-    // [핵심 수정] 데이터 로딩 상태를 숨기는 ddipFeedProvider 대신,
-    // 로딩/에러 상태를 모두 포함하는 원본 ddipEventsNotifierProvider를 watch합니다.
     final eventsState = ref.watch(ddipEventsNotifierProvider);
     final selectedEventId = ref.watch(selectedEventIdProvider);
     final isEventSelected = selectedEventId != null;
 
+    // Strategy 파일에 정의된 공개 상수를 사용합니다.
     final List<double> snapSizes =
-        selectedEventId != null
-            ? const [
-              _peekOverviewFraction,
-              _overviewFraction,
-              _fullListFraction,
-            ] // 오버뷰 모드: 3단 스냅
-            : const [_peekFraction, _fullListFraction]; // 기본 목록 모드: 2단 스냅
-    final minFraction = isEventSelected ? _peekOverviewFraction : _peekFraction;
+        isEventSelected
+            ? const [peekOverviewFraction, overviewFraction, fullListFraction]
+            : const [peekFraction, fullListFraction];
+
+    final minFraction = isEventSelected ? peekOverviewFraction : peekFraction;
+    final initialFraction = ref.read(feedSheetStrategyProvider);
 
     return DraggableScrollableSheet(
       controller: _scrollController,
-      initialChildSize: minFraction,
+      initialChildSize: initialFraction,
       minChildSize: minFraction,
-      maxChildSize: _fullListFraction,
+      maxChildSize: fullListFraction,
       snap: true,
       snapSizes: snapSizes,
       builder: (BuildContext context, ScrollController scrollController) {
@@ -108,7 +68,6 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
               BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8),
             ],
           ),
-          // [핵심 수정] eventsState.when을 사용하여 로딩, 에러, 데이터 상태를 명확히 분기합니다.
           child: eventsState.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) => Center(child: Text('오류: $err')),
@@ -130,21 +89,13 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
                   }
 
                   if (selectedEvent != null) {
-                    // ▼▼▼ 여기가 핵심 수정 포인트입니다! ▼▼▼
                     return EventOverviewCard(
                       event: selectedEvent,
                       onBackToList: () {
-                        // [1단계] 데이터 상태 변경: 선택된 이벤트를 해제합니다.
-                        // 이 코드가 실행되면, 다음 build 사이클에서 isEventSelected가 false가 되고
-                        // DraggableScrollableSheet의 minChildSize와 snapSizes가
-                        // '전체 목록' 모드에 맞게 변경되도록 예약됩니다.
-                        ref.read(selectedEventIdProvider.notifier).state = null;
-
-                        // [2단계] UI 상태 변경: 바텀 시트에게 '전체 목록' 상태로 가라고 명확히 명령합니다.
-                        // 이 코드가 실행되면, build 메서드 상단의 ref.listen이 이 상태 변화를 감지하고
-                        // 컨트롤러를 사용해 _fullListFraction(0.9) 높이로 애니메이션을 실행합니다.
-                        ref.read(feedBottomSheetStateProvider.notifier).state =
-                            FeedBottomSheetState.fullList;
+                        // Strategy에게 전체 목록을 보여달라고 명령합니다.
+                        ref
+                            .read(feedSheetStrategyProvider.notifier)
+                            .showFullList();
                       },
                       onViewDetails: () {
                         context.push('/feed/${selectedEvent.id}');
@@ -166,22 +117,15 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
   Widget _buildHandle() {
     return GestureDetector(
       onTap: () {
-        final notifier = ref.read(feedBottomSheetStateProvider.notifier);
-        final currentState = ref.read(feedBottomSheetStateProvider);
+        final strategy = ref.read(feedSheetStrategyProvider.notifier);
+        final currentHeight = ref.read(feedSheetStrategyProvider);
 
-        // ✨ 탭 핸들러 로직 개선
-        final isMinimizable =
-            currentState == FeedBottomSheetState.fullList ||
-            currentState == FeedBottomSheetState.overview;
-
-        if (isMinimizable) {
-          final isEventSelected = ref.read(selectedEventIdProvider) != null;
-          notifier.state =
-              isEventSelected
-                  ? FeedBottomSheetState.peekOverview
-                  : FeedBottomSheetState.peek;
+        // 현재 높이가 최소화 상태가 아닐 때만 최소화 명령을 내립니다.
+        if (currentHeight > peekOverviewFraction) {
+          strategy.minimize();
         } else {
-          notifier.state = FeedBottomSheetState.fullList;
+          // 최소화 상태일 땐 전체 목록을 보여줍니다.
+          strategy.showFullList();
         }
       },
       child: Container(

@@ -9,6 +9,7 @@ import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
 
 class DdipFeedScreen extends ConsumerWidget {
   const DdipFeedScreen({super.key});
