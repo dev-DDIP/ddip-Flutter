@@ -19,25 +19,24 @@ class FeedSheetStrategy extends StateNotifier<double> {
     // 1. 어떤 이벤트가 선택되었는지 앱 전체에 알립니다.
     _ref.read(selectedEventIdProvider.notifier).state = eventId;
     // 2. 바텀시트 상태를 '오버뷰' 높이로 변경합니다.
+    if (state == overviewFraction) state = -1.0; // 강제 동기화 로직
     state = overviewFraction;
   }
 
   /// 사용자가 지도를 탐색할 때(탭, 드래그) 호출됩니다.
   void minimize() {
     final selectedEventId = _ref.read(selectedEventIdProvider);
-    // 선택된 이벤트 유무에 따라 다른 최소화 높이를 설정합니다.
-    if (selectedEventId != null) {
-      state = peekOverviewFraction;
-    } else {
-      state = peekFraction;
-    }
+    final targetHeight =
+        selectedEventId != null ? peekOverviewFraction : peekFraction;
+
+    if (state == targetHeight) state = -1.0;
+    state = targetHeight;
   }
 
   /// 전체 목록을 봐야 할 때 호출됩니다. (예: 오버뷰에서 '뒤로가기')
   void showFullList() {
-    // 1. 선택된 이벤트를 해제합니다.
     _ref.read(selectedEventIdProvider.notifier).state = null;
-    // 2. 바텀시트 상태를 '전체 목록' 높이로 변경합니다.
+    if (state == fullListFraction) state = -1.0;
     state = fullListFraction;
   }
 }

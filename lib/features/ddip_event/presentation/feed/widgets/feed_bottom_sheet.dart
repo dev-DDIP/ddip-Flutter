@@ -30,6 +30,9 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
     // Strategy가 관리하는 높이(double) 상태가 변경될 때마다,
     // 컨트롤러를 이용해 바텀시트 높이를 애니메이션합니다.
     ref.listen<double>(feedSheetStrategyProvider, (previous, next) {
+      // ▼▼▼ [추가] 임시 상태값(-1.0)은 무시하고 넘어갑니다. ▼▼▼
+      if (next < 0) return;
+
       if (_scrollController.isAttached) {
         _scrollController.animateTo(
           next,
