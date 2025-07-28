@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 피드 화면 바텀시트의 높이 값을 상수로 정의합니다.
 const double peekFraction = 0.10;
-const double peekOverviewFraction = 0.25;
-const double overviewFraction = 0.50;
+const double peekOverviewFraction = 0.20;
+const double overviewFraction = 0.40;
 const double fullListFraction = 0.90;
 
 /// 바텀시트의 모든 상태와 동작을 관리하는 지휘관 클래스입니다.

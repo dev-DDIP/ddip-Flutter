@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -70,20 +71,52 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   @override
   Widget build(BuildContext context) {
     // 선택된 이벤트가 바뀌면 카메라를 해당 위치로 이동시킵니다.
-    ref.listen<String?>(selectedEventIdProvider, (previous, next) {
+    ref.listen<String?>(selectedEventIdProvider, (previous, next) async {
+      // async 키워드 추가
+      if (_mapController == null) return;
+
       if (next != null && next != previous) {
+        // 1. 선택된 이벤트 정보를 가져옵니다.
         final selectedEvent = widget.events.firstWhereOrNull(
           (e) => e.id == next,
         );
-        if (selectedEvent != null && _mapController != null) {
-          _mapController!.updateCamera(
-            NCameraUpdate.scrollAndZoomTo(
-              target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
-              zoom: 16,
-            ),
-          );
-        }
+        if (selectedEvent == null) return;
+
+        final markerLatLng = NLatLng(
+          selectedEvent.latitude,
+          selectedEvent.longitude,
+        );
+
+        // 2. 화면 높이와 BottomSheet로 인한 y축 오프셋(픽셀)을 계산합니다.
+        final screenHeight = MediaQuery.of(context).size.height;
+        final pixelOffset = (screenHeight * overviewFraction) / 2;
+
+        // 3. 마커의 LatLng를 화면상의 픽셀 좌표(NPoint)로 변환합니다.
+        final markerScreenPoint = await _mapController!.latLngToScreenLocation(
+          markerLatLng,
+        );
+
+        // 4. 카메라가 이동해야 할 새로운 중심점의 화면 좌표를 계산합니다.
+        //    (마커의 y좌표에 오프셋을 더해 카메라 중심을 아래로 내립니다)
+        final newCameraCenterScreenPoint = NPoint(
+          markerScreenPoint.x,
+          markerScreenPoint.y + pixelOffset,
+        );
+
+        // 5. 계산된 새로운 화면 좌표를 다시 LatLng로 변환합니다. 이것이 최종 목표 지점입니다.
+        final newCameraTargetLatLng = await _mapController!
+            .screenLocationToLatLng(newCameraCenterScreenPoint);
+
+        // 6. 보정된 최종 목표 지점으로 카메라를 이동시킵니다.
+        _mapController!.updateCamera(
+          NCameraUpdate.scrollAndZoomTo(
+            target: newCameraTargetLatLng,
+            zoom: 16,
+          ),
+        );
       }
+      // 선택이 해제될 때는 별도의 카메라 이동 로직이 필요 없으므로 else if 부분은 제거합니다.
+      // 사용자가 자유롭게 지도를 탐색하도록 둡니다.
     });
 
     // 마커 데이터가 갱신되면 지도 위에 다시 그립니다.

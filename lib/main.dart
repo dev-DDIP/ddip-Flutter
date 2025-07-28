@@ -7,6 +7,7 @@ import 'package:ddip/core/services/proximity_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -32,11 +33,17 @@ void main() async {
     print('현재 작업 디렉토리: ${Directory.current.path}');
     WidgetsFlutterBinding.ensureInitialized();
 
+    // 시스템 UI 스타일 설정
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent, // 상태 표시줄 배경을 투명하게 설정
+        statusBarIconBrightness: Brightness.dark, // 상태 표시줄 아이콘을 어둡게 (검은색)
+      ),
+    );
     // Firebase 앱 초기화
     // Firebase 관련 기능을 사용하기 전에 반드시 먼저 호출되어야 합니다.
     await Firebase.initializeApp();
     // 백그라운드 핸들러 등록
-
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     await dotenv.load(fileName: ".env");
