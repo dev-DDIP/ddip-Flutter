@@ -1,9 +1,10 @@
 // lib/features/map/presentation/widgets/ddip_map_view.dart
 
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
-import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -21,11 +22,20 @@ class DdipMapView extends ConsumerStatefulWidget {
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
   bool _initialCameraFitted = false;
+  bool _mapMovedByUser = false;
+
+  Timer? _debounce;
+  EdgeInsets? _currentPadding;
 
   @override
   void initState() {
     super.initState();
-    // onMapReady에서 초기 마커를 로드하므로 initState는 비워둡니다.
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 
   void _updateMarkers() {
@@ -38,20 +48,25 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
-    // ✨ [수정] 이벤트 선택 시, 단순하게 해당 위치로 카메라를 이동시킵니다.
-    // contentPadding이 모든 오프셋 계산을 자동으로 처리해줍니다.
+    ref.listen<double>(bottomSheetHeightProvider, (previous, next) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 150), () {
+        if (mounted && (previous != next)) {
+          setState(() {
+            _currentPadding = EdgeInsets.only(bottom: next);
+          });
+        }
+      });
+    });
+
     ref.listen<String?>(selectedEventIdProvider, (previous, next) {
       if (_mapController == null || next == null || next == previous) return;
-
       final selectedEvent = widget.events.firstWhereOrNull((e) => e.id == next);
       if (selectedEvent == null) return;
-
       final markerLatLng = NLatLng(
         selectedEvent.latitude,
         selectedEvent.longitude,
       );
-
-      // ✨ 매우 단순해진 단일 카메라 업데이트
       final cameraUpdate = NCameraUpdate.scrollAndZoomTo(
         target: markerLatLng,
         zoom: 16,
@@ -63,23 +78,19 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       _mapController!.updateCamera(cameraUpdate);
     });
 
-    // 지도 상태(마커, 클러스터 등) 변경 리스너는 대부분 유지됩니다.
     ref.listen<AsyncValue<MapState>>(mapStateNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
           if (_mapController != null && mounted) {
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
-
             if (!_initialCameraFitted && mapState.markers.isNotEmpty) {
               final positions =
                   mapState.markers.values.map((m) => m.position).toList();
               final initialBounds = NLatLngBounds.from(positions);
-
               ref
                   .read(mapStateNotifierProvider.notifier)
                   .initializeHistory(initialBounds);
-
               _mapController!.updateCamera(
                 NCameraUpdate.fitBounds(
                   initialBounds,
@@ -102,10 +113,13 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       );
     });
 
-    // ✨ [핵심] 바텀시트의 높이를 감시하여 contentPadding을 동적으로 업데이트합니다.
-    final bottomSheetHeight = ref.watch(bottomSheetHeightProvider);
     final mapNotifier = ref.read(mapStateNotifierProvider.notifier);
     final mapState = ref.watch(mapStateNotifierProvider);
+
+    // _currentPadding이 아직 설정되지 않았다면(첫 build 시), Provider의 현재 값으로 초기화합니다.
+    _currentPadding ??= EdgeInsets.only(
+      bottom: ref.read(bottomSheetHeightProvider),
+    );
 
     return PopScope(
       canPop: (mapState.valueOrNull?.drillDownPath.length ?? 0) <= 1,
@@ -127,8 +141,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             zoom: 15,
           ),
           locationButtonEnable: true,
-          // ✨ [핵심] 동적으로 계산된 바텀시트 높이를 contentPadding으로 설정
-          contentPadding: EdgeInsets.only(bottom: bottomSheetHeight),
+          contentPadding: _currentPadding!,
         ),
         onMapReady: (controller) {
           _mapController = controller;
@@ -141,9 +154,15 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         onCameraChange: (reason, animated) {
           if (reason == NCameraUpdateReason.gesture) {
             ref.read(feedSheetStrategyProvider.notifier).minimize();
+            _mapMovedByUser = true;
           }
         },
-        onCameraIdle: _updateMarkers,
+        onCameraIdle: () {
+          if (_mapMovedByUser) {
+            _updateMarkers();
+            _mapMovedByUser = false;
+          }
+        },
       ),
     );
   }
