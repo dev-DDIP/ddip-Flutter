@@ -5,6 +5,8 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/map/domain/entities/cluster_or_marker.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -186,5 +188,105 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     } catch (e) {
       throw Exception('ID($id)에 해당하는 띱 이벤트를 찾을 수 없습니다.');
     }
+  }
+
+  @override
+  Future<List<ClusterOrMarker>> getClusters(
+    NLatLngBounds bounds,
+    double zoom,
+  ) async {
+    // 실제 백엔드에서는 이 bounds와 zoom을 쿼리 파라미터로 보내게 됩니다.
+    // Fake Repository에서는 모든 데이터를 가져와 직접 필터링하고 그룹화합니다.
+    await Future.delayed(const Duration(milliseconds: 50)); // 가짜 네트워크 딜레이
+
+    final visibleEvents =
+        _ddipEvents.where((event) {
+          final eventPosition = NLatLng(event.latitude, event.longitude);
+          // NLatLngBounds에 포함되는지 직접 비교
+          return eventPosition.latitude >= bounds.southWest.latitude &&
+              eventPosition.latitude <= bounds.northEast.latitude &&
+              eventPosition.longitude >= bounds.southWest.longitude &&
+              eventPosition.longitude <= bounds.northEast.longitude;
+        }).toList();
+
+    if (zoom >= 15) {
+      // 줌 레벨이 높으면 클러스터링 없이 개별 마커로 반환
+      return visibleEvents
+          .map(
+            (event) => IndividualMarker(
+              position: NLatLng(event.latitude, event.longitude),
+              event: event,
+            ),
+          )
+          .toList();
+    } else {
+      // 줌 레벨이 낮으면 클러스터링 로직 수행
+      final groups = _groupEventsByGeoDistance(visibleEvents, zoom);
+      final result = <ClusterOrMarker>[];
+
+      for (final group in groups) {
+        if (group.length > 1) {
+          double avgLat =
+              group.map((e) => e.latitude).reduce((a, b) => a + b) /
+              group.length;
+          double avgLon =
+              group.map((e) => e.longitude).reduce((a, b) => a + b) /
+              group.length;
+          result.add(
+            Cluster(
+              position: NLatLng(avgLat, avgLon),
+              count: group.length,
+              events: group,
+            ),
+          );
+        } else {
+          final event = group.first;
+          result.add(
+            IndividualMarker(
+              position: NLatLng(event.latitude, event.longitude),
+              event: event,
+            ),
+          );
+        }
+      }
+      return result;
+    }
+  }
+
+  /// MapOverlayService에서 이전해 온 클러스터링 핵심 로직
+  List<List<DdipEvent>> _groupEventsByGeoDistance(
+    List<DdipEvent> events,
+    double zoom,
+  ) {
+    if (events.isEmpty) return [];
+
+    final double threshold = switch (zoom) {
+      < 13 => 0.008,
+      < 14 => 0.004,
+      < 15 => 0.0015,
+      _ => 0,
+    };
+
+    final List<List<DdipEvent>> clusters = [];
+    final Set<String> processedEventIds = {};
+
+    for (final event in events) {
+      if (processedEventIds.contains(event.id)) continue;
+
+      final cluster = <DdipEvent>[event];
+      processedEventIds.add(event.id);
+
+      for (final otherEvent in events) {
+        if (processedEventIds.contains(otherEvent.id)) continue;
+
+        if ((event.latitude - otherEvent.latitude).abs() < threshold &&
+            (event.longitude - otherEvent.longitude).abs() < threshold) {
+          cluster.add(otherEvent);
+          processedEventIds.add(otherEvent.id);
+        }
+      }
+      clusters.add(cluster);
+    }
+    return clusters;
   }
 }

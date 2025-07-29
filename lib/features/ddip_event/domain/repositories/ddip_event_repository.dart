@@ -2,6 +2,8 @@
 
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
+import 'package:ddip/features/map/domain/entities/cluster_or_marker.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 import '../entities/ddip_event.dart';
 
@@ -40,6 +42,8 @@ abstract class DdipEventRepository {
     PhotoStatus status, {
     MessageCode? messageCode,
   });
+
+  Future<List<ClusterOrMarker>> getClusters(NLatLngBounds bounds, double zoom);
 }
 
 /*

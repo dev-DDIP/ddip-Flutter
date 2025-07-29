@@ -1,13 +1,10 @@
-import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
-import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:go_router/go_router.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
   final List<DdipEvent> events;
@@ -45,99 +42,51 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   Future<void> _updateMarkers() async {
     if (_mapController == null) return;
-    final position = await _mapController!.getCameraPosition();
-    final selectedEventId = ref.read(selectedEventIdProvider);
-    final strategy = ref.read(feedSheetStrategyProvider.notifier);
 
     ref
-        .read(mapMarkerNotifierProvider.notifier)
-        .updateOverlays(
-          mapController: _mapController!,
-          context: context,
-          events: widget.events,
-          zoom: position.zoom,
-          myLocation: _myLocation,
-          onPhotoMarkerTap: (eventId, photoId) {
-            context.push('/feed/$eventId/photo/$photoId');
-          },
-          onEventMarkerTap: (String eventId) {
-            // Strategy에게 오버뷰를 보여달라고 간단히 명령합니다.
-            strategy.showOverview(eventId);
-          },
-          selectedEventId: selectedEventId,
-        );
+        .read(mapStateNotifierProvider.notifier)
+        .fetchMarkers(mapController: _mapController!, context: context);
   }
 
   @override
   Widget build(BuildContext context) {
-    // 선택된 이벤트가 바뀌면 카메라를 해당 위치로 이동시킵니다.
-    ref.listen<String?>(selectedEventIdProvider, (previous, next) async {
-      // async 키워드 추가
-      if (_mapController == null) return;
-
-      if (next != null && next != previous) {
-        // 1. 선택된 이벤트 정보를 가져옵니다.
-        final selectedEvent = widget.events.firstWhereOrNull(
-          (e) => e.id == next,
-        );
-        if (selectedEvent == null) return;
-
-        final markerLatLng = NLatLng(
-          selectedEvent.latitude,
-          selectedEvent.longitude,
-        );
-
-        // 2. 화면 높이와 BottomSheet로 인한 y축 오프셋(픽셀)을 계산합니다.
-        final screenHeight = MediaQuery.of(context).size.height;
-        final pixelOffset = (screenHeight * overviewFraction) / 2;
-
-        // 3. 마커의 LatLng를 화면상의 픽셀 좌표(NPoint)로 변환합니다.
-        final markerScreenPoint = await _mapController!.latLngToScreenLocation(
-          markerLatLng,
-        );
-
-        // 4. 카메라가 이동해야 할 새로운 중심점의 화면 좌표를 계산합니다.
-        //    (마커의 y좌표에 오프셋을 더해 카메라 중심을 아래로 내립니다)
-        final newCameraCenterScreenPoint = NPoint(
-          markerScreenPoint.x,
-          markerScreenPoint.y + pixelOffset,
-        );
-
-        // 5. 계산된 새로운 화면 좌표를 다시 LatLng로 변환합니다. 이것이 최종 목표 지점입니다.
-        final newCameraTargetLatLng = await _mapController!
-            .screenLocationToLatLng(newCameraCenterScreenPoint);
-
-        // 6. 보정된 최종 목표 지점으로 카메라를 이동시킵니다.
-        _mapController!.updateCamera(
-          NCameraUpdate.scrollAndZoomTo(
-            target: newCameraTargetLatLng,
-            zoom: 16,
-          ),
-        );
-      }
-      // 선택이 해제될 때는 별도의 카메라 이동 로직이 필요 없으므로 else if 부분은 제거합니다.
-      // 사용자가 자유롭게 지도를 탐색하도록 둡니다.
-    });
-
     // 마커 데이터가 갱신되면 지도 위에 다시 그립니다.
-    ref.listen<AsyncValue<MapState>>(mapMarkerNotifierProvider, (_, next) {
+    ref.listen<AsyncValue<MapState>>(mapStateNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
           if (_mapController != null && mounted) {
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
 
-            if (!_initialCameraFitted && mapState.markers.length >= 2) {
+            // ▼▼▼ [핵심 수정] '최초의 역사'를 기록하는 로직을 추가합니다. ▼▼▼
+            if (!_initialCameraFitted && mapState.markers.isNotEmpty) {
               final positions =
                   mapState.markers.values.map((m) => m.position).toList();
-              final bounds = NLatLngBounds.from(positions);
+              final initialBounds = NLatLngBounds.from(positions);
+
+              // 1. Notifier에 최초의 역사를 기록해달라고 요청합니다.
+              ref
+                  .read(mapStateNotifierProvider.notifier)
+                  .initializeHistory(initialBounds);
+
+              // 2. 카메라를 최초의 전체 뷰로 이동시킵니다.
               _mapController!.updateCamera(
                 NCameraUpdate.fitBounds(
-                  bounds,
+                  initialBounds,
                   padding: const EdgeInsets.all(80),
                 ),
               );
               _initialCameraFitted = true;
+            }
+            // ▲▲▲ [핵심 수정] '최초의 역사'를 기록하는 로직을 추가합니다. ▲▲▲
+            else if (mapState.bounds != null) {
+              // 이후의 모든 카메라 이동은 '명령'이 있을 때만 수행됩니다.
+              _mapController!.updateCamera(
+                NCameraUpdate.fitBounds(
+                  mapState.bounds!,
+                  padding: const EdgeInsets.all(80),
+                ),
+              );
             }
           }
         },
@@ -147,40 +96,52 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     });
 
     final strategy = ref.read(feedSheetStrategyProvider.notifier);
+    final mapNotifier = ref.read(mapStateNotifierProvider.notifier);
+    final mapState = ref.watch(mapStateNotifierProvider);
 
-    return NaverMap(
-      options: NaverMapViewOptions(
-        initialCameraPosition: NCameraPosition(
-          target:
-              widget.events.isNotEmpty
-                  ? NLatLng(
-                    widget.events.first.latitude,
-                    widget.events.first.longitude,
-                  )
-                  : const NLatLng(35.890, 128.612), // 경북대학교 기본 위치
-          zoom: 15,
+    return PopScope(
+      // 현재 탐색 경로가 최상위('root')일 때만 앱이 닫히도록 허용합니다.
+      canPop: (mapState.valueOrNull?.drillDownPath.length ?? 0) <= 1,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          mapNotifier.drillUp();
+        }
+      },
+      child: NaverMap(
+        // ▲▲▲ [추가] 스마트폰의 뒤로가기 버튼을 감지하는 위젯입니다. ▲▲▲
+        options: NaverMapViewOptions(
+          initialCameraPosition: NCameraPosition(
+            target:
+                widget.events.isNotEmpty
+                    ? NLatLng(
+                      widget.events.first.latitude,
+                      widget.events.first.longitude,
+                    )
+                    : const NLatLng(35.890, 128.612), // 경북대학교 기본 위치
+            zoom: 15,
+          ),
+          locationButtonEnable: true,
         ),
-        locationButtonEnable: true,
-      ),
-      onMapReady: (controller) async {
-        _mapController = controller;
-        _updateMarkers();
-      },
-      onMapTapped: (point, latLng) {
-        // Strategy에게 바텀시트를 최소화하라고 명령합니다.
-        strategy.minimize();
-      },
-      onCameraChange: (NCameraUpdateReason reason, bool animated) {
-        // 사용자의 제스처(드래그, 줌 등)로 인해 카메라가 움직였을 때만
-        if (reason == NCameraUpdateReason.gesture) {
-          strategy.minimize();
-        }
-      },
-      onCameraIdle: () async {
-        if (_mapController != null) {
+        onMapReady: (controller) {
+          _mapController = controller;
           _updateMarkers();
-        }
-      },
+        },
+        onMapTapped: (point, latLng) {
+          // Strategy에게 바텀시트를 최소화하라고 명령합니다.
+          strategy.minimize();
+          // [추가] 지도 탭 시 선택된 마커를 해제합니다.
+          ref.read(selectedEventIdProvider.notifier).state = null;
+        },
+        onCameraChange: (NCameraUpdateReason reason, bool animated) {
+          // 사용자의 제스처(드래그, 줌 등)로 인해 카메라가 움직였을 때만
+          if (reason == NCameraUpdateReason.gesture) {
+            strategy.minimize();
+          }
+        },
+        onCameraIdle: () {
+          _updateMarkers();
+        },
+      ),
     );
   }
 }

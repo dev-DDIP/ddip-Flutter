@@ -6,6 +6,8 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/map/domain/entities/cluster_or_marker.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 class DdipEventRepositoryImpl implements DdipEventRepository {
   final DdipEventRemoteDataSource remoteDataSource;
@@ -90,6 +92,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
       photoId,
       status.toString(),
     );
+  }
+
+  @override
+  Future<List<ClusterOrMarker>> getClusters(NLatLngBounds bounds, double zoom) {
+    // TODO: 추후 실제 백엔드 API가 구현되면, remoteDataSource를 호출하는 로직으로 대체합니다.
+    throw UnimplementedError("실제 백엔드 getClusters API가 아직 구현되지 않았습니다.");
   }
 }
 

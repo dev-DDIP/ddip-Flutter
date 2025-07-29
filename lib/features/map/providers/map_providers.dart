@@ -1,5 +1,5 @@
 // lib/features/map/providers/map_providers.dart
-import 'package:ddip/features/map/presentation/notifiers/map_marker_notifier.dart';
+import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
 import 'package:ddip/features/map/presentation/services/map_overlay_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -11,23 +11,37 @@ class MapState {
   // key: 마커의 고유 ID, value: NMarker 객체
   final Map<String, NMarker> markers;
   final NLatLngBounds? bounds;
+  final List<String> drillDownPath;
+  final List<NLatLngBounds> boundsHistory;
 
-  MapState({required this.markers, this.bounds});
+  const MapState({
+    required this.markers,
+    this.bounds,
+    this.drillDownPath = const ['root'],
+    this.boundsHistory = const [],
+  });
 
   // 상태를 쉽게 업데이트하기 위한 copyWith 메서드
-  MapState copyWith({Map<String, NMarker>? markers, NLatLngBounds? bounds}) {
+  MapState copyWith({
+    Map<String, NMarker>? markers,
+    NLatLngBounds? bounds,
+    List<String>? drillDownPath,
+    List<NLatLngBounds>? boundsHistory,
+  }) {
     return MapState(
       markers: markers ?? this.markers,
-      bounds: bounds ?? this.bounds,
+      bounds: bounds,
+      drillDownPath: drillDownPath ?? this.drillDownPath,
+      boundsHistory: boundsHistory ?? this.boundsHistory,
     );
   }
 }
 
-final mapMarkerNotifierProvider =
-    StateNotifierProvider.autoDispose<MapMarkerNotifier, AsyncValue<MapState>>((
+final mapStateNotifierProvider =
+    StateNotifierProvider.autoDispose<MapStateNotifier, AsyncValue<MapState>>((
       ref,
     ) {
-      return MapMarkerNotifier(ref);
+      return MapStateNotifier(ref);
     });
 
 // family를 사용하여 BuildContext를 전달받을 수 있게 합니다.
