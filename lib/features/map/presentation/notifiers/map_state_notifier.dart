@@ -106,22 +106,21 @@ class MapStateNotifier extends StateNotifier<AsyncValue<MapState>> {
   /// 사용자가 '뒤로 가기'를 했을 때 호출됨
   Future<void> drillUp() async {
     final currentState = state.value;
+    // 1. 현재 상태가 null이거나 이미 최상위(root) 경로에 있다면 아무것도 하지 않음.
     if (currentState == null || currentState.drillDownPath.length <= 1) return;
 
-    final newPath = List<String>.from(currentState.drillDownPath)..removeLast();
+    // 2. '카메라 역사'에서 가장 처음 저장된, 즉 전체 뷰에 해당하는 'root' 영역을 가져옴.
+    final rootBounds = currentState.boundsHistory.firstOrNull;
 
-    // '카메라 역사'에서 마지막 기록을 제거
-    final newHistory = List<NLatLngBounds>.from(currentState.boundsHistory)
-      ..removeLast();
-
-    // 돌아갈 목표 지점은 이제 '역사'에 기록된 가장 마지막 위치
-    final targetBounds = newHistory.isNotEmpty ? newHistory.last : null;
-
+    // 3. 상태를 최상위(root)로 리셋함.
     state = AsyncValue.data(
       currentState.copyWith(
-        drillDownPath: newPath,
-        bounds: targetBounds, // 이전 위치로 돌아가라는 '카메라 이동 명령'
-        boundsHistory: newHistory, // 역사 업데이트
+        // 3-1. 경로를 최상위 경로로 초기화
+        drillDownPath: ['root'],
+        // 3-2. 카메라를 전체 뷰 영역으로 이동하라고 '명령'
+        bounds: rootBounds,
+        // 3-3. 카메라 역사를 전체 뷰 하나만 남기고 모두 비움
+        boundsHistory: rootBounds != null ? [rootBounds] : [],
       ),
     );
   }

@@ -1,7 +1,9 @@
 // lib/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart
 
 import 'package:dio/dio.dart';
+
 import '../models/ddip_event_model.dart';
+
 // 이 코드는 앞선 RepositoryImpl(중간 관리자)로부터 작업을 위임받아, 실제로 서버와 HTTP 통신을 수행합니다.
 // 인터페이스(추상 클래스)를 먼저 정의하여, 어떤 기능을 제공할지 명시합니다.
 
@@ -17,10 +19,15 @@ DataSource는 '최종 실무자'로서, Dio라는 전문 장비를 사용해 데
  */
 abstract class DdipEventRemoteDataSource {
   Future<void> createDdipEvent(DdipEventModel eventModel);
+
   Future<List<DdipEventModel>> getDdipEvents();
+
   Future<DdipEventModel> getDdipEventById(String id);
+
   Future<void> applyToEvent(String eventId, String userId);
+
   Future<void> selectResponder(String eventId, String responderId);
+
   Future<void> addPhoto(/* ... */); // 사진 파일 등을 전달할 파라미터 필요
   Future<void> updatePhotoFeedback(
     String eventId,
@@ -47,7 +54,7 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
     try {
       // 실제 서버의 '띱 생성' API 엔드포인트로 POST 요청을 보냅니다.
       // eventModel.toJson()을 통해 DTO 객체를 JSON으로 변환하여 body에 담습니다.
-      await dio.post(
+      await dio.post<dynamic>(
         '/ddip', // 예시 API 경로입니다. 실제 백엔드 경로에 맞게 수정해야 합니다.
         data: eventModel.toJson(),
       );

@@ -1,10 +1,11 @@
+import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
   final List<DdipEvent> events;
@@ -18,7 +19,7 @@ class DdipMapView extends ConsumerStatefulWidget {
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
   bool _initialCameraFitted = false;
-  Position? _myLocation;
+  String? _pendingCameraAdjustmentForEventId;
 
   @override
   void initState() {
@@ -27,17 +28,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   }
 
   Future<void> _fetchMyLocationOnce() async {
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(() {
-          _myLocation = position;
-        });
-        _updateMarkers();
-      }
-    } catch (e) {
-      print("최초 사용자 위치 로딩 실패: $e");
-    }
+    _updateMarkers();
   }
 
   Future<void> _updateMarkers() async {
@@ -48,9 +39,64 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         .fetchMarkers(mapController: _mapController!, context: context);
   }
 
+  Future<void> _performFinalCameraAdjustment(String eventId) async {
+    if (_mapController == null) return;
+
+    final selectedEvent = widget.events.firstWhereOrNull(
+      (e) => e.id == eventId,
+    );
+    if (selectedEvent == null) return;
+
+    final markerLatLng = NLatLng(
+      selectedEvent.latitude,
+      selectedEvent.longitude,
+    );
+    final screenHeight = MediaQuery.of(context).size.height;
+    final pixelOffset = (screenHeight * overviewFraction) / 2;
+
+    final markerScreenPoint = await _mapController!.latLngToScreenLocation(
+      markerLatLng,
+    );
+
+    final newCameraCenterScreenPoint = NPoint(
+      markerScreenPoint.x,
+      markerScreenPoint.y + pixelOffset,
+    );
+
+    final newCameraTargetLatLng = await _mapController!.screenLocationToLatLng(
+      newCameraCenterScreenPoint,
+    );
+
+    final currentCameraPosition = await _mapController!.getCameraPosition();
+    _mapController!.updateCamera(
+      NCameraUpdate.scrollAndZoomTo(
+        target: newCameraTargetLatLng,
+        zoom: currentCameraPosition.zoom, // 현재 줌 레벨 유지
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 마커 데이터가 갱신되면 지도 위에 다시 그립니다.
+    ref.listen<String?>(selectedEventIdProvider, (previous, next) {
+      if (_mapController == null) return;
+      if (next != null && next != previous) {
+        final selectedEvent = widget.events.firstWhereOrNull(
+          (e) => e.id == next,
+        );
+        if (selectedEvent == null) return;
+
+        _pendingCameraAdjustmentForEventId = next; // 플래그 설정!
+
+        _mapController!.updateCamera(
+          NCameraUpdate.scrollAndZoomTo(
+            target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
+            zoom: 16,
+          ),
+        );
+      }
+    });
+
     ref.listen<AsyncValue<MapState>>(mapStateNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
@@ -102,8 +148,9 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     return PopScope(
       // 현재 탐색 경로가 최상위('root')일 때만 앱이 닫히도록 허용합니다.
       canPop: (mapState.valueOrNull?.drillDownPath.length ?? 0) <= 1,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
+          _pendingCameraAdjustmentForEventId = null;
           mapNotifier.drillUp();
         }
       },
@@ -133,13 +180,20 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           ref.read(selectedEventIdProvider.notifier).state = null;
         },
         onCameraChange: (NCameraUpdateReason reason, bool animated) {
-          // 사용자의 제스처(드래그, 줌 등)로 인해 카메라가 움직였을 때만
           if (reason == NCameraUpdateReason.gesture) {
+            _pendingCameraAdjustmentForEventId = null; // 사용자가 직접 움직이면 보정 작업 취소
             strategy.minimize();
           }
         },
         onCameraIdle: () {
-          _updateMarkers();
+          if (_pendingCameraAdjustmentForEventId != null) {
+            final eventId = _pendingCameraAdjustmentForEventId!;
+            _pendingCameraAdjustmentForEventId = null; // 플래그 초기화
+            _performFinalCameraAdjustment(eventId);
+          } else {
+            // 일반적인 상황에서는 마커 목록만 업데이트합니다.
+            _updateMarkers();
+          }
         },
       ),
     );
