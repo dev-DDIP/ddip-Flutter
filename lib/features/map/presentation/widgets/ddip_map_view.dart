@@ -25,54 +25,45 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   @override
   void initState() {
     super.initState();
-    // onMapReady에서 초기 마커를 로드하므로 initState에서는 비워둡니다.
+    // onMapReady에서 초기 마커를 로드하므로 initState는 비워둡니다.
   }
 
-  Future<void> _updateMarkers() async {
-    if (_mapController == null || !mounted) return;
-    ref
-        .read(mapStateNotifierProvider.notifier)
-        .fetchMarkers(mapController: _mapController!, context: context);
+  void _updateMarkers() {
+    if (_mapController != null && mounted) {
+      ref
+          .read(mapStateNotifierProvider.notifier)
+          .fetchMarkers(mapController: _mapController!, context: context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // [핵심 로직] selectedEventIdProvider의 변경을 감지하여 pivot을 사용한 단일 애니메이션 실행
+    // ✨ [수정] 이벤트 선택 시, 단순하게 해당 위치로 카메라를 이동시킵니다.
+    // contentPadding이 모든 오프셋 계산을 자동으로 처리해줍니다.
     ref.listen<String?>(selectedEventIdProvider, (previous, next) {
       if (_mapController == null || next == null || next == previous) return;
 
       final selectedEvent = widget.events.firstWhereOrNull((e) => e.id == next);
       if (selectedEvent == null) return;
 
-      // --- ✨ [최종 완성] pivot을 사용한 단일 카메라 업데이트 ✨ ---
-
-      // 1. 바텀시트를 제외한 순수 지도 영역의 세로 중앙 지점을 계산합니다.
-      //    화면 상단이 0.0, 하단이 1.0일 때,
-      //    가시 영역(상위 60%)의 중앙은 Y좌표 0.3에 해당합니다.
-      final pivot = NPoint(
-        0.5,
-        (1.0 - overviewFraction) / 2.0,
-      ); // NPoint(0.5, 0.3)
-
-      // 2. scrollAndZoomTo로 목표 좌표와 줌 레벨을 설정하는 NCameraUpdate 객체를 생성합니다.
-      final cameraUpdate = NCameraUpdate.scrollAndZoomTo(
-        target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
-        zoom: 16,
+      final markerLatLng = NLatLng(
+        selectedEvent.latitude,
+        selectedEvent.longitude,
       );
 
-      // 3. 생성된 객체에 setPivot()과 setAnimation()을 연달아 적용(chaining)합니다.
-      cameraUpdate
-        ..setPivot(pivot)
-        ..setAnimation(
-          animation: NCameraAnimation.easing,
-          duration: const Duration(milliseconds: 800),
-        );
-
-      // 4. 모든 설정이 완료된 cameraUpdate 객체로 카메라를 단 한 번만 업데이트합니다.
+      // ✨ 매우 단순해진 단일 카메라 업데이트
+      final cameraUpdate = NCameraUpdate.scrollAndZoomTo(
+        target: markerLatLng,
+        zoom: 16,
+      );
+      cameraUpdate.setAnimation(
+        animation: NCameraAnimation.easing,
+        duration: const Duration(milliseconds: 500),
+      );
       _mapController!.updateCamera(cameraUpdate);
     });
 
-    // --- (이하 나머지 코드는 이전과 동일) ---
+    // 지도 상태(마커, 클러스터 등) 변경 리스너는 대부분 유지됩니다.
     ref.listen<AsyncValue<MapState>>(mapStateNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
@@ -84,9 +75,11 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
               final positions =
                   mapState.markers.values.map((m) => m.position).toList();
               final initialBounds = NLatLngBounds.from(positions);
+
               ref
                   .read(mapStateNotifierProvider.notifier)
                   .initializeHistory(initialBounds);
+
               _mapController!.updateCamera(
                 NCameraUpdate.fitBounds(
                   initialBounds,
@@ -109,7 +102,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
       );
     });
 
-    final strategy = ref.read(feedSheetStrategyProvider.notifier);
+    // ✨ [핵심] 바텀시트의 높이를 감시하여 contentPadding을 동적으로 업데이트합니다.
+    final bottomSheetHeight = ref.watch(bottomSheetHeightProvider);
     final mapNotifier = ref.read(mapStateNotifierProvider.notifier);
     final mapState = ref.watch(mapStateNotifierProvider);
 
@@ -133,18 +127,20 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             zoom: 15,
           ),
           locationButtonEnable: true,
+          // ✨ [핵심] 동적으로 계산된 바텀시트 높이를 contentPadding으로 설정
+          contentPadding: EdgeInsets.only(bottom: bottomSheetHeight),
         ),
         onMapReady: (controller) {
           _mapController = controller;
           _updateMarkers();
         },
         onMapTapped: (point, latLng) {
-          strategy.minimize();
+          ref.read(feedSheetStrategyProvider.notifier).minimize();
           ref.read(selectedEventIdProvider.notifier).state = null;
         },
         onCameraChange: (reason, animated) {
           if (reason == NCameraUpdateReason.gesture) {
-            strategy.minimize();
+            ref.read(feedSheetStrategyProvider.notifier).minimize();
           }
         },
         onCameraIdle: _updateMarkers,

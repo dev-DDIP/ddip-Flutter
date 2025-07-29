@@ -21,7 +21,26 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
       DraggableScrollableController();
 
   @override
+  void initState() {
+    super.initState();
+    // initState에서 컨트롤러에 리스너를 추가하여 시트의 크기(extent) 변화를 감지합니다.
+    _scrollController.addListener(_updateSheetHeight);
+  }
+
+  // 시트의 높이가 변경될 때마다 호출되는 리스너 메서드입니다.
+  void _updateSheetHeight() {
+    if (!mounted) return;
+    final screenHeight = MediaQuery.of(context).size.height;
+    // extent는 시트의 전체 높이에 대한 비율 (0.0 ~ 1.0)입니다.
+    final currentPixelHeight = _scrollController.size * screenHeight;
+    // Riverpod provider를 통해 현재 높이를 전역적으로 업데이트합니다.
+    ref.read(bottomSheetHeightProvider.notifier).state = currentPixelHeight;
+  }
+
+  @override
   void dispose() {
+    // 위젯이 사라질 때 리스너를 반드시 제거하여 메모리 누수를 방지합니다.
+    _scrollController.removeListener(_updateSheetHeight);
     _scrollController.dispose();
     super.dispose();
   }
@@ -65,11 +84,21 @@ class _FeedBottomSheetState extends ConsumerState<FeedBottomSheet> {
       },
       child: DraggableScrollableSheet(
         controller: _scrollController,
-        initialChildSize: initialFraction,
-        minChildSize: minFraction,
+        initialChildSize: ref.read(feedSheetStrategyProvider),
+        minChildSize:
+            ref.watch(selectedEventIdProvider) != null
+                ? peekOverviewFraction
+                : peekFraction,
         maxChildSize: fullListFraction,
         snap: true,
-        snapSizes: snapSizes,
+        snapSizes:
+            ref.watch(selectedEventIdProvider) != null
+                ? const [
+                  peekOverviewFraction,
+                  overviewFraction,
+                  fullListFraction,
+                ]
+                : const [peekFraction, fullListFraction],
         builder: (BuildContext context, ScrollController scrollController) {
           return Container(
             decoration: BoxDecoration(
