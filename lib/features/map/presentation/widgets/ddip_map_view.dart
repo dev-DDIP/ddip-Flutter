@@ -1,3 +1,5 @@
+// lib/features/map/presentation/widgets/ddip_map_view.dart
+
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
@@ -19,84 +21,58 @@ class DdipMapView extends ConsumerStatefulWidget {
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
   bool _initialCameraFitted = false;
-  String? _pendingCameraAdjustmentForEventId;
 
   @override
   void initState() {
     super.initState();
-    _fetchMyLocationOnce();
-  }
-
-  Future<void> _fetchMyLocationOnce() async {
-    _updateMarkers();
+    // onMapReady에서 초기 마커를 로드하므로 initState에서는 비워둡니다.
   }
 
   Future<void> _updateMarkers() async {
-    if (_mapController == null) return;
-
+    if (_mapController == null || !mounted) return;
     ref
         .read(mapStateNotifierProvider.notifier)
         .fetchMarkers(mapController: _mapController!, context: context);
   }
 
-  Future<void> _performFinalCameraAdjustment(String eventId) async {
-    if (_mapController == null) return;
-
-    final selectedEvent = widget.events.firstWhereOrNull(
-      (e) => e.id == eventId,
-    );
-    if (selectedEvent == null) return;
-
-    final markerLatLng = NLatLng(
-      selectedEvent.latitude,
-      selectedEvent.longitude,
-    );
-    final screenHeight = MediaQuery.of(context).size.height;
-    final pixelOffset = (screenHeight * overviewFraction) / 2;
-
-    final markerScreenPoint = await _mapController!.latLngToScreenLocation(
-      markerLatLng,
-    );
-
-    final newCameraCenterScreenPoint = NPoint(
-      markerScreenPoint.x,
-      markerScreenPoint.y + pixelOffset,
-    );
-
-    final newCameraTargetLatLng = await _mapController!.screenLocationToLatLng(
-      newCameraCenterScreenPoint,
-    );
-
-    final currentCameraPosition = await _mapController!.getCameraPosition();
-    _mapController!.updateCamera(
-      NCameraUpdate.scrollAndZoomTo(
-        target: newCameraTargetLatLng,
-        zoom: currentCameraPosition.zoom, // 현재 줌 레벨 유지
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    // [핵심 로직] selectedEventIdProvider의 변경을 감지하여 pivot을 사용한 단일 애니메이션 실행
     ref.listen<String?>(selectedEventIdProvider, (previous, next) {
-      if (_mapController == null) return;
-      if (next != null && next != previous) {
-        final selectedEvent = widget.events.firstWhereOrNull(
-          (e) => e.id == next,
-        );
-        if (selectedEvent == null) return;
+      if (_mapController == null || next == null || next == previous) return;
 
-        _pendingCameraAdjustmentForEventId = next; // 플래그 설정!
+      final selectedEvent = widget.events.firstWhereOrNull((e) => e.id == next);
+      if (selectedEvent == null) return;
 
-        _mapController!.updateCamera(
-          NCameraUpdate.scrollAndZoomTo(
-            target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
-            zoom: 16,
-          ),
+      // --- ✨ [최종 완성] pivot을 사용한 단일 카메라 업데이트 ✨ ---
+
+      // 1. 바텀시트를 제외한 순수 지도 영역의 세로 중앙 지점을 계산합니다.
+      //    화면 상단이 0.0, 하단이 1.0일 때,
+      //    가시 영역(상위 60%)의 중앙은 Y좌표 0.3에 해당합니다.
+      final pivot = NPoint(
+        0.5,
+        (1.0 - overviewFraction) / 2.0,
+      ); // NPoint(0.5, 0.3)
+
+      // 2. scrollAndZoomTo로 목표 좌표와 줌 레벨을 설정하는 NCameraUpdate 객체를 생성합니다.
+      final cameraUpdate = NCameraUpdate.scrollAndZoomTo(
+        target: NLatLng(selectedEvent.latitude, selectedEvent.longitude),
+        zoom: 16,
+      );
+
+      // 3. 생성된 객체에 setPivot()과 setAnimation()을 연달아 적용(chaining)합니다.
+      cameraUpdate
+        ..setPivot(pivot)
+        ..setAnimation(
+          animation: NCameraAnimation.easing,
+          duration: const Duration(milliseconds: 800),
         );
-      }
+
+      // 4. 모든 설정이 완료된 cameraUpdate 객체로 카메라를 단 한 번만 업데이트합니다.
+      _mapController!.updateCamera(cameraUpdate);
     });
 
+    // --- (이하 나머지 코드는 이전과 동일) ---
     ref.listen<AsyncValue<MapState>>(mapStateNotifierProvider, (_, next) {
       next.when(
         data: (mapState) {
@@ -104,18 +80,13 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             _mapController!.clearOverlays();
             _mapController!.addOverlayAll(mapState.markers.values.toSet());
 
-            // ▼▼▼ [핵심 수정] '최초의 역사'를 기록하는 로직을 추가합니다. ▼▼▼
             if (!_initialCameraFitted && mapState.markers.isNotEmpty) {
               final positions =
                   mapState.markers.values.map((m) => m.position).toList();
               final initialBounds = NLatLngBounds.from(positions);
-
-              // 1. Notifier에 최초의 역사를 기록해달라고 요청합니다.
               ref
                   .read(mapStateNotifierProvider.notifier)
                   .initializeHistory(initialBounds);
-
-              // 2. 카메라를 최초의 전체 뷰로 이동시킵니다.
               _mapController!.updateCamera(
                 NCameraUpdate.fitBounds(
                   initialBounds,
@@ -123,10 +94,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
                 ),
               );
               _initialCameraFitted = true;
-            }
-            // ▲▲▲ [핵심 수정] '최초의 역사'를 기록하는 로직을 추가합니다. ▲▲▲
-            else if (mapState.bounds != null) {
-              // 이후의 모든 카메라 이동은 '명령'이 있을 때만 수행됩니다.
+            } else if (mapState.bounds != null) {
               _mapController!.updateCamera(
                 NCameraUpdate.fitBounds(
                   mapState.bounds!,
@@ -146,16 +114,13 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     final mapState = ref.watch(mapStateNotifierProvider);
 
     return PopScope(
-      // 현재 탐색 경로가 최상위('root')일 때만 앱이 닫히도록 허용합니다.
       canPop: (mapState.valueOrNull?.drillDownPath.length ?? 0) <= 1,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          _pendingCameraAdjustmentForEventId = null;
           mapNotifier.drillUp();
         }
       },
       child: NaverMap(
-        // ▲▲▲ [추가] 스마트폰의 뒤로가기 버튼을 감지하는 위젯입니다. ▲▲▲
         options: NaverMapViewOptions(
           initialCameraPosition: NCameraPosition(
             target:
@@ -164,7 +129,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
                       widget.events.first.latitude,
                       widget.events.first.longitude,
                     )
-                    : const NLatLng(35.890, 128.612), // 경북대학교 기본 위치
+                    : const NLatLng(35.890, 128.612),
             zoom: 15,
           ),
           locationButtonEnable: true,
@@ -174,27 +139,15 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           _updateMarkers();
         },
         onMapTapped: (point, latLng) {
-          // Strategy에게 바텀시트를 최소화하라고 명령합니다.
           strategy.minimize();
-          // [추가] 지도 탭 시 선택된 마커를 해제합니다.
           ref.read(selectedEventIdProvider.notifier).state = null;
         },
-        onCameraChange: (NCameraUpdateReason reason, bool animated) {
+        onCameraChange: (reason, animated) {
           if (reason == NCameraUpdateReason.gesture) {
-            _pendingCameraAdjustmentForEventId = null; // 사용자가 직접 움직이면 보정 작업 취소
             strategy.minimize();
           }
         },
-        onCameraIdle: () {
-          if (_pendingCameraAdjustmentForEventId != null) {
-            final eventId = _pendingCameraAdjustmentForEventId!;
-            _pendingCameraAdjustmentForEventId = null; // 플래그 초기화
-            _performFinalCameraAdjustment(eventId);
-          } else {
-            // 일반적인 상황에서는 마커 목록만 업데이트합니다.
-            _updateMarkers();
-          }
-        },
+        onCameraIdle: _updateMarkers,
       ),
     );
   }
