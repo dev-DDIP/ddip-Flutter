@@ -1,7 +1,5 @@
 // lib/features/map/presentation/widgets/ddip_map_view.dart
 
-import 'dart:async';
-
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
@@ -24,7 +22,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   bool _initialCameraFitted = false;
   bool _mapMovedByUser = false;
 
-  Timer? _debounce;
   EdgeInsets? _currentPadding;
 
   @override
@@ -34,7 +31,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     super.dispose();
   }
 
@@ -48,15 +44,18 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<double>(bottomSheetHeightProvider, (previous, next) {
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
-      _debounce = Timer(const Duration(milliseconds: 150), () {
-        if (mounted && (previous != next)) {
-          setState(() {
-            _currentPadding = EdgeInsets.only(bottom: next);
-          });
-        }
-      });
+    ref.listen<double>(feedSheetStrategyProvider, (previous, next) {
+      if (!mounted) return;
+
+      final screenHeight = MediaQuery.of(context).size.height;
+      final newPadding = EdgeInsets.only(bottom: next * screenHeight);
+
+      // 불필요한 재빌드를 막기 위해 패딩 값이 실제로 변경되었을 때만 setState를 호출합니다.
+      if (_currentPadding != newPadding) {
+        setState(() {
+          _currentPadding = newPadding;
+        });
+      }
     });
 
     ref.listen<String?>(selectedEventIdProvider, (previous, next) {
@@ -116,9 +115,10 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     final mapNotifier = ref.read(mapStateNotifierProvider.notifier);
     final mapState = ref.watch(mapStateNotifierProvider);
 
-    // _currentPadding이 아직 설정되지 않았다면(첫 build 시), Provider의 현재 값으로 초기화합니다.
     _currentPadding ??= EdgeInsets.only(
-      bottom: ref.read(bottomSheetHeightProvider),
+      bottom:
+          ref.read(feedSheetStrategyProvider) *
+          MediaQuery.of(context).size.height,
     );
 
     return PopScope(
