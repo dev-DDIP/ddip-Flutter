@@ -28,9 +28,17 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   // 생성된 NOverlayImage 객체를 저장할 Map을 선언합니다.
   final Map<String, NOverlayImage> _markerIconCache = {};
 
+  // 마커 객체들을 상태로 관리하기 위한 Map 추가
+  final Map<String, NClusterableMarker> _currentMarkers = {};
+
+  // 클러스터 아이콘을 캐싱하기 위한 Map 추가
+  final Map<int, NOverlayImage> _clusterIconCache = {};
+
   @override
   void initState() {
     super.initState();
+    _getOrCacheMarkerIcon(isSelected: true);
+    _getOrCacheMarkerIcon(isSelected: false);
   }
 
   @override
@@ -122,46 +130,59 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     return iconImage;
   }
 
-  Future<void> _updateAllMarkers() async {
+  Future<void> _initializeAllMarkers() async {
     if (_mapController == null) return;
 
-    // 현재 선택된 이벤트 ID를 가져옵니다.
-    final selectedEventId = ref.read(selectedEventIdProvider);
-
-    // Future.wait를 사용하여 모든 마커 아이콘을 병렬로 생성합니다.
     final markers = await Future.wait(
-      widget.events.map((event) async {
-        final isSelected = event.id == selectedEventId;
-
-        final iconImage = await _getOrCacheMarkerIcon(isSelected: isSelected);
-
-        final marker = NClusterableMarker(
-          id: event.id,
-          position: NLatLng(event.latitude, event.longitude),
-          caption: NOverlayCaption(text: ''),
-          // 생성된 깃발 아이콘을 설정합니다.
-          icon: iconImage,
-        );
-
-        marker.setZIndex(isSelected ? 1 : 0);
-
-        marker.setOnTapListener((_) {
-          // 이미 선택된 마커를 다시 탭하면 선택을 해제하고,
-          // 다른 마커를 탭하면 해당 마커를 선택합니다.
-          if (isSelected) {
-            ref.read(selectedEventIdProvider.notifier).state = null;
-            ref.read(feedSheetStrategyProvider.notifier).minimize();
-          } else {
-            ref.read(feedSheetStrategyProvider.notifier).showOverview(event.id);
-          }
-        });
-        return marker;
-      }),
+      widget.events.map((event) => _createMarker(event, isSelected: false)),
     );
 
-    // 기존의 모든 오버레이를 지우고 새로 생성된 마커들을 추가합니다.
-    _mapController!.clearOverlays();
-    _mapController!.addOverlayAll(markers.toSet());
+    _currentMarkers.clear();
+    for (var marker in markers) {
+      _currentMarkers[marker.info.id] = marker;
+    }
+
+    _mapController!.addOverlayAll(_currentMarkers.values.toSet());
+  }
+
+  Future<NClusterableMarker> _createMarker(
+    DdipEvent event, {
+    required bool isSelected,
+  }) async {
+    final iconImage = await _getOrCacheMarkerIcon(isSelected: isSelected);
+    final marker = NClusterableMarker(
+      id: event.id,
+      position: NLatLng(event.latitude, event.longitude),
+      icon: iconImage,
+    );
+    marker.setZIndex(isSelected ? 1 : 0);
+    marker.setOnTapListener((_) {
+      final currentSelectedId = ref.read(selectedEventIdProvider);
+      if (currentSelectedId == event.id) {
+        ref.read(feedSheetStrategyProvider.notifier).minimize();
+      } else {
+        ref.read(feedSheetStrategyProvider.notifier).showOverview(event.id);
+      }
+    });
+    return marker;
+  }
+
+  Future<void> _updateMarkerSelection(
+    String? previousId,
+    String? nextId,
+  ) async {
+    // 이전 선택 마커를 비선택 상태로 되돌림
+    if (previousId != null && _currentMarkers.containsKey(previousId)) {
+      final marker = _currentMarkers[previousId]!;
+      marker.setIcon(await _getOrCacheMarkerIcon(isSelected: false));
+      marker.setZIndex(0);
+    }
+    // 새 선택 마커를 선택 상태로 변경
+    if (nextId != null && _currentMarkers.containsKey(nextId)) {
+      final marker = _currentMarkers[nextId]!;
+      marker.setIcon(await _getOrCacheMarkerIcon(isSelected: true));
+      marker.setZIndex(1);
+    }
   }
 
   @override
@@ -186,8 +207,8 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     ref.listen<String?>(selectedEventIdProvider, (previousId, nextId) {
       if (previousId == nextId) return; // 변경이 없으면 무시
 
-      // 마커 아이콘 업데이트
-      _updateAllMarkers();
+      // [핵심] 전체를 다시 그리는 대신, 선택 상태만 업데이트
+      _updateMarkerSelection(previousId, nextId);
 
       // 카메라 이동
       if (_mapController == null || nextId == null) return;
@@ -296,27 +317,35 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             },
           ),
           clusterMarkerBuilder: (clusterInfo, clusterMarker) async {
-            // SDK가 자동으로 생성하는 숫자 텍스트(캡션)를 제거합니다.
-            // 이렇게 해야 우리가 만든 위젯 아이콘만 깔끔하게 표시됩니다.
-            clusterMarker.setIcon(
-              await NOverlayImage.fromWidget(
-                // ----- START: 텍스트 렌더링 오류 해결 -----
-                // Material과 Directionality로 감싸 텍스트 위젯에
-                // 올바른 렌더링 컨텍스트를 제공합니다.
+            // [수정] 1. 빌더가 시작되면 즉시 기본 마커를 투명하게 만듭니다.
+            clusterMarker.setAlpha(0);
+            clusterMarker.setCaption(const NOverlayCaption(text: ''));
+
+            final count = clusterInfo.size;
+            NOverlayImage image; // 사용할 이미지를 담을 변수
+
+            if (_clusterIconCache.containsKey(count)) {
+              image = _clusterIconCache[count]!;
+            } else {
+              final newImage = await NOverlayImage.fromWidget(
                 widget: Directionality(
                   textDirection: TextDirection.ltr,
                   child: Material(
-                    type: MaterialType.transparency, // 배경이 투명하도록 설정
-                    child: ClusterMarker(
-                      count: clusterInfo.size,
-                      showText: false,
-                    ),
+                    type: MaterialType.transparency,
+                    child: ClusterMarker(count: count, showText: true),
                   ),
                 ),
-                // ----- END: 텍스트 렌더링 오류 해결 -----
                 context: context,
-              ),
-            );
+              );
+              _clusterIconCache[count] = newImage; // 캐시에 저장
+              image = newImage;
+            }
+
+            // [수정] 2. 커스텀 아이콘을 설정합니다.
+            clusterMarker.setIcon(image);
+
+            // [수정] 3. 아이콘 설정이 끝난 후, 다시 불투명하게 만들어 화면에 표시합니다.
+            clusterMarker.setAlpha(1);
 
             clusterMarker.setOnTapListener((overlay) {
               final List<String> eventIdsInCluster =
@@ -333,12 +362,11 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
                   .read(mapStateNotifierProvider.notifier)
                   .drillDownToCluster(events);
             });
-            // ----- END: 클러스터 탭 동작 구현 -----
           },
         ),
         onMapReady: (controller) {
           _mapController = controller;
-          _updateAllMarkers();
+          _initializeAllMarkers();
         },
         onMapTapped: (point, latLng) {
           ref.read(feedSheetStrategyProvider.notifier).minimize();

@@ -17,9 +17,6 @@ class ClusterMarker extends StatelessWidget {
         color: Colors.teal,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5),
-        ],
       ),
       child:
           showText
