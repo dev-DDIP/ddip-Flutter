@@ -1,7 +1,6 @@
-// [리팩토링] EventViewScreen에서 EventDetailScreen으로 변경
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_bottom_sheet.dart';
-import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,10 +26,7 @@ class EventDetailScreen extends ConsumerWidget {
       // [리팩토링] body가 Stack으로 변경되어 지도와 BottomSheet를 겹침
       body: Stack(
         children: [
-          // [리팩토링] 신규 DdipMapView 위젯 사용. 이제 지도 로직은 모두 저 위젯이 담당.
-          DdipMapView(events: [event]),
-
-          // [리팩토링] DraggableScrollableSheet 로직을 별도 위젯으로 분리
+          DdipMapView(eventsToShow: [event]),
           EventBottomSheet(event: event),
 
           // 뒤로가기 버튼
