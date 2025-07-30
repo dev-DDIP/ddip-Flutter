@@ -1,35 +1,16 @@
-import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ========== [DDIP] MODIFIED CODE START ==========
-/// 지도의 상태를 나타내는 추상 클래스
-sealed class MapState {
-  const MapState();
+// [핵심 수정] 복잡한 Sealed Class 상태를 제거하고, 카메라가 이동할 목표 영역(bounds)만 관리하는 단순한 상태로 변경합니다.
+class MapState {
+  // 카메라 이동이 필요할 때만 값을 가집니다. 평소에는 null입니다.
+  final NLatLngBounds? cameraTargetBounds;
+
+  const MapState({this.cameraTargetBounds});
 }
 
-/// 전체 마커를 보여주는 기본 상태
-class MapStateRoot extends MapState {
-  const MapStateRoot();
-}
-
-/// 특정 클러스터로 확대(Drill-down)된 상태
-class MapStateDrilledDown extends MapState {
-  final List<DdipEvent> eventsInCluster;
-  final NLatLngBounds bounds;
-
-  MapStateDrilledDown(this.eventsInCluster)
-    : bounds = NLatLngBounds.from(
-        eventsInCluster.map((e) => NLatLng(e.latitude, e.longitude)),
-      );
-}
-// ========== [DDIP] MODIFIED CODE END ==========
-
-// Notifier Provider는 그대로 유지됩니다.
 final mapStateNotifierProvider =
-    StateNotifierProvider.autoDispose<MapStateNotifier, AsyncValue<MapState>>((
-      ref,
-    ) {
-      return MapStateNotifier(ref);
-    });
+    StateNotifierProvider.autoDispose<MapStateNotifier, MapState>(
+      (ref) => MapStateNotifier(),
+    );
