@@ -1,5 +1,6 @@
 // lib/features/map/presentation/widgets/ddip_map_view.dart
 
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -24,6 +25,10 @@ class DdipMapView extends ConsumerStatefulWidget {
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
   EdgeInsets? _currentPadding;
+  Timer? _paddingUpdateTimer;
+
+  // 지도에 실제 적용될 Padding을 관리할 내부 상태 변수 추가
+  EdgeInsets _currentMapPadding = EdgeInsets.zero;
 
   // 생성된 NOverlayImage 객체를 저장할 Map을 선언합니다.
   final Map<String, NOverlayImage> _markerIconCache = {};
@@ -37,12 +42,24 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   @override
   void initState() {
     super.initState();
+    // 위젯이 빌드된 후, 바텀시트의 초기 높이를 계산하여 패딩을 한번만 설정 ▼▼▼
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initialSheetHeight =
+          ref.read(feedSheetStrategyProvider) *
+          MediaQuery.of(context).size.height;
+      setState(() {
+        _currentMapPadding = EdgeInsets.only(bottom: initialSheetHeight);
+      });
+    });
+
     _getOrCacheMarkerIcon(isSelected: true);
     _getOrCacheMarkerIcon(isSelected: false);
   }
 
   @override
   void dispose() {
+    _paddingUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -193,14 +210,20 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
     ref.listen<double>(feedSheetStrategyProvider, (previous, next) {
       if (!mounted) return;
 
-      final screenHeight = MediaQuery.of(context).size.height;
-      final newPadding = EdgeInsets.only(bottom: next * screenHeight);
+      _paddingUpdateTimer?.cancel();
 
-      if (_currentPadding != newPadding) {
-        setState(() {
-          _currentPadding = newPadding;
-        });
-      }
+      // 애니메이션 시간(300ms)보다 약간 긴 1 후에 지도 패딩을 업데이트하도록 예약
+      _paddingUpdateTimer = Timer(const Duration(milliseconds: 1000), () {
+        final screenHeight = MediaQuery.of(context).size.height;
+        final targetPadding = EdgeInsets.only(bottom: next * screenHeight);
+
+        // 현재 지도 패딩과 목표 패딩이 다를 경우에만 setState 호출
+        if (_currentMapPadding != targetPadding) {
+          setState(() {
+            _currentMapPadding = targetPadding;
+          });
+        }
+      });
     });
 
     // 선택된 이벤트 ID가 변경되면 해당 마커 위치로 카메라를 이동시키기 위해 listen합니다.
@@ -293,7 +316,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             zoom: 15,
           ),
           locationButtonEnable: true,
-          contentPadding: _currentPadding!,
+          contentPadding: _currentMapPadding,
         ),
 
         // NaverMap 위젯의 독립적인 속성으로 clusterOptions를 배치합니다.
