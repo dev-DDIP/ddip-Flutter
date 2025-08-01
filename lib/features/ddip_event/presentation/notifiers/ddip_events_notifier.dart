@@ -43,12 +43,14 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
       // 2. API 성공 시, 메모리에서 상태를 직접 업데이트 (loadEvents() 대체)
       final newEvents =
           previousState.map((event) {
-            // 목록에서 변경이 필요한 이벤트를 찾음
             if (event.id == eventId) {
-              // 불변성을 유지하며 지원자 목록이 갱신된 새로운 이벤트 객체를 생성
-              return event.copyWith(
-                applicants: [...event.applicants, currentUser.id],
-              );
+              // 1. 먼저 현재 사용자가 지원자 목록에 없는지 확인합니다.
+              if (!event.applicants.contains(currentUser.id)) {
+                // 2. 없는 경우에만 지원자 목록에 추가한 새로운 이벤트 객체를 반환합니다.
+                return event.copyWith(
+                  applicants: [...event.applicants, currentUser.id],
+                );
+              }
             }
             return event;
           }).toList();
@@ -118,7 +120,8 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
 
               // 새로운 상호작용 로그도 interactions 리스트에 추가
               final newInteraction = Interaction(
-                id: photo.id, // 임시로 사진 ID를 사용
+                id: photo.id,
+                // 임시로 사진 ID를 사용
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.responder,
                 actionType: action,
@@ -189,7 +192,8 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
 
               // 3. 상호작용 로그 추가
               final newInteraction = Interaction(
-                id: 'feedback_${photoId}', // 임시 ID
+                id: 'feedback_${photoId}',
+                // 임시 ID
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.requester,
                 actionType:
