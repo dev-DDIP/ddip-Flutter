@@ -1,6 +1,7 @@
-// lib/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart
+// lib/features/ddip_event/presentation/strategy/feed_sheet_strategy.dart
 
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/base_bottom_sheet_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 피드 화면 바텀시트의 높이 값을 상수로 정의합니다.
@@ -11,20 +12,10 @@ const double fullListFraction = 0.90;
 
 /// 바텀시트의 모든 상태와 동작을 관리하는 지휘관 클래스입니다.
 /// StateNotifier를 상속받아, 현재 바텀시트가 유지해야 할 높이(double)를 상태로 관리합니다.
-class FeedSheetStrategy extends StateNotifier<double> {
+class FeedSheetStrategy extends BaseBottomSheetStrategy {
   final Ref _ref;
 
   FeedSheetStrategy(this._ref) : super(peekFraction);
-
-  /// UI(사용자 드래그)에 의해 변경된 높이를 Strategy의 상태와 동기화합니다.
-  /// 이 메서드가 '역방향' 소통의 핵심입니다.
-  void syncHeightFromUI(double currentHeight) {
-    // 현재 Strategy가 알고 있는 높이와 UI의 실제 높이가 다를 때만
-    // 상태를 업데이트하여 불필요한 재빌드를 방지합니다.
-    if ((state - currentHeight).abs() > 0.001) {
-      state = currentHeight;
-    }
-  }
 
   /// 사용자가 특정 이벤트를 선택했을 때 호출됩니다.
   void showOverview(String eventId) {

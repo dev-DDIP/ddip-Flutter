@@ -14,8 +14,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
   final List<DdipEvent>? eventsToShow;
+  final VoidCallback? onMapInteraction;
+  final double bottomPadding;
 
-  const DdipMapView({super.key, this.eventsToShow});
+  const DdipMapView({
+    super.key,
+    this.eventsToShow,
+    this.onMapInteraction,
+    this.bottomPadding = 0,
+  });
 
   @override
   ConsumerState<DdipMapView> createState() => _DdipMapViewState();
@@ -231,9 +238,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         widget.eventsToShow ??
         ref.watch(ddipEventsNotifierProvider).value ??
         [];
-    final sheetFraction = ref.watch(feedSheetStrategyProvider);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomSheetHeight = sheetFraction * screenHeight;
 
     return NaverMap(
       options: NaverMapViewOptions(
@@ -245,7 +249,7 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           zoom: 15,
         ),
         locationButtonEnable: true,
-        contentPadding: EdgeInsets.only(bottom: bottomSheetHeight),
+        contentPadding: EdgeInsets.only(bottom: widget.bottomPadding),
       ),
       clusterOptions: NaverMapClusteringOptions(
         enableZoomRange: const NInclusiveRange(0, 15),
@@ -302,11 +306,11 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         }
       },
       onMapTapped: (point, latLng) {
-        ref.read(feedSheetStrategyProvider.notifier).minimize();
+        widget.onMapInteraction?.call();
       },
       onCameraChange: (reason, animated) {
         if (reason == NCameraUpdateReason.gesture) {
-          ref.read(feedSheetStrategyProvider.notifier).minimize();
+          widget.onMapInteraction?.call();
         }
       },
     );

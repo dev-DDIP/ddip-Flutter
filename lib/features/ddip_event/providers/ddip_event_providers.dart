@@ -8,6 +8,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // --- 1. Data 계층 프로바이더 ---
@@ -70,3 +71,8 @@ final eventDetailProvider = Provider.autoDispose.family<DdipEvent?, String>((
     return events.firstWhereOrNull((event) => event.id == eventId);
   }).value; // whenData의 결과에서 실제 값(DdipEvent? 또는 null)을 추출
 });
+
+final detailSheetStrategyProvider =
+    StateNotifierProvider.autoDispose<DetailSheetStrategy, double>(
+      (ref) => DetailSheetStrategy(),
+    );

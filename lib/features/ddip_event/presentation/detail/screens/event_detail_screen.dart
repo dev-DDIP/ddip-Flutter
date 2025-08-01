@@ -12,7 +12,9 @@ class EventDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // [리팩토링] 상세 화면에 필요한 데이터만 watch
+    final sheetFraction = ref.watch(detailSheetStrategyProvider);
+    final bottomPadding = MediaQuery.of(context).size.height * sheetFraction;
+
     final event = ref.watch(eventDetailProvider(eventId));
 
     if (event == null) {
@@ -26,7 +28,12 @@ class EventDetailScreen extends ConsumerWidget {
       // [리팩토링] body가 Stack으로 변경되어 지도와 BottomSheet를 겹침
       body: Stack(
         children: [
-          DdipMapView(eventsToShow: [event]),
+          DdipMapView(
+            eventsToShow: [event],
+            bottomPadding: bottomPadding,
+            onMapInteraction:
+                () => ref.read(detailSheetStrategyProvider.notifier).minimize(),
+          ),
           EventBottomSheet(event: event),
 
           // 뒤로가기 버튼

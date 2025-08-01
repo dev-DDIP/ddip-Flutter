@@ -1,6 +1,6 @@
 // lib/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart
 
-import 'package:ddip/features/ddip_event/presentation/strategy/bottom_sheet_strategy.dart';
+import 'package:ddip/features/ddip_event/presentation/strategy/feed_sheet_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// [신규] 새로운 Strategy 클래스를 제어할 Provider를 등록합니다.

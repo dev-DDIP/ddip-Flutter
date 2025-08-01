@@ -3,6 +3,7 @@
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/widgets/feed_bottom_sheet.dart';
+import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
 import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,6 +82,9 @@ class DdipFeedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final sheetFraction = ref.watch(feedSheetStrategyProvider);
+    final bottomPadding = MediaQuery.of(context).size.height * sheetFraction;
+
     final currentUser = ref.watch(authProvider);
 
     return Scaffold(
@@ -190,7 +194,11 @@ class DdipFeedScreen extends ConsumerWidget {
         children: [
           // 💡 `events` 파라미터를 완전히 제거하고 const 생성자를 사용합니다.
           //    이제 DdipMapView는 부모로부터 어떤 데이터도 받지 않는 독립적인 위젯이 되었습니다.
-          const DdipMapView(),
+          DdipMapView(
+            bottomPadding: bottomPadding,
+            onMapInteraction:
+                () => ref.read(feedSheetStrategyProvider.notifier).minimize(),
+          ),
 
           const FeedBottomSheet(),
 
