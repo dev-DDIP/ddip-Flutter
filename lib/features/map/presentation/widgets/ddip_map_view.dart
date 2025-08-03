@@ -1,12 +1,6 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
-import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
-import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
-import 'package:ddip/features/map/presentation/manager/map_overlay_manager.dart';
-import 'package:ddip/features/map/presentation/viewmodels/map_view_model.dart';
+import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -14,18 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 class DdipMapView extends ConsumerStatefulWidget {
-  final List<DdipEvent>? eventsToShow;
-  final VoidCallback? onMapInteraction;
   final double bottomPadding;
-  final List<Photo>? photosToShow;
+  final VoidCallback? onMapInteraction;
 
-  const DdipMapView({
-    super.key,
-    this.eventsToShow,
-    this.onMapInteraction,
-    this.bottomPadding = 0,
-    this.photosToShow,
-  });
+  const DdipMapView({super.key, this.bottomPadding = 0, this.onMapInteraction});
 
   @override
   ConsumerState<DdipMapView> createState() => _DdipMapViewState();
@@ -33,26 +19,17 @@ class DdipMapView extends ConsumerStatefulWidget {
 
 class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NaverMapController? _mapController;
-  MapOverlayManager? _overlayManager;
-
-  bool _isLoading = true;
   NLatLng? _initialPosition;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initializeMapAndLocation();
+    _initializeMapLocation();
   }
 
-  @override
-  void dispose() {
-    _overlayManager?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initializeMapAndLocation() async {
+  Future<void> _initializeMapLocation() async {
     try {
-      // 사용자의 현재 위치를 가져옵니다.
       final position = await Geolocator.getCurrentPosition();
       if (mounted) {
         setState(() {
@@ -61,7 +38,6 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         });
       }
     } catch (e) {
-      // 위치를 가져오는 데 실패하면 (예: 권한 거부) 기본 위치(경북대)로 설정합니다.
       if (mounted) {
         setState(() {
           _initialPosition = const NLatLng(35.890, 128.612); // 경북대학교 기본 위치
@@ -72,64 +48,24 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   }
 
   @override
-  void didUpdateWidget(covariant DdipMapView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // photosToShow 목록에 변경이 생겼을 때만 사진 마커를 다시 그립니다.
-    if (widget.photosToShow != null &&
-        !const DeepCollectionEquality().equals(
-          widget.photosToShow,
-          oldWidget.photosToShow,
-        )) {
-      _overlayManager?.drawPhotoMarkers(widget.photosToShow!);
-    }
-  }
-
-  // #endregion
-  // =======================================================================
-
-  @override
   Widget build(BuildContext context) {
-    // 1. ViewModel의 상태와 notifier를 가져옵니다.
-    final mapState = ref.watch(mapViewModelProvider);
-    final viewModel = ref.read(mapViewModelProvider.notifier);
+    final mapOverlays = ref.watch(
+      mapViewModelProvider.select((state) => state.overlays),
+    );
 
-    // 2. ViewModel의 상태 변화에 따라 부수 효과(Side Effect)를 처리합니다.
-    //    이제 여러 Provider가 아닌, 단 하나의 `mapViewModelProvider`만 감시하면 됩니다.
-    ref.listen<MapState>(mapViewModelProvider, (previous, next) {
-      // 이벤트 목록이 변경되면 마커를 다시 그립니다.
-      if (previous?.events != next.events) {
-        _overlayManager?.updateEventMarkers(next.events);
-      }
-      // 선택된 이벤트가 변경되면 마커 아이콘을 업데이트합니다.
-      if (previous?.selectedEventId != next.selectedEventId) {
-        _overlayManager?.updateMarkerSelection(
-          previous?.selectedEventId,
-          next.selectedEventId,
-        );
-      }
-      // 카메라 이동 명령(마커 선택 시)이 있으면 카메라를 움직입니다.
-      if (next.cameraUpdate != null) {
-        _mapController?.updateCamera(next.cameraUpdate!);
-        // 일회성 명령이므로 처리 후 즉시 ViewModel 상태를 초기화합니다.
-        viewModel.onCameraMoveCompleted();
-      }
-      // 카메라 이동 명령(클러스터 탭 시)이 있으면 카메라를 움직입니다.
-      if (next.cameraTargetBounds != null) {
-        final cameraUpdate = NCameraUpdate.fitBounds(
-          next.cameraTargetBounds!,
-          padding: const EdgeInsets.all(80),
-        )..setAnimation(
-          animation: NCameraAnimation.easing,
-          duration: const Duration(milliseconds: 300),
-        );
-        _mapController?.updateCamera(cameraUpdate);
-        // 일회성 명령이므로 처리 후 즉시 ViewModel 상태를 초기화합니다.
-        viewModel.onCameraMoveCompleted();
-      }
-    });
+    // 2. cameraUpdate와 같은 '일회성 명령'은 listen을 사용하여 부수 효과(Side Effect)만 처리합니다.
+    ref.listen<NCameraUpdate?>(
+      mapViewModelProvider.select((state) => state.cameraUpdate),
+      (_, next) {
+        if (next != null && _mapController != null) {
+          _mapController!.updateCamera(next);
+          // View가 명령을 수행한 후, ViewModel에 완료되었음을 알립니다.
+          ref.read(mapViewModelProvider.notifier).onCameraMoveCompleted();
+        }
+      },
+    );
 
-    // 3. 초기 위치 로딩 중이면 로딩 인디케이터를 보여줍니다.
-    if (_initialPosition == null) {
+    if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -158,19 +94,9 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
           clusterMarker.setCaption(const NOverlayCaption(text: ''));
 
           clusterMarker.setOnTapListener((overlay) {
-            final eventIdsInCluster =
-                clusterInfo.children.map((c) => c.id).toList();
-            final eventsInCluster =
-                mapState.events
-                    .where((e) => eventIdsInCluster.contains(e.id))
-                    .toList();
-
-            if (eventsInCluster.isNotEmpty) {
-              // 이제 ViewModel을 통해 상태를 변경하는 대신, 기존 Notifier를 직접 호출합니다.
-              ref
-                  .read(mapStateForViewModelProvider.notifier)
-                  .drillDownToCluster(eventsInCluster);
-            }
+            ref
+                .read(mapStateForViewModelProvider.notifier)
+                .drillDownToClusterByInfo(clusterInfo);
           });
 
           ref
@@ -184,26 +110,24 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
               });
         },
       ),
-      onMapReady: (controller) async {
+      onMapReady: (controller) {
         _mapController = controller;
-        _overlayManager = MapOverlayManager(
-          mapController: controller,
-          ref: ref,
-          markerFactory: ref.read(markerFactoryProvider),
+
+        // 지도 준비가 완료되면, ViewModel의 현재 오버레이 상태를 즉시 지도에 반영합니다.
+        final initialOverlays = ref.read(mapViewModelProvider).overlays;
+        controller.addOverlayAll(initialOverlays);
+
+        // 그 이후, ViewModel의 overlays 상태가 변경될 때마다 지도를 업데이트하도록 리스너를 설정합니다.
+        ref.listen<Set<NAddableOverlay>>(
+          mapViewModelProvider.select((state) => state.overlays),
+          (previous, next) {
+            // controller가 null이 아닐 때만 실행되도록 보장합니다.
+            if (_mapController != null) {
+              _mapController!.clearOverlays(); // 이전 오버레이를 모두 지우고
+              _mapController!.addOverlayAll(next); // 새로운 오버레이를 모두 추가합니다.
+            }
+          },
         );
-
-        final locationOverlay = await controller.getLocationOverlay();
-        locationOverlay.setIsVisible(true);
-
-        // onMapReady 시점에는 ViewModel의 현재 상태를 사용하여 마커를 그립니다.
-        final initialEvents = widget.eventsToShow ?? mapState.events;
-
-        if (initialEvents.isNotEmpty) {
-          _overlayManager!.updateEventMarkers(initialEvents);
-        }
-        if (widget.photosToShow != null && widget.photosToShow!.isNotEmpty) {
-          _overlayManager!.drawPhotoMarkers(widget.photosToShow!);
-        }
       },
       onMapTapped: (point, latLng) {
         widget.onMapInteraction?.call();
@@ -214,5 +138,14 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         }
       },
     );
+  }
+}
+
+extension on MapStateNotifier {
+  void drillDownToClusterByInfo(NClusterInfo clusterInfo) {
+    final bounds = NLatLngBounds.from(
+      clusterInfo.children.map((c) => c.position),
+    );
+    state = MapStateForViewModel(cameraTargetBounds: bounds);
   }
 }

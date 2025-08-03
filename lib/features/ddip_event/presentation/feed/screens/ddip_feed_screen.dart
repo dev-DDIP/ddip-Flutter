@@ -192,8 +192,6 @@ class DdipFeedScreen extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          // 💡 `events` 파라미터를 완전히 제거하고 const 생성자를 사용합니다.
-          //    이제 DdipMapView는 부모로부터 어떤 데이터도 받지 않는 독립적인 위젯이 되었습니다.
           DdipMapView(
             bottomPadding: bottomPadding,
             onMapInteraction:

@@ -1,5 +1,6 @@
 // lib/features/map/providers/map_providers.dart
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
 import 'package:ddip/features/map/presentation/viewmodels/map_view_model.dart';
 import 'package:ddip/features/map/presentation/widgets/marker_factory.dart';
@@ -24,10 +25,6 @@ final mapStateForViewModelProvider =
       (ref) => MapStateNotifier(),
     );
 
-// -----------------------------------------------------------------------------
-// [신규] 리팩토링으로 추가된 Provider들
-// -----------------------------------------------------------------------------
-
 /// MarkerFactory 인스턴스를 앱 전역에서 싱글턴으로 제공하는 Provider입니다.
 final markerFactoryProvider = Provider<MarkerFactory>((ref) {
   return MarkerFactory();
@@ -39,3 +36,10 @@ final mapViewModelProvider =
     StateNotifierProvider.autoDispose<MapViewModel, MapState>(
       (ref) => MapViewModel(ref),
     );
+
+// 기본적으로는 피드에 있는 모든 이벤트를 반환합니다.
+// 하지만 이 Provider를 다른 위젯에서 'override'하면, 지도에 표시될 데이터를
+// 동적으로 변경할 수 있습니다. (예: 상세 화면에서는 이벤트 하나만 반환)
+final mapEventsProvider = Provider<List<DdipEvent>>((ref) {
+  return ref.watch(ddipFeedProvider);
+});
