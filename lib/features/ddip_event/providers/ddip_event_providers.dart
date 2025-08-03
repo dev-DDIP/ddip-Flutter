@@ -7,6 +7,7 @@ import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repos
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,4 +83,11 @@ final eventStreamProvider = StreamProvider.autoDispose
     .family<DdipEvent, String>((ref, eventId) {
       final repository = ref.watch(ddipEventRepositoryProvider);
       return repository.getEventStreamById(eventId);
+    });
+
+/// 상세 화면의 상태와 비즈니스 로직을 관리하는 ViewModel을 위한 Provider입니다.
+/// .family를 사용하여 각 상세 화면마다 독립적인 ViewModel 인턴스를 갖도록 합니다.
+final eventDetailViewModelProvider = StateNotifierProvider.autoDispose
+    .family<EventDetailViewModel, EventDetailState, String>((ref, eventId) {
+      return EventDetailViewModel(ref, eventId);
     });
