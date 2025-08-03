@@ -25,42 +25,44 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   @override
   void initState() {
     super.initState();
-    _initializeMapLocation();
+    _initializeMap();
   }
 
-  Future<void> _initializeMapLocation() async {
+  Future<void> _initializeMap() async {
+    // 1. 지도의 초기 위치를 결정합니다.
     try {
       final position = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(() {
-          _initialPosition = NLatLng(position.latitude, position.longitude);
-          _isLoading = false;
-        });
-      }
+      _initialPosition = NLatLng(position.latitude, position.longitude);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _initialPosition = const NLatLng(35.890, 128.612); // 경북대학교 기본 위치
-          _isLoading = false;
-        });
-      }
+      // 위치를 가져올 수 없을 경우 기본 위치(경북대학교)로 설정합니다.
+      _initialPosition = const NLatLng(35.890, 128.612);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final mapOverlays = ref.watch(
+    // ViewModel은 로직 처리 및 명령 전달용으로 사용합니다.
+    final viewModel = ref.read(mapViewModelProvider.notifier);
+
+    // 오버레이(마커) 상태가 변경되면 지도에 반영합니다.
+    ref.listen<Set<NAddableOverlay>>(
       mapViewModelProvider.select((state) => state.overlays),
+      viewModel.updateOverlays,
     );
 
-    // 2. cameraUpdate와 같은 '일회성 명령'은 listen을 사용하여 부수 효과(Side Effect)만 처리합니다.
+    // 카메라 이동과 같은 일회성 명령을 처리합니다.
     ref.listen<NCameraUpdate?>(
       mapViewModelProvider.select((state) => state.cameraUpdate),
       (_, next) {
         if (next != null && _mapController != null) {
           _mapController!.updateCamera(next);
-          // View가 명령을 수행한 후, ViewModel에 완료되었음을 알립니다.
-          ref.read(mapViewModelProvider.notifier).onCameraMoveCompleted();
+          viewModel.onCameraMoveCompleted();
         }
       },
     );
@@ -89,58 +91,47 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
             NInclusiveRange(0, 11): 160,
           },
         ),
-        clusterMarkerBuilder: (clusterInfo, clusterMarker) {
+        clusterMarkerBuilder: (clusterInfo, clusterMarker) async {
+          // 1. 깜빡임 방지를 위해 마커를 먼저 투명하게 만듭니다.
           clusterMarker.setAlpha(0);
+          // 2. 숫자 겹침을 방지하기 위해 기본 캡션을 비웁니다.
           clusterMarker.setCaption(const NOverlayCaption(text: ''));
 
-          clusterMarker.setOnTapListener((overlay) {
+          final markerFactory = ref.read(markerFactoryProvider);
+          final markerWidget = markerFactory.createClusterMarkerWidget(
+            clusterInfo.size,
+          );
+
+          // 탭 이벤트와 같은 비즈니스 로직은 ViewModel에 위임합니다.
+          clusterMarker.setOnTapListener((_) {
             ref
                 .read(mapStateForViewModelProvider.notifier)
                 .drillDownToClusterByInfo(clusterInfo);
           });
 
-          ref
-              .read(markerFactoryProvider)
-              .getClusterIcon(clusterInfo.size, context)
-              .then((image) {
-                if (clusterMarker.isAdded) {
-                  clusterMarker.setIcon(image);
-                  clusterMarker.setAlpha(1);
-                }
-              });
+          // BuildContext가 필요한 최종 렌더링만 View에서 직접 수행합니다.
+          final image = await NOverlayImage.fromWidget(
+            widget: markerWidget,
+            context: context,
+          );
+
+          clusterMarker.setIcon(image);
+          clusterMarker.setAlpha(1);
         },
       ),
       onMapReady: (controller) {
         _mapController = controller;
-
-        // 지도 준비가 완료되면, ViewModel의 현재 오버레이 상태를 즉시 지도에 반영합니다.
-        final initialOverlays = ref.read(mapViewModelProvider).overlays;
-        controller.addOverlayAll(initialOverlays);
-
-        // 그 이후, ViewModel의 overlays 상태가 변경될 때마다 지도를 업데이트하도록 리스너를 설정합니다.
-        ref.listen<Set<NAddableOverlay>>(
-          mapViewModelProvider.select((state) => state.overlays),
-          (previous, next) {
-            // controller가 null이 아닐 때만 실행되도록 보장합니다.
-            if (_mapController != null) {
-              _mapController!.clearOverlays(); // 이전 오버레이를 모두 지우고
-              _mapController!.addOverlayAll(next); // 새로운 오버레이를 모두 추가합니다.
-            }
-          },
-        );
+        // 컨트롤러가 준비되었음을 ViewModel에 알립니다.
+        viewModel.onMapReady(controller);
       },
-      onMapTapped: (point, latLng) {
-        widget.onMapInteraction?.call();
-      },
-      onCameraChange: (reason, animated) {
-        if (reason == NCameraUpdateReason.gesture) {
-          widget.onMapInteraction?.call();
-        }
-      },
+      // 사용자 인터랙션은 ViewModel에 보고만 합니다.
+      onMapTapped: (point, latLng) => viewModel.onMapTapped(),
+      onCameraChange: (reason, animated) => viewModel.onCameraChange(reason),
     );
   }
 }
 
+// ViewModel에서 클러스터 정보를 이용해 카메라를 이동시키기 위한 확장 함수
 extension on MapStateNotifier {
   void drillDownToClusterByInfo(NClusterInfo clusterInfo) {
     final bounds = NLatLngBounds.from(

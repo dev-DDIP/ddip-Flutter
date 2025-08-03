@@ -35,6 +35,7 @@ final markerFactoryProvider = Provider<MarkerFactory>((ref) {
 final mapViewModelProvider =
     StateNotifierProvider.autoDispose<MapViewModel, MapState>(
       (ref) => MapViewModel(ref),
+      dependencies: [mapEventsProvider],
     );
 
 // 기본적으로는 피드에 있는 모든 이벤트를 반환합니다.

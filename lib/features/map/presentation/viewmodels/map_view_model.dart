@@ -25,6 +25,8 @@ class MapState with _$MapState {
     /// View에 전달하는 일회성 카메라 이동 명령입니다.
     /// View는 이 명령을 수행한 후 null로 초기화해야 합니다.
     NCameraUpdate? cameraUpdate,
+    NaverMapViewOptions? viewOptions,
+    NaverMapClusteringOptions? clusterOptions,
   }) = _MapState;
 }
 
@@ -35,15 +37,15 @@ class MapState with _$MapState {
 class MapViewModel extends StateNotifier<MapState> {
   final Ref _ref;
   final MarkerFactory _markerFactory;
+  NaverMapController? _mapController;
 
   MapViewModel(this._ref)
     : _markerFactory = _ref.read(markerFactoryProvider),
       super(const MapState()) {
-    // ViewModel이 생성될 때, 필요한 모든 데이터 소스를 구독(listen)하기 시작합니다.
-    // 데이터가 변경될 때마다 `_updateState`를 호출하여 화면을 갱신합니다.
-    _ref.listen<AsyncValue<List<DdipEvent>>>(
-      ddipEventsNotifierProvider,
+    _ref.listen<List<DdipEvent>>(
+      mapEventsProvider,
       (_, __) => _updateState(),
+      fireImmediately: true, // Provider가 처음 읽혔을 때도 리스너를 즉시 실행합니다.
     );
     _ref.listen<String?>(selectedEventIdProvider, (_, __) => _updateState());
     _ref.listen<MapStateForViewModel>(
@@ -135,6 +137,53 @@ class MapViewModel extends StateNotifier<MapState> {
   void onCameraMoveCompleted() {
     if (state.cameraUpdate != null) {
       state = state.copyWith(cameraUpdate: null);
+    }
+  }
+
+  /// View로부터 NaverMapController를 전달받아 저장합니다.
+  void onMapReady(NaverMapController controller) {
+    _mapController = controller;
+    // 컨트롤러가 준비되면, 현재 상태의 오버레이를 즉시 지도에 반영합니다.
+    final initialOverlays = state.overlays;
+    _mapController?.addOverlayAll(initialOverlays);
+  }
+
+  /// View로부터 지도 옵션 업데이트 요청을 받습니다.
+  void updateMapOptions(NaverMapViewOptions options) {
+    state = state.copyWith(viewOptions: options);
+  }
+
+  /// View로부터 지도 탭 이벤트를 전달받습니다.
+  void onMapTapped() {
+    // feedSheetStrategyProvider를 직접 제어하는 로직은 여기에 위치합니다.
+    _ref.read(feedSheetStrategyProvider.notifier).minimize();
+  }
+
+  /// View로부터 카메라 변경 이벤트를 전달받습니다.
+  void onCameraChange(NCameraUpdateReason reason) {
+    if (reason == NCameraUpdateReason.gesture) {
+      _ref.read(feedSheetStrategyProvider.notifier).minimize();
+    }
+  }
+
+  void updateOverlays(
+    Set<NAddableOverlay>? previous,
+    Set<NAddableOverlay> next,
+  ) {
+    // 1. null 가능성 처리: 이전 상태가 null이면 빈 Set으로 간주합니다.
+    final prevSet = previous ?? <NAddableOverlay>{};
+
+    // 2. 변경점 계산: 이전 Set과 현재 Set의 차이를 계산하여
+    //    실제로 추가되거나 삭제되어야 할 오버레이만 정확히 찾아냅니다.
+    final toRemove = prevSet.difference(next);
+    final toAdd = next.difference(prevSet);
+
+    // 3. 변경점만 지도에 반영합니다.
+    for (final overlay in toRemove) {
+      _mapController?.deleteOverlay(overlay.info);
+    }
+    if (toAdd.isNotEmpty) {
+      _mapController?.addOverlayAll(toAdd);
     }
   }
 }

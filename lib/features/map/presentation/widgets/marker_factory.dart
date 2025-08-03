@@ -167,4 +167,8 @@ class MarkerFactory {
     _clusterIconCache[count] = image;
     return image;
   }
+
+  Widget createClusterMarkerWidget(int count) {
+    return ClusterMarker(count: count, showText: true);
+  }
 }
