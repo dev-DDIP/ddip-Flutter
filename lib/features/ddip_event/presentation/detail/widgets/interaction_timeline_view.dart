@@ -4,6 +4,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
@@ -100,6 +101,25 @@ class InteractionTimelineView extends ConsumerWidget {
               return _SystemMessage(message: _getSystemMessage(interaction));
             case ActorRole.requester:
             case ActorRole.responder:
+              final bool isPhotoAttached =
+                  (interaction.actionType == ActionType.submitPhoto ||
+                      interaction.actionType == ActionType.reportSituation) &&
+                  interaction.relatedPhotoId != null;
+
+              if (isPhotoAttached) {
+                return GestureDetector(
+                  onTap: () {
+                    context.push(
+                      '/feed/${event.id}/photo/${interaction.relatedPhotoId}',
+                    );
+                  },
+                  child: _PhotoChatBubble(
+                    interaction: interaction,
+                    message: _getChatMessage(interaction),
+                    isMe: interaction.actorId == currentUser.id,
+                  ),
+                );
+              }
               final bool isMe = interaction.actorId == currentUser.id;
               final String message = _getChatMessage(interaction);
               if (interaction.actionType == ActionType.selectResponder) {
@@ -187,6 +207,84 @@ class _SystemMessage extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+      ),
+    );
+  }
+}
+
+// 사진 제출 메시지를 위한 새로운 스타일의 말풍선 위젯을 추가합니다.
+class _PhotoChatBubble extends StatelessWidget {
+  final Interaction interaction;
+  final String message;
+  final bool isMe;
+
+  const _PhotoChatBubble({
+    required this.interaction,
+    required this.message,
+    required this.isMe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeString = DateFormat(
+      'a h:mm',
+      'ko_KR',
+    ).format(interaction.timestamp);
+
+    // 기존 _ChatBubble 위젯을 복사하여 UI를 꾸밉니다.
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.blue[100] : Colors.grey[200],
+          border: Border.all(
+            color: Colors.blue.shade300,
+            width: 1.5,
+          ), // 강조를 위한 테두리 추가
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft:
+                isMe ? const Radius.circular(16) : const Radius.circular(0),
+            bottomRight:
+                isMe ? const Radius.circular(0) : const Radius.circular(16),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            // 아이콘과 텍스트를 함께 보여줍니다.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.photo_camera_back_outlined,
+                  size: 18,
+                  color: Colors.black54,
+                ),
+                const SizedBox(width: 8),
+                Text(message, style: const TextStyle(fontSize: 15)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "탭하여 사진 확인",
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.blue.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              timeString,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }

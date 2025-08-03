@@ -36,6 +36,7 @@ class EventDetailScreen extends ConsumerWidget {
             children: [
               DdipMapView(
                 eventsToShow: [event],
+                photosToShow: event.photos,
                 bottomPadding: bottomPadding,
                 onMapInteraction:
                     () =>

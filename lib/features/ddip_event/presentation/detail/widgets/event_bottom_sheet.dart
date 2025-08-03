@@ -41,46 +41,49 @@ class EventBottomSheet extends ConsumerWidget {
       snapSizes: const [detailInitialFraction, detailFullFraction],
       builder: (context, scrollController) {
         // 탭을 사용하기 위해 DefaultTabController로 감쌉니다.
-        return DefaultTabController(
-          length: tabs.length,
-          child: CustomScrollView(
-            controller: scrollController, // DraggableScrollableSheet의 컨트롤러를 연결
-            slivers: [
-              // 1. 핸들
-              SliverToBoxAdapter(child: _buildHandle()),
-              // 2. 고정 헤더 (이제 스크롤따라 올라감)
-              SliverToBoxAdapter(child: _FixedHeader(event: event)),
-              // 3. 스크롤 시 상단에 고정되는 탭 바
-              SliverPersistentHeader(
-                delegate: _SliverTabBarDelegate(TabBar(tabs: tabs)),
-                pinned: true, // 이 속성이 탭 바를 상단에 고정시킵니다.
-              ),
-              // 4. 탭 바의 내용이 남은 공간을 모두 채우도록 설정
-              SliverFillRemaining(
-                child: TabBarView(
-                  children:
-                      event.status == DdipEventStatus.open
-                          ? [
-                            // 상세 정보 탭
-                            EventDetailsView(event: event),
-                            // 지원자 목록 탭
-                            ApplicantListView(
-                              event: event,
-                              isRequester:
-                                  ref.watch(authProvider)?.id ==
-                                  event.requesterId,
-                            ),
-                          ]
-                          : [
-                            // 상세 정보 탭
-                            EventDetailsView(event: event),
-                            // 진행 현황 탭
-                            InteractionTimelineView(event: event),
-                          ],
+        return Column(
+          children: [
+            Expanded(
+              child: DefaultTabController(
+                length: tabs.length,
+                child: CustomScrollView(
+                  controller: scrollController,
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildHandle()),
+                    SliverToBoxAdapter(child: _FixedHeader(event: event)),
+                    SliverPersistentHeader(
+                      delegate: _SliverTabBarDelegate(TabBar(tabs: tabs)),
+                      pinned: true,
+                    ),
+                    SliverFillRemaining(
+                      child: TabBarView(
+                        children:
+                            event.status == DdipEventStatus.open
+                                ? [
+                                  EventDetailsView(event: event),
+                                  ApplicantListView(
+                                    event: event,
+                                    isRequester:
+                                        ref.watch(authProvider)?.id ==
+                                        event.requesterId,
+                                  ),
+                                ]
+                                : [
+                                  EventDetailsView(event: event),
+                                  InteractionTimelineView(event: event),
+                                ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            // 항상 하단에 고정될 액션 버튼 영역입니다.
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: EventActionButton(event: event),
+            ),
+          ],
         );
       },
     );
