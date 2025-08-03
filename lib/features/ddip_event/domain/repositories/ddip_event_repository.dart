@@ -40,6 +40,9 @@ abstract class DdipEventRepository {
     PhotoStatus status, {
     MessageCode? messageCode,
   });
+
+  /// WebSocket 연결을 시뮬레이션하는 Stream을 반환합니다.
+  Stream<DdipEvent> getEventStreamById(String id);
 }
 
 /*

@@ -76,3 +76,10 @@ final detailSheetStrategyProvider =
     StateNotifierProvider.autoDispose<DetailSheetStrategy, double>(
       (ref) => DetailSheetStrategy(),
     );
+
+/// UI 위젯은 이 프로바이더를 watch하여 데이터 변경 시 자동으로 리빌드됩니다.
+final eventStreamProvider = StreamProvider.autoDispose
+    .family<DdipEvent, String>((ref, eventId) {
+      final repository = ref.watch(ddipEventRepositoryProvider);
+      return repository.getEventStreamById(eventId);
+    });

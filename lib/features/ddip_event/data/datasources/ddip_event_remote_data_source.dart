@@ -1,5 +1,6 @@
 // lib/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart
 
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:dio/dio.dart';
 
 import '../models/ddip_event_model.dart';
@@ -34,6 +35,8 @@ abstract class DdipEventRemoteDataSource {
     String photoId,
     String feedback,
   );
+
+  Stream<DdipEvent> getEventStreamById(String id);
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -124,5 +127,17 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
     // TODO: 백엔드 API 구현
     print('Calling API: Update photo feedback');
     await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  // getEventStreamById 메소드를 구현합니다.
+  @override
+  Stream<DdipEvent> getEventStreamById(String id) {
+    // TODO: 실제 WebSocket 클라이언트를 사용하여 서버에 연결하고,
+    // 서버로부터 오는 메시지를 DdipEvent 객체로 변환하여 스트림으로 반환하는
+    // 로직을 여기에 구현해야 합니다.
+    // 지금은 아직 구현되지 않았으므로 UnimplementedError를 발생시킵니다.
+    throw UnimplementedError(
+      'WebSocket for real remote data source is not implemented yet.',
+    );
   }
 }

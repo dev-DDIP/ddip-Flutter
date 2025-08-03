@@ -1,3 +1,4 @@
+// lib/features/ddip_event/presentation/detail/screens/event_detail_screen.dart
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_bottom_sheet.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
@@ -12,6 +13,7 @@ class EventDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final eventAsyncValue = ref.watch(eventStreamProvider(eventId));
     final sheetFraction = ref.watch(detailSheetStrategyProvider);
     final bottomPadding = MediaQuery.of(context).size.height * sheetFraction;
 
@@ -25,30 +27,38 @@ class EventDetailScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      // [리팩토링] body가 Stack으로 변경되어 지도와 BottomSheet를 겹침
-      body: Stack(
-        children: [
-          DdipMapView(
-            eventsToShow: [event],
-            bottomPadding: bottomPadding,
-            onMapInteraction:
-                () => ref.read(detailSheetStrategyProvider.notifier).minimize(),
-          ),
-          EventBottomSheet(event: event),
-
-          // 뒤로가기 버튼
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 10,
-            child: CircleAvatar(
-              backgroundColor: Colors.black.withOpacity(0.5),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => context.pop(),
+      body: eventAsyncValue.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('오류가 발생했습니다: $err')),
+        data: (event) {
+          // 데이터가 성공적으로 로드되면 기존 UI를 그립니다.
+          return Stack(
+            children: [
+              DdipMapView(
+                eventsToShow: [event],
+                bottomPadding: bottomPadding,
+                onMapInteraction:
+                    () =>
+                        ref
+                            .read(detailSheetStrategyProvider.notifier)
+                            .minimize(),
               ),
-            ),
-          ),
-        ],
+              EventBottomSheet(event: event), // 이제 이 위젯을 대대적으로 수정할 차례입니다.
+              // 뒤로가기 버튼 (수정 없음)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 10,
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

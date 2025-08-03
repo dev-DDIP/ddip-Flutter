@@ -1,3 +1,4 @@
+import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
@@ -8,6 +9,7 @@ import 'package:intl/intl.dart';
 
 class InteractionTimelineView extends ConsumerWidget {
   final DdipEvent event;
+
   const InteractionTimelineView({super.key, required this.event});
 
   String _getSystemMessage(Interaction interaction) {
@@ -19,9 +21,16 @@ class InteractionTimelineView extends ConsumerWidget {
       case ActionType.selectResponder:
         final responderName =
             mockUsers
-                .firstWhere((user) => user.id == event.selectedResponderId)
+                .firstWhere(
+                  (user) => user.id == event.selectedResponderId,
+                  orElse:
+                      () => User(
+                        id: event.selectedResponderId!,
+                        name: '알 수 없는 수행자',
+                      ),
+                )
                 .name;
-        return '🤝 ${responderName}님과 매칭되었습니다. 지금부터 미션을 시작해주세요!';
+        return '🤝 $responderName 님과 매칭되었습니다. 지금부터 미션을 시작해주세요!';
       default:
         return '시스템 알림이 도착했습니다.';
     }
@@ -78,39 +87,33 @@ class InteractionTimelineView extends ConsumerWidget {
     final sortedInteractions = List<Interaction>.from(event.interactions)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 8.0, top: 24.0, bottom: 8.0),
+          padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
           child: Text('대화 기록', style: Theme.of(context).textTheme.titleMedium),
         ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: sortedInteractions.length,
-          itemBuilder: (context, index) {
-            final interaction = sortedInteractions[index];
-            switch (interaction.actorRole) {
-              case ActorRole.system:
-                return _SystemMessage(message: _getSystemMessage(interaction));
-              case ActorRole.requester:
-              case ActorRole.responder:
-                final bool isMe = interaction.actorId == currentUser.id;
-                final String message = _getChatMessage(interaction);
-                if (interaction.actionType == ActionType.selectResponder) {
-                  return const SizedBox.shrink();
-                }
-                return _ChatBubble(
-                  interaction: interaction,
-                  message: message,
-                  isMe: isMe,
-                );
-              default:
+        ...sortedInteractions.map((interaction) {
+          switch (interaction.actorRole) {
+            case ActorRole.system:
+              return _SystemMessage(message: _getSystemMessage(interaction));
+            case ActorRole.requester:
+            case ActorRole.responder:
+              final bool isMe = interaction.actorId == currentUser.id;
+              final String message = _getChatMessage(interaction);
+              if (interaction.actionType == ActionType.selectResponder) {
                 return const SizedBox.shrink();
-            }
-          },
-        ),
+              }
+              return _ChatBubble(
+                interaction: interaction,
+                message: message,
+                isMe: isMe,
+              );
+            default:
+              return const SizedBox.shrink();
+          }
+        }).toList(),
       ],
     );
   }
@@ -168,6 +171,7 @@ class _ChatBubble extends StatelessWidget {
 
 class _SystemMessage extends StatelessWidget {
   final String message;
+
   const _SystemMessage({required this.message});
 
   @override

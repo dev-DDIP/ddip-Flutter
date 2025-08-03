@@ -1,81 +1,318 @@
 // lib/features/ddip_event/presentation/detail/widgets/event_bottom_sheet.dart
 
+import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/applicant_list_view.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_action_button.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_details_view.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/interaction_timeline_view.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// ========== INSERT: 필요한 컴포넌트와 Provider를 import 합니다. ==========
+import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
 import 'package:ddip/features/ddip_event/presentation/widgets/multi_stage_bottom_sheet.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
-import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
-// ===================================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 class EventBottomSheet extends ConsumerWidget {
   final DdipEvent event;
+
   const EventBottomSheet({super.key, required this.event});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authProvider);
     final isRequester = currentUser?.id == event.requesterId;
-    final isSelectable = event.status == DdipEventStatus.open;
 
-    // ========== MODIFY: 기존 DraggableScrollableSheet를 MultiStageBottomSheet으로 교체합니다. ==========
+    // 이벤트 상태에 따라 탭을 동적으로 구성합니다.
+    final tabs =
+        event.status == DdipEventStatus.open
+            ? <Widget>[
+              const Tab(text: '상세 정보'),
+              Tab(text: '지원자 목록 (${event.applicants.length})'),
+            ]
+            : <Widget>[const Tab(text: '상세 정보'), const Tab(text: '진행 현황')];
+
     return MultiStageBottomSheet(
-      // 방금 만든 상세화면용 Strategy Provider를 주입합니다.
       strategyProvider: detailSheetStrategyProvider,
-      minSnapSize: detailPeekFraction,
+      minSnapSize: detailInitialFraction,
       maxSnapSize: detailFullFraction,
-      snapSizes: const [
-        detailPeekFraction,
-        detailMidFraction,
-        detailFullFraction,
-      ],
-      // builder를 통해 시트 내부에 들어갈 콘텐츠를 동일하게 정의합니다.
+      snapSizes: const [detailInitialFraction, detailFullFraction],
       builder: (context, scrollController) {
-        return ListView(
-          controller: scrollController,
-          padding: EdgeInsets.zero,
-          children: [
-            // 핸들 위젯
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                margin: const EdgeInsets.symmetric(vertical: 12.0),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
+        // 탭을 사용하기 위해 DefaultTabController로 감쌉니다.
+        return DefaultTabController(
+          length: tabs.length,
+          child: CustomScrollView(
+            controller: scrollController, // DraggableScrollableSheet의 컨트롤러를 연결
+            slivers: [
+              // 1. 핸들
+              SliverToBoxAdapter(child: _buildHandle()),
+              // 2. 고정 헤더 (이제 스크롤따라 올라감)
+              SliverToBoxAdapter(child: _FixedHeader(event: event)),
+              // 3. 스크롤 시 상단에 고정되는 탭 바
+              SliverPersistentHeader(
+                delegate: _SliverTabBarDelegate(TabBar(tabs: tabs)),
+                pinned: true, // 이 속성이 탭 바를 상단에 고정시킵니다.
+              ),
+              // 4. 탭 바의 내용이 남은 공간을 모두 채우도록 설정
+              SliverFillRemaining(
+                child: TabBarView(
+                  children:
+                      event.status == DdipEventStatus.open
+                          ? [
+                            // 상세 정보 탭
+                            EventDetailsView(event: event),
+                            // 지원자 목록 탭
+                            ApplicantListView(
+                              event: event,
+                              isRequester:
+                                  ref.watch(authProvider)?.id ==
+                                  event.requesterId,
+                            ),
+                          ]
+                          : [
+                            // 상세 정보 탭
+                            EventDetailsView(event: event),
+                            // 진행 현황 탭
+                            InteractionTimelineView(event: event),
+                          ],
                 ),
               ),
-            ),
-            // 기존 콘텐츠는 그대로 유지합니다.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  EventDetailsView(event: event),
-                  if (isSelectable && event.applicants.isNotEmpty)
-                    ApplicantListView(event: event, isRequester: isRequester),
-                  if (isRequester ||
-                      (currentUser != null &&
-                          event.selectedResponderId == currentUser.id))
-                    InteractionTimelineView(event: event),
-                  const SizedBox(height: 24),
-                  EventActionButton(event: event),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       },
+    );
+  }
+
+  /// 바텀시트 상단의 핸들 UI
+  Widget _buildHandle() {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 5,
+        margin: const EdgeInsets.symmetric(vertical: 12.0),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+
+  const _SliverTabBarDelegate(this._tabBar);
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor, // 배경색 지정
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
+  }
+}
+
+/// 고정 헤더 영역을 위한 별도 위젯
+class _FixedHeader extends ConsumerWidget {
+  final DdipEvent event;
+
+  const _FixedHeader({required this.event});
+
+  /// 이벤트 상태에 따라 다른 색상과 텍스트의 뱃지를 생성하는 위젯
+  Widget _buildStatusChip(DdipEventStatus status) {
+    Color chipColor;
+    String label;
+
+    switch (status) {
+      case DdipEventStatus.open:
+        chipColor = Colors.blue;
+        label = '지원 가능';
+        break;
+      case DdipEventStatus.in_progress:
+        chipColor = Colors.green;
+        label = '진행중';
+        break;
+      case DdipEventStatus.completed:
+        chipColor = Colors.grey;
+        label = '완료';
+        break;
+      case DdipEventStatus.failed:
+        chipColor = Colors.red;
+        label = '실패';
+        break;
+    }
+    return Chip(
+      label: Text(label),
+      backgroundColor: chipColor.withOpacity(0.15),
+      labelStyle: TextStyle(color: chipColor, fontWeight: FontWeight.bold),
+      side: BorderSide(color: chipColor.withOpacity(0.3)),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+    );
+  }
+
+  Widget _buildProgressBar(BuildContext context, DdipEventStatus status) {
+    final steps = ['모집 중', '진행 중', '사진 검토', '완료/실패'];
+    int currentStep;
+    bool isFailed = false;
+
+    switch (status) {
+      case DdipEventStatus.open:
+        currentStep = 0;
+        break;
+      case DdipEventStatus.in_progress:
+        currentStep = 1;
+        // 사진 제출 여부에 따라 2단계로 넘어갈지 결정
+        if (event.photos.any((p) => p.status == PhotoStatus.pending)) {
+          currentStep = 2;
+        }
+        break;
+      case DdipEventStatus.completed:
+        currentStep = 3;
+        break;
+      case DdipEventStatus.failed:
+        currentStep = 3;
+        isFailed = true;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(steps.length, (index) {
+          final bool isActive = index <= currentStep;
+          final Color color =
+              isFailed && index == currentStep
+                  ? Colors.red
+                  : isActive
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade300;
+
+          return Column(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                child: Center(
+                  child:
+                      isActive && !isFailed
+                          ? const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 16,
+                          )
+                          : isFailed && index == currentStep
+                          ? const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          )
+                          : null,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                steps[index],
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isActive ? Colors.black : Colors.grey,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 요청자 정보를 가상 데이터에서 찾아옵니다.
+    final requester = mockUsers.firstWhere(
+      (user) => user.id == event.requesterId,
+      orElse: () => User(id: event.requesterId, name: '알 수 없는 작성자'),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. 제목과 상태 뱃지
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  event.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              _buildStatusChip(event.status),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 2. 요청자 정보와 보상
+          Row(
+            children: [
+              const Icon(Icons.person_outline, size: 18, color: Colors.black54),
+              const SizedBox(width: 4),
+              Text(
+                '요청자: ${requester.name}',
+                style: const TextStyle(fontSize: 15),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.star, color: Colors.amber, size: 16),
+              const Text('4.8', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              const Icon(
+                Icons.monetization_on_outlined,
+                size: 18,
+                color: Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '보상: ${NumberFormat('#,###').format(event.reward)}원',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          _buildProgressBar(context, event.status),
+
+          // 헤더와 탭 바를 구분하는 선
+          const Divider(height: 1),
+        ],
+      ),
     );
   }
 }

@@ -91,6 +91,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
       status.toString(),
     );
   }
+
+  @override
+  Stream<DdipEvent> getEventStreamById(String id) {
+    // WebSocket 연결을 시뮬레이션하는 Stream을 반환합니다.
+    return remoteDataSource.getEventStreamById(id);
+  }
 }
 
 /*
