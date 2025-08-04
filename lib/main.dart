@@ -1,14 +1,8 @@
 // lib/main.dart
-import 'dart:io';
 
-import 'package:ddip/core/navigation/router.dart';
+// ------------------- Flutter 및 외부 패키지 Import -------------------
+import 'dart:io';
 import 'package:ddip/core/providers/core_providers.dart';
-import 'package:ddip/core/services/proximity_service.dart';
-import 'package:ddip/core/services/real_proximity_service_impl.dart';
-import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_source.dart';
-import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
-import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -18,148 +12,124 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 백그라운드 메시지 핸들러
-// 이 함수는 반드시 클래스 외부에, 최상위 레벨에 존재해야 합니다.
-// 앱이 꺼져있을 때 FCM 메시지가 오면, 이 함수가 격리된 환경(Isolate)에서 실행됩니다.
+// ------------------- DDIP 프로젝트 내부 모듈 Import -------------------
+// 앱의 최상위 위젯 및 라우팅 설정
+import 'package:ddip/app.dart';
+import 'package:ddip/core/navigation/router.dart';
+
+// 앱 전반에서 사용되는 서비스 및 Provider (의존성 주입 대상)
+import 'package:ddip/core/services/proximity_service.dart';
+import 'package:ddip/core/services/real_proximity_service_impl.dart';
+import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_source.dart';
+import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
+import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
+import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+
+// ------------------- 백그라운드 FCM 핸들러 -------------------
+/// 앱이 백그라운드 또는 종료된 상태일 때 FCM 메시지를 수신하는 핸들러입니다.
+/// 반드시 클래스 외부에 최상위 함수로 존재해야 합니다.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // 여기서 알림을 받으면 로컬 알림을 띄우는 등의 작업을 할 수 있습니다.
-  // 예를 들어, 받은 메시지 내용을 flutter_local_notifications을 사용해 표시합니다.
-  print("Handling a background message: ${message.messageId}");
-  // _showLocalNotification 함수를 재사용할 수 있습니다. (필요 시 일부 수정)
+  // 백그라운드에서 수신 시 처리할 로직 (예: 데이터 동기화)
+  // 지금은 콘솔에 로그만 남깁니다.
+  print("백그라운드 메시지 수신: ${message.messageId}");
 }
 
+// ------------------- 로컬 알림 플러그인 인스턴스 -------------------
+/// 포그라운드 상태에서 알림을 직접 화면에 표시하기 위한 플러그인 인스턴스입니다.
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
+// ------------------- 앱의 메인 시작점 -------------------
 void main() async {
-  // 앱 시작전 설정 과정에서 오류가 발생할 수 있으므로 try-catch로 감싸줍니다.
-  try {
-    print('현재 작업 디렉토리: ${Directory.current.path}');
-    WidgetsFlutterBinding.ensureInitialized();
+  // `runApp`이 호출되기 전에 Flutter 엔진과 위젯 바인딩이 확실히 초기화되도록 보장합니다.
+  // `async`를 사용하는 `main` 함수에서는 필수입니다.
+  WidgetsFlutterBinding.ensureInitialized();
 
-    // 시스템 UI 스타일 설정
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent, // 상태 표시줄 배경을 투명하게 설정
-        statusBarIconBrightness: Brightness.dark, // 상태 표시줄 아이콘을 어둡게 (검은색)
-      ),
-    );
-    // Firebase 앱 초기화
-    // Firebase 관련 기능을 사용하기 전에 반드시 먼저 호출되어야 합니다.
+  try {
+    // --- 1단계: 필수 서비스 초기화 ---
+    // 이 과정은 앱 실행에 반드시 필요한 서비스들을 준비하는 단계입니다.
+
+    // Firebase 서비스 초기화
     await Firebase.initializeApp();
-    // 백그라운드 핸들러 등록
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+    // .env 파일 로드 및 네이버 지도 초기화
     await dotenv.load(fileName: ".env");
-    // .env 파일에서 ID를 불러와 null 체크를 수행합니다.
     final naverMapClientId = dotenv.env['NAVER_MAP_CLIENT_ID'];
     if (naverMapClientId == null || naverMapClientId.isEmpty) {
       throw Exception('.env 파일에 NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.');
     }
-
-    // null이 아님이 확인된 ID로 네이버 지도를 초기화합니다.
     await FlutterNaverMap().init(
       clientId: naverMapClientId,
-      onAuthFailed: (ex) {
-        print('네이버 지도 인증 실패: $ex');
-      },
+      onAuthFailed: (ex) => print('네이버 지도 인증 실패: $ex'),
     );
 
-    // 알림 탭 이벤트를 처리하고 화면을 이동시키는 함수 정의
+    // --- 2단계: 알림 시스템 설정 ---
+    // 앱이 어떤 상태에 있든 알림을 수신하고 적절히 반응하도록 설정합니다.
+
+    // 알림 클릭 시 특정 화면으로 이동시키는 함수
     void handleNotificationTap(String? eventId) {
       if (eventId != null) {
         router.go('/feed/$eventId');
       }
     }
 
-    // 앱이 종료된 상태에서 알림을 탭하여 실행된 경우 처리
-    FirebaseMessaging.instance.getInitialMessage().then((
-      RemoteMessage? message,
-    ) {
-      if (message != null) {
-        handleNotificationTap(message.data['eventId'] as String?);
-      }
-    });
+    // 앱이 종료된 상태에서 알림을 클릭하여 실행된 경우 처리
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      handleNotificationTap(initialMessage.data['eventId'] as String?);
+    }
 
-    // 앱이 백그라운드에 있을 때 알림을 탭한 경우 처리
+    // 앱이 백그라운드에 있을 때 알림을 클릭한 경우 처리
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       handleNotificationTap(message.data['eventId'] as String?);
     });
 
-    // 안드로이드용 초기화 설정을 정의합니다.
-    // '@mipmap/ic_launcher'는 안드로이드 프로젝트의 기본 앱 아이콘을 사용하겠다는 의미입니다.
-    // 알림이 올 때 이 아이콘이 상태표시줄에 표시됩니다.
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    // 3-2. iOS용 초기화 설정을 정의합니다. (여기서는 기본값 사용)
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings();
-    // 3-3. 위에서 만든 안드로이드와 iOS 설정을 하나로 묶습니다.
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsIOS,
-        );
-    // 최종적으로 플러그인을 초기화합니다.
-    // 이 작업이 성공적으로 끝나야 앱의 다른 곳에서 알림을 생성할 수 있습니다.
+    // 로컬 알림 플러그인 초기화
+    const initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    );
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        handleNotificationTap(response.payload);
-      },
+      onDidReceiveNotificationResponse:
+          (response) => handleNotificationTap(response.payload),
     );
-    // Android 13 이상을 대상으로 알림 권한을 요청합니다.
-    // 사용자가 '허용' 또는 '허용 안함'을 선택할 수 있는 팝업이 뜹니다.
+
+    // Android 13 이상에서 알림 권한 요청
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestNotificationsPermission();
 
-    // ▼▼▼ [추가] 앱의 위젯 트리가 실행되기 전에 Provider를 사용하기 위한 설정 ▼▼▼
-    // 1. Provider들을 담을 수 있는 전역 컨테이너를 생성합니다.
-    final container = ProviderContainer();
-    // 2. 컨테이너를 통해 우리가 만든 ProximityService를 가져옵니다.
-    final proximityService = container.read(proximityServiceProvider);
-    // 3. 앱이 시작됨과 동시에 서비스를 실행시킵니다.
-    await proximityService.start();
+    // --- 3단계: 의존성 주입(Dependency Injection) 설정 ---
+    // 앱의 각 부분(Repository, Service 등)이 어떤 구체적인 구현체를 사용할지
+    // 앱의 최상위 지점에서 중앙 관리 방식으로 결정합니다.
+    final overrides = [
+      // WebSocketDataSource가 필요한 곳에는 FakeWebSocketDataSource를 주입합니다.
+      webSocketDataSourceProvider.overrideWithValue(FakeWebSocketDataSource()),
 
-    // 4. 서비스의 알림 통로를 구독하고, 알림이 올 때마다 OS 시스템 알림을 띄우도록 설정합니다.
-    proximityService.notificationStream.listen((notification) {
-      _showLocalNotification(notification);
-    });
-
-    // 5. ProviderScope에 위에서 만든 컨테이너를 전달하여 앱 전체에서 공유하도록 합니다.
-
-    // 모든 과정이 성공하면, 기존과 동일하게 앱을 실행합니다.
-    // ProviderScope에 위에서 만든 컨테이너를 전달하여 앱 전체에서 공유하도록 합니다.
-    runApp(
-      ProviderScope(
-        overrides: [
-          // ddipEventRepositoryProvider를 요청하면,
-          // FakeDdipEventRepositoryImpl 인스턴스를 대신 반환하도록 설정합니다.
-          // 나중에 실제 서버와 연동할 때는 이 부분만 DdipEventRepositoryImpl로 바꿔주면 됩니다.
-          webSocketDataSourceProvider.overrideWithValue(
-            FakeWebSocketDataSource(),
-          ),
-
-          ddipEventRepositoryProvider.overrideWith(
-            (ref) => FakeDdipEventRepositoryImpl(
-              ref,
-              webSocketDataSource: ref.watch(webSocketDataSourceProvider),
-            ),
-          ),
-
-          proximityServiceProvider.overrideWith(
-            (ref) => RealProximityService(),
-          ),
-        ],
-        child: const MyApp(),
+      // DdipEventRepository가 필요한 곳에는 FakeDdipEventRepositoryImpl을 주입합니다.
+      // 이 Repository는 내부적으로 webSocketDataSourceProvider를 통해 FakeDataSource를 사용하게 됩니다.
+      ddipEventRepositoryProvider.overrideWith(
+        (ref) => FakeDdipEventRepositoryImpl(
+          ref,
+          webSocketDataSource: ref.watch(webSocketDataSourceProvider),
+        ),
       ),
-    );
+
+      // ProximityService가 필요한 곳에는 RealProximityService를 주입합니다.
+      proximityServiceProvider.overrideWith((ref) => RealProximityService()),
+    ];
+
+    // --- 4단계: 앱 실행 ---
+    // 위에서 정의한 의존성(overrides)을 가진 ProviderScope로 앱 전체를 감싸서 실행합니다.
+    runApp(ProviderScope(overrides: overrides, child: const MyApp()));
   } catch (e) {
-    // 만약 위 과정에서 에러가 발생하면, 하얀 화면 대신 에러 메시지를 보여주는 앱을 실행합니다.
+    // 초기화 과정에서 오류 발생 시, 사용자에게 오류 화면을 보여줍니다.
     runApp(ErrorApp(error: e.toString()));
   }
 }
