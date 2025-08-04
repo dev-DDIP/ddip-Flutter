@@ -36,6 +36,8 @@ abstract class DdipEventRemoteDataSource {
     String feedback,
   );
 
+  Stream<DdipEventModel> getNewDdipEventStream();
+
   Stream<DdipEvent> getEventStreamById(String id);
 }
 
@@ -127,6 +129,15 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
     // TODO: 백엔드 API 구현
     print('Calling API: Update photo feedback');
     await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  @override
+  Stream<DdipEventModel> getNewDdipEventStream() {
+    // TODO: 실제 WebSocket 클라이언트를 사용하여 서버로부터 새로 생성되는
+    // DdipEventModel을 받아오는 로직을 여기에 구현해야 합니다.
+    throw UnimplementedError(
+      'New DdipEvent stream for real remote data source is not implemented yet.',
+    );
   }
 
   // getEventStreamById 메소드를 구현합니다.

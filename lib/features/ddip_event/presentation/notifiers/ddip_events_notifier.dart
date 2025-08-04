@@ -1,5 +1,7 @@
 // lib/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart
 
+import 'dart:async';
+
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
@@ -9,9 +11,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
   final Ref _ref;
+  StreamSubscription? _newEventsSubscription;
 
   DdipEventsNotifier(this._ref) : super(const AsyncValue.loading()) {
     loadEvents();
+    _listenToNewEvents();
+  }
+
+  @override
+  void dispose() {
+    _newEventsSubscription?.cancel();
+    super.dispose();
   }
 
   // 저장소에서 모든 이벤트 목록(원본 데이터)을 가져와 상태를 초기화합니다.
@@ -24,6 +34,23 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     } catch (e, s) {
       state = AsyncValue.error(e, s);
     }
+  }
+
+  // 새로운 '띱' 이벤트를 실시간으로 감지하고 상태를 업데이트하는 메서드
+  void _listenToNewEvents() {
+    final repository = _ref.read(ddipEventRepositoryProvider);
+    _newEventsSubscription = repository.getNewEventsStream().listen(
+      (newEvent) {
+        // 현재 상태가 데이터가 있는 경우에만 업데이트
+        final currentState = state.valueOrNull ?? [];
+        // 새로운 이벤트를 목록의 가장 맨 앞에 추가하여 상태를 업데이트
+        state = AsyncValue.data([newEvent, ...currentState]);
+      },
+      onError: (error) {
+        // (선택) 에러 처리 로직
+        print("Error listening to new events: $error");
+      },
+    );
   }
 
   // '띱'에 지원하는 메서드

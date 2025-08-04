@@ -43,6 +43,9 @@ abstract class DdipEventRepository {
 
   /// WebSocket 연결을 시뮬레이션하는 Stream을 반환합니다.
   Stream<DdipEvent> getEventStreamById(String id);
+
+  /// 새로 생성되는 DdipEvent의 실시간 스트림을 제공합니다.
+  Stream<DdipEvent> getNewEventsStream();
 }
 
 /*

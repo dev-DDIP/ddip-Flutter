@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/mock_ddip_event_data.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
@@ -16,10 +17,11 @@ import 'package:uuid/uuid.dart';
 
 class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final Ref ref; // ✨ 1. 생성자를 통해 Ref를 전달받음
-  FakeDdipEventRepositoryImpl(this.ref);
+  final WebSocketDataSource webSocketDataSource;
+
+  FakeDdipEventRepositoryImpl(this.ref, {required this.webSocketDataSource});
 
   final List<DdipEvent> _ddipEvents = List.from(mockDdipEvents);
-  final _eventStreamController = StreamController<DdipEvent>.broadcast();
 
   @override
   Future<void> applyToEvent(String eventId, String userId) async {
@@ -32,7 +34,6 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         final newApplicants = List<String>.from(event.applicants)..add(userId);
         final updatedEvent = event.copyWith(applicants: newApplicants);
         _ddipEvents[index] = updatedEvent;
-        _eventStreamController.add(updatedEvent);
       }
     } else {
       throw Exception('Event not found');
@@ -52,7 +53,6 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           status: DdipEventStatus.in_progress,
         );
         _ddipEvents[index] = updatedEvent;
-        _eventStreamController.add(updatedEvent);
       } else {
         throw Exception('Responder not in applicants list');
       }
@@ -98,7 +98,6 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         interactions: newInteractions,
       );
       _ddipEvents[index] = updatedEvent;
-      _eventStreamController.add(updatedEvent);
     } else {
       throw Exception('Event not found');
     }
@@ -159,7 +158,6 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           interactions: newInteractions,
         );
         _ddipEvents[eventIndex] = updatedEvent;
-        _eventStreamController.add(updatedEvent);
       } else {
         throw Exception('Photo not found');
       }
@@ -196,21 +194,44 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Stream<DdipEvent> getEventStreamById(String id) {
-    // 1. 먼저 현재 데이터를 찾아서 스트림의 첫 값으로 즉시 전달합니다.
-    try {
-      final initialEvent = _ddipEvents.firstWhere((e) => e.id == id);
-      // 지연을 주어 실제 네트워크처럼 보이게 합니다.
-      Future.delayed(Duration.zero, () {
-        _eventStreamController.add(initialEvent);
-      });
-    } catch (e) {
-      _eventStreamController.addError(Exception('Event not found'));
-    }
+  Stream<DdipEvent> getEventStreamById(String id) async* {
+    // 1. 먼저 현재 저장된 최신 버전의 이벤트를 한 번 보내줍니다. (스냅샷)
+    final initialEvent = _ddipEvents.firstWhere((e) => e.id == id);
+    yield initialEvent;
 
-    // 2. 컨트롤러의 스트림을 반환합니다.
-    // UI는 이 스트림을 구독하고 있다가, applyToEvent 같은 다른 메소드에서
-    // 새로운 데이터가 add될 때마다 업데이트를 받게 됩니다.
-    return _eventStreamController.stream.where((event) => event.id == id);
+    // 2. 외부 전문가(WebSocketDataSource)로부터 오는 실시간 업데이트를 구독합니다.
+    final interactionStream = webSocketDataSource.getInteractionStream(id);
+
+    // 3. 새로운 업데이트(Interaction)가 올 때마다,
+    //    기존 이벤트 데이터에 변경사항을 적용하여 새로운 버전의 DdipEvent를 만들어 UI에 보내줍니다.
+    await for (final interaction in interactionStream) {
+      final targetEvent = _ddipEvents.firstWhere((e) => e.id == id);
+
+      // 실제로는 interaction의 actionType에 따라 분기 처리가 필요하지만,
+      // 지금은 지원자(applicant)가 추가되는 시나리오만 가정합니다.
+      final updatedEvent = targetEvent.copyWith(
+        applicants: [...targetEvent.applicants, interaction.actorId],
+      );
+
+      // 내부 데이터도 최신 상태로 업데이트합니다.
+      final eventIndex = _ddipEvents.indexWhere((e) => e.id == id);
+      _ddipEvents[eventIndex] = updatedEvent;
+
+      // UI에 업데이트된 최신 버전의 이벤트를 흘려보냅니다 (라이브 비디오).
+      yield updatedEvent;
+    }
+  }
+
+  @override
+  Stream<DdipEvent> getNewEventsStream() {
+    // 1. 외부 전문가(DataSource)로부터 오는 Model(DTO) 스트림을 받습니다.
+    return webSocketDataSource.getNewDdipEventStream().map((eventModel) {
+      // 2. 새로운 이벤트가 생겼으므로 내부 데이터 목록에도 추가합니다.
+      final newEvent = eventModel.toEntity();
+      _ddipEvents.insert(0, newEvent);
+
+      // 3. Model(DTO)을 Entity로 변환하여 Notifier(상위 관리자)에게 전달합니다.
+      return newEvent;
+    });
   }
 }

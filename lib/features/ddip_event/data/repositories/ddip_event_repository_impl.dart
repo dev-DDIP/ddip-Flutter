@@ -97,6 +97,14 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
     // WebSocket 연결을 시뮬레이션하는 Stream을 반환합니다.
     return remoteDataSource.getEventStreamById(id);
   }
+
+  @override
+  Stream<DdipEvent> getNewEventsStream() {
+    // 실제 DataSource로부터 오는 Model(DTO) 스트림을 받아 Entity로 변환하여 중계합니다.
+    return remoteDataSource.getNewDdipEventStream().map(
+      (eventModel) => eventModel.toEntity(),
+    );
+  }
 }
 
 /*
