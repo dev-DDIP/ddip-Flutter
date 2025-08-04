@@ -112,6 +112,7 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   double get minExtent => _tabBar.preferredSize.height;
+
   @override
   double get maxExtent => _tabBar.preferredSize.height;
 
@@ -248,6 +249,90 @@ class _FixedHeader extends ConsumerWidget {
     );
   }
 
+  /// 사진 검증 상태를 3개의 아이콘으로 시각화하는 위젯을 생성합니다.
+  Widget _buildPhotoReviewStatus(BuildContext context, DdipEvent event) {
+    // 사진 검토와 관련된 상태일 때만 위젯을 보여줍니다.
+    if (event.status != DdipEventStatus.in_progress &&
+        event.status != DdipEventStatus.completed &&
+        event.status != DdipEventStatus.failed) {
+      return const SizedBox.shrink(); // 해당 없으면 아무것도 그리지 않음
+    }
+
+    final photos = event.photos;
+    List<Widget> statusIcons = [];
+
+    // 제출된 사진 개수만큼 아이콘을 생성합니다.
+    for (int i = 0; i < photos.length; i++) {
+      final photo = photos[i];
+      IconData icon;
+      Color color;
+
+      switch (photo.status) {
+        case PhotoStatus.approved:
+          icon = Icons.check_circle;
+          color = Colors.green;
+          break;
+        case PhotoStatus.rejected:
+          icon = Icons.cancel;
+          color = Colors.red;
+          break;
+        case PhotoStatus.pending:
+          icon = Icons.watch_later;
+          color = Colors.orange;
+          break;
+      }
+      statusIcons.add(Icon(icon, color: color, size: 28));
+    }
+
+    // 3번의 기회를 시각적으로 보여주기 위해 남은 공간을 빈 아이콘으로 채웁니다.
+    int remainingSlots = 3 - photos.length;
+    if (remainingSlots > 0) {
+      for (int i = 0; i < remainingSlots; i++) {
+        statusIcons.add(
+          Icon(Icons.radio_button_unchecked, color: Colors.grey[300], size: 28),
+        );
+      }
+    }
+
+    // 만약 3번을 초과하여 제출했다면, 초과분을 텍스트로 표시합니다.
+    if (photos.length > 3) {
+      statusIcons.add(
+        Text(
+          '+${photos.length - 3}',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[600],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '사진 검토 현황: ',
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 아이콘들 사이에 간격을 주기 위해 Wrap 대신 Row와 SizedBox 사용
+          ...List.generate(statusIcons.length, (index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: statusIcons[index],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 요청자 정보를 가상 데이터에서 찾아옵니다.
@@ -272,6 +357,8 @@ class _FixedHeader extends ConsumerWidget {
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 2, // 제목이 길 경우 최대 2줄까지 표시
+                  overflow: TextOverflow.ellipsis, // 2줄을 넘어가면 '...' 처리
                 ),
               ),
               const SizedBox(width: 16),
@@ -311,6 +398,7 @@ class _FixedHeader extends ConsumerWidget {
           const SizedBox(height: 16),
 
           _buildProgressBar(context, event.status),
+          _buildPhotoReviewStatus(context, event),
 
           // 헤더와 탭 바를 구분하는 선
           const Divider(height: 1),
