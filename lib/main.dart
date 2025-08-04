@@ -4,6 +4,11 @@ import 'dart:io';
 import 'package:ddip/core/navigation/router.dart';
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/core/services/proximity_service.dart';
+import 'package:ddip/core/services/real_proximity_service_impl.dart';
+import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_source.dart';
+import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
+import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -130,7 +135,28 @@ void main() async {
     // 모든 과정이 성공하면, 기존과 동일하게 앱을 실행합니다.
     // ProviderScope에 위에서 만든 컨테이너를 전달하여 앱 전체에서 공유하도록 합니다.
     runApp(
-      UncontrolledProviderScope(container: container, child: const MyApp()),
+      ProviderScope(
+        overrides: [
+          // ddipEventRepositoryProvider를 요청하면,
+          // FakeDdipEventRepositoryImpl 인스턴스를 대신 반환하도록 설정합니다.
+          // 나중에 실제 서버와 연동할 때는 이 부분만 DdipEventRepositoryImpl로 바꿔주면 됩니다.
+          webSocketDataSourceProvider.overrideWithValue(
+            FakeWebSocketDataSource(),
+          ),
+
+          ddipEventRepositoryProvider.overrideWith(
+            (ref) => FakeDdipEventRepositoryImpl(
+              ref,
+              webSocketDataSource: ref.watch(webSocketDataSourceProvider),
+            ),
+          ),
+
+          proximityServiceProvider.overrideWith(
+            (ref) => RealProximityService(),
+          ),
+        ],
+        child: const MyApp(),
+      ),
     );
   } catch (e) {
     // 만약 위 과정에서 에러가 발생하면, 하얀 화면 대신 에러 메시지를 보여주는 앱을 실행합니다.

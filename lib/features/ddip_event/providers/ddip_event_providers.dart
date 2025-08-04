@@ -3,7 +3,7 @@
 import 'package:collection/collection.dart';
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
-import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_source.dart';
+import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
@@ -20,13 +20,15 @@ final ddipEventDataSourceProvider = Provider<DdipEventRemoteDataSource>((ref) {
 });
 
 final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
-  // 1. 실제 백엔드 도입 전까지는 Fake Repository를 사용합니다.
+  // 1. 어떤 WebSocketDataSource를 사용할지 webSocketDataSourceProvider에게 물어봅니다.
+  final webSocketDataSource = ref.watch(webSocketDataSourceProvider);
+
+  // 2. 주입받은 DataSource를 사용하여 Repository 구현체를 생성합니다.
+  //    (이 코드는 main.dart에서 override될 때만 실제로 실행됩니다.)
   return FakeDdipEventRepositoryImpl(
     ref,
-    webSocketDataSource:
-        FakeWebSocketDataSource(), // 여기에 FakeDataSource 인스턴스를 주입!
+    webSocketDataSource: webSocketDataSource,
   );
-  // return DdipEventRepositoryImpl(remoteDataSource: remoteDataSource); // 2. 실제 백엔드 사용
 });
 
 // --- 2. Domain 계층 프로바이더 (UseCase) ---

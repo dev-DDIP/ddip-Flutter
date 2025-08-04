@@ -1,10 +1,10 @@
 // lib/features/ddip_event/data/datasources/web_socket_data_source.dart
 
 import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/interaction_model.dart';
 
-// ----- ▼▼▼ [신규] 웹소켓 통신을 위한 추상 계약서 정의 ▼▼▼ -----
 /// 실시간 데이터 통신을 위한 데이터 소스의 추상 클래스(계약서)입니다.
 /// 실제 구현체(Fake 또는 Real)는 반드시 이 계약서의 규칙을 따라야 합니다.
 abstract class WebSocketDataSource {
@@ -20,4 +20,9 @@ abstract class WebSocketDataSource {
   void close();
 }
 
-// ----- ▲▲▲ [신규] 웹소켓 통신을 위한 추상 계약서 정의 ▲▲▲ -----
+/// WebSocketDataSource의 구체적인 구현체를 제공하는 Provider입니다.
+/// 앱의 시작점(main.dart)에서 어떤 구현체(Fake or Real)를 사용할지
+/// 반드시 override하여 주입해주어야 합니다.
+final webSocketDataSourceProvider = Provider<WebSocketDataSource>((ref) {
+  throw UnimplementedError('webSocketDataSourceProvider must be overridden');
+});
