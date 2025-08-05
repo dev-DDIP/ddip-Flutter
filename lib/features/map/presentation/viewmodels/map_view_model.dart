@@ -5,6 +5,7 @@ import 'package:ddip/features/ddip_event/presentation/providers/feed_view_intera
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/widgets/marker_factory.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
+import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart'; // EdgeInsets를 위해 material.dart 임포트
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,38 +38,58 @@ class MapState with _$MapState {
 class MapViewModel extends StateNotifier<MapState> {
   final Ref _ref;
   final MarkerFactory _markerFactory;
-  NaverMapController? _mapController;
 
-  MapViewModel(this._ref)
+  MapViewModel(this._ref, List<DdipEvent> initialEvents)
     : _markerFactory = _ref.read(markerFactoryProvider),
       super(const MapState()) {
-    _ref.listen<List<DdipEvent>>(
-      mapEventsProvider,
-      (_, __) => _updateState(),
-      fireImmediately: true, // Provider가 처음 읽혔을 때도 리스너를 즉시 실행합니다.
-    );
-    _ref.listen<String?>(selectedEventIdProvider, (_, __) => _updateState());
+    // 2. 생성되자마자 외부에서 주입받은 initialEvents로 첫 상태를 바로 만듭니다.
+    _updateState(initialEvents);
+
+    // 3. 더 이상 mapEventsProvider를 직접 구독하지 않습니다. 이 ViewModel은 이제 외부 상황을 모릅니다.
+    // _ref.listen<List<DdipEvent>>(
+    //   mapEventsProvider,
+    //   (_, events) => _updateState(events),
+    //   fireImmediately: true,
+    // );
+
+    // selectedEventIdProvider는 여전히 UI 상호작용에 필요하므로 유지하되, 로직을 수정합니다.
+    _ref.listen<String?>(selectedEventIdProvider, (previous, next) {
+      // 선택된 ID가 변경되면, 현재 자신이 관리하던 이벤트 목록을 기준으로 다시 상태를 업데이트합니다.
+      final currentEvents =
+          state.overlays
+              .whereType<NClusterableMarker>()
+              .map(
+                (marker) => _ref
+                    .read(ddipFeedProvider)
+                    .firstWhere((e) => e.id == marker.info.id),
+              )
+              .toList();
+      _updateState(currentEvents, selectedId: next);
+    });
+
     _ref.listen<MapStateForViewModel>(
       mapStateForViewModelProvider,
       (_, next) => _handleClusterTap(next),
     );
   }
 
-  /// 여러 데이터 소스를 조합하여 최종 `MapState`를 계산하는 핵심 메서드입니다.
-  Future<void> _updateState() async {
-    final allEvents = _ref.read(mapEventsProvider);
-    final selectedId = _ref.read(selectedEventIdProvider);
+  // 4. _updateState 메서드가 이벤트 목록과 선택된 ID를 인자로 받도록 수정합니다.
+  Future<void> _updateState(
+    List<DdipEvent> events, {
+    String? selectedId,
+  }) async {
+    // 5. 인자로 받은 selectedId를 사용합니다. 없다면 ref에서 읽어옵니다.
+    final currentSelectedId = selectedId ?? _ref.read(selectedEventIdProvider);
 
-    if (allEvents.isEmpty) {
+    if (events.isEmpty) {
       state = state.copyWith(overlays: {});
       return;
     }
 
     final newOverlays = <NAddableOverlay>{};
 
-    // `DdipEvent` 목록을 `NClusterableMarker`로 변환합니다.
-    for (final event in allEvents) {
-      final isSelected = selectedId == event.id;
+    for (final event in events) {
+      final isSelected = currentSelectedId == event.id;
       final icon = await _markerFactory.getOrCacheMarkerIcon(
         type: 'event',
         isSelected: isSelected,
@@ -96,7 +117,7 @@ class MapViewModel extends StateNotifier<MapState> {
     state = state.copyWith(overlays: newOverlays);
 
     // 목록이 업데이트된 후, 선택된 이벤트가 있다면 카메라를 이동시킵니다.
-    _moveCameraToSelectedEvent(selectedId, allEvents);
+    _moveCameraToSelectedEvent(selectedId, events);
   }
 
   /// 선택된 이벤트의 위치로 카메라를 이동시키는 `NCameraUpdate` 객체를 생성합니다.
@@ -140,14 +161,6 @@ class MapViewModel extends StateNotifier<MapState> {
     }
   }
 
-  /// View로부터 NaverMapController를 전달받아 저장합니다.
-  void onMapReady(NaverMapController controller) {
-    _mapController = controller;
-    // 컨트롤러가 준비되면, 현재 상태의 오버레이를 즉시 지도에 반영합니다.
-    final initialOverlays = state.overlays;
-    _mapController?.addOverlayAll(initialOverlays);
-  }
-
   /// View로부터 지도 옵션 업데이트 요청을 받습니다.
   void updateMapOptions(NaverMapViewOptions options) {
     state = state.copyWith(viewOptions: options);
@@ -163,27 +176,6 @@ class MapViewModel extends StateNotifier<MapState> {
   void onCameraChange(NCameraUpdateReason reason) {
     if (reason == NCameraUpdateReason.gesture) {
       _ref.read(feedSheetStrategyProvider.notifier).minimize();
-    }
-  }
-
-  void updateOverlays(
-    Set<NAddableOverlay>? previous,
-    Set<NAddableOverlay> next,
-  ) {
-    // 1. null 가능성 처리: 이전 상태가 null이면 빈 Set으로 간주합니다.
-    final prevSet = previous ?? <NAddableOverlay>{};
-
-    // 2. 변경점 계산: 이전 Set과 현재 Set의 차이를 계산하여
-    //    실제로 추가되거나 삭제되어야 할 오버레이만 정확히 찾아냅니다.
-    final toRemove = prevSet.difference(next);
-    final toAdd = next.difference(prevSet);
-
-    // 3. 변경점만 지도에 반영합니다.
-    for (final overlay in toRemove) {
-      _mapController?.deleteOverlay(overlay.info);
-    }
-    if (toAdd.isNotEmpty) {
-      _mapController?.addOverlayAll(toAdd);
     }
   }
 }

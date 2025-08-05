@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
+import 'package:ddip/features/map/presentation/viewmodels/map_view_model.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -10,8 +11,15 @@ import 'package:geolocator/geolocator.dart';
 class DdipMapView extends ConsumerStatefulWidget {
   final double bottomPadding;
   final VoidCallback? onMapInteraction;
+  final AutoDisposeStateNotifierProvider<MapViewModel, MapState>
+  viewModelProvider;
 
-  const DdipMapView({super.key, this.bottomPadding = 0, this.onMapInteraction});
+  const DdipMapView({
+    super.key,
+    this.bottomPadding = 0,
+    this.onMapInteraction,
+    required this.viewModelProvider,
+  });
 
   @override
   ConsumerState<DdipMapView> createState() => _DdipMapViewState();
@@ -47,29 +55,40 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
-    // ViewModel은 로직 처리 및 명령 전달용으로 사용합니다.
-    final viewModel = ref.read(mapViewModelProvider.notifier);
-
-    // 오버레이(마커) 상태가 변경되면 지도에 반영합니다.
-    ref.listen<Set<NAddableOverlay>>(
-      mapViewModelProvider.select((state) => state.overlays),
-      viewModel.updateOverlays,
-    );
-
-    // 카메라 이동과 같은 일회성 명령을 처리합니다.
-    ref.listen<NCameraUpdate?>(
-      mapViewModelProvider.select((state) => state.cameraUpdate),
-      (_, next) {
-        if (next != null && _mapController != null) {
-          _mapController!.updateCamera(next);
-          viewModel.onCameraMoveCompleted();
-        }
-      },
-    );
-
+    // 1. GPS 위치 로딩이 끝나지 않았으면, 무조건 로딩 화면을 보여줍니다.
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // 2. ViewModel의 상태 변화를 감지하여 지도 컨트롤러에 명령을 내리는 리스너를 설정합니다.
+    //    build 메서드 안에서 listen을 사용하는 것은 일반적으로 권장되지 않지만,
+    //    이 경우엔 화면 전환 시 리스너를 재설정해야 하므로 여기에 두는 것이 더 안정적입니다.
+    ref.listen<MapState>(widget.viewModelProvider, (previous, next) {
+      if (_mapController == null) return;
+
+      final prev = previous ?? const MapState();
+
+      // 오버레이(마커) 변경 적용
+      if (prev.overlays != next.overlays) {
+        final toRemove = prev.overlays.difference(next.overlays);
+        final toAdd = next.overlays.difference(prev.overlays);
+
+        for (final overlay in toRemove) {
+          _mapController!.deleteOverlay(overlay.info);
+        }
+        if (toAdd.isNotEmpty) {
+          _mapController!.addOverlayAll(toAdd);
+        }
+      }
+
+      // 카메라 이동 명령 실행
+      if (next.cameraUpdate != null) {
+        _mapController!.updateCamera(next.cameraUpdate!);
+        ref.read(widget.viewModelProvider.notifier).onCameraMoveCompleted();
+      }
+    });
+
+    final viewModel = ref.read(widget.viewModelProvider.notifier);
 
     return NaverMap(
       options: NaverMapViewOptions(
@@ -120,11 +139,16 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         },
       ),
       onMapReady: (controller) {
-        _mapController = controller;
-        // 컨트롤러가 준비되었음을 ViewModel에 알립니다.
-        viewModel.onMapReady(controller);
+        setState(() {
+          _mapController = controller;
+        });
+        // 지도가 준비되면, 현재 ViewModel이 가진 초기 마커들을 바로 그려줍니다.
+        final initialState = ref.read(widget.viewModelProvider);
+        if (initialState.overlays.isNotEmpty) {
+          controller.addOverlayAll(initialState.overlays);
+        }
       },
-      // 사용자 인터랙션은 ViewModel에 보고만 합니다.
+      // 사용자 인터랙션은 ViewModel에 '보고'만 합니다.
       onMapTapped: (point, latLng) => viewModel.onMapTapped(),
       onCameraChange: (reason, animated) => viewModel.onCameraChange(reason),
     );

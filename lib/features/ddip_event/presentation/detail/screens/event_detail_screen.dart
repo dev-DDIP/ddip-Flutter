@@ -14,11 +14,11 @@ class EventDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventAsyncValue = ref.watch(eventStreamProvider(eventId));
+    final viewModelState = ref.watch(eventDetailViewModelProvider(eventId));
     final sheetFraction = ref.watch(detailSheetStrategyProvider);
     final bottomPadding = MediaQuery.of(context).size.height * sheetFraction;
 
-    return eventAsyncValue.when(
+    return viewModelState.event.when(
       loading:
           () => Scaffold(
             appBar: AppBar(),
@@ -45,6 +45,7 @@ class EventDetailScreen extends ConsumerWidget {
                 // ProviderScope 덕분에 DdipMapView 내부의 MapViewModel이
                 // 재정의된 mapEventsProvider를 읽어 오직 하나의 마커만 그리게 됩니다.
                 DdipMapView(
+                  viewModelProvider: detailMapViewModelProvider(eventId),
                   bottomPadding: bottomPadding,
                   onMapInteraction:
                       () =>

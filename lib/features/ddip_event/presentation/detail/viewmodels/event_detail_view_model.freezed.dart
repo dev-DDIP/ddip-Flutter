@@ -17,10 +17,12 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$EventDetailState {
-  bool get isProcessing => throw _privateConstructorUsedError; // 로딩 중 여부
-  String? get buttonText =>
-      throw _privateConstructorUsedError; // 버튼에 표시될 텍스트 (nullable)
-  bool get buttonIsEnabled => throw _privateConstructorUsedError; // 버튼 활성화 여부
+  // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
+  AsyncValue<DdipEvent> get event => throw _privateConstructorUsedError;
+  bool get isProcessing =>
+      throw _privateConstructorUsedError; // 버튼 동작 등 개별 액션의 로딩 상태
+  String? get buttonText => throw _privateConstructorUsedError;
+  bool get buttonIsEnabled => throw _privateConstructorUsedError;
   Color? get buttonColor => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
@@ -38,6 +40,7 @@ abstract class $EventDetailStateCopyWith<$Res> {
   ) = _$EventDetailStateCopyWithImpl<$Res, EventDetailState>;
   @useResult
   $Res call({
+    AsyncValue<DdipEvent> event,
     bool isProcessing,
     String? buttonText,
     bool buttonIsEnabled,
@@ -60,6 +63,7 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? event = null,
     Object? isProcessing = null,
     Object? buttonText = freezed,
     Object? buttonIsEnabled = null,
@@ -67,6 +71,11 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
   }) {
     return _then(
       _value.copyWith(
+            event:
+                null == event
+                    ? _value.event
+                    : event // ignore: cast_nullable_to_non_nullable
+                        as AsyncValue<DdipEvent>,
             isProcessing:
                 null == isProcessing
                     ? _value.isProcessing
@@ -103,6 +112,7 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
+    AsyncValue<DdipEvent> event,
     bool isProcessing,
     String? buttonText,
     bool buttonIsEnabled,
@@ -124,6 +134,7 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? event = null,
     Object? isProcessing = null,
     Object? buttonText = freezed,
     Object? buttonIsEnabled = null,
@@ -131,6 +142,11 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
   }) {
     return _then(
       _$EventDetailStateImpl(
+        event:
+            null == event
+                ? _value.event
+                : event // ignore: cast_nullable_to_non_nullable
+                    as AsyncValue<DdipEvent>,
         isProcessing:
             null == isProcessing
                 ? _value.isProcessing
@@ -160,29 +176,32 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
 
 class _$EventDetailStateImpl implements _EventDetailState {
   const _$EventDetailStateImpl({
+    this.event = const AsyncValue.loading(),
     this.isProcessing = false,
     this.buttonText,
     this.buttonIsEnabled = false,
     this.buttonColor,
   });
 
+  // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
+  @override
+  @JsonKey()
+  final AsyncValue<DdipEvent> event;
   @override
   @JsonKey()
   final bool isProcessing;
-  // 로딩 중 여부
+  // 버튼 동작 등 개별 액션의 로딩 상태
   @override
   final String? buttonText;
-  // 버튼에 표시될 텍스트 (nullable)
   @override
   @JsonKey()
   final bool buttonIsEnabled;
-  // 버튼 활성화 여부
   @override
   final Color? buttonColor;
 
   @override
   String toString() {
-    return 'EventDetailState(isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor)';
   }
 
   @override
@@ -190,6 +209,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$EventDetailStateImpl &&
+            (identical(other.event, event) || other.event == event) &&
             (identical(other.isProcessing, isProcessing) ||
                 other.isProcessing == isProcessing) &&
             (identical(other.buttonText, buttonText) ||
@@ -203,6 +223,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
   @override
   int get hashCode => Object.hash(
     runtimeType,
+    event,
     isProcessing,
     buttonText,
     buttonIsEnabled,
@@ -223,18 +244,22 @@ class _$EventDetailStateImpl implements _EventDetailState {
 
 abstract class _EventDetailState implements EventDetailState {
   const factory _EventDetailState({
+    final AsyncValue<DdipEvent> event,
     final bool isProcessing,
     final String? buttonText,
     final bool buttonIsEnabled,
     final Color? buttonColor,
   }) = _$EventDetailStateImpl;
 
+  // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
   @override
-  bool get isProcessing; // 로딩 중 여부
+  AsyncValue<DdipEvent> get event;
   @override
-  String? get buttonText; // 버튼에 표시될 텍스트 (nullable)
+  bool get isProcessing; // 버튼 동작 등 개별 액션의 로딩 상태
   @override
-  bool get buttonIsEnabled; // 버튼 활성화 여부
+  String? get buttonText;
+  @override
+  bool get buttonIsEnabled;
   @override
   Color? get buttonColor;
 

@@ -5,6 +5,7 @@ import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_crea
 import 'package:ddip/features/ddip_event/presentation/feed/widgets/feed_bottom_sheet.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
 import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
+import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -193,6 +194,7 @@ class DdipFeedScreen extends ConsumerWidget {
       body: Stack(
         children: [
           DdipMapView(
+            viewModelProvider: feedMapViewModelProvider,
             bottomPadding: bottomPadding,
             onMapInteraction:
                 () => ref.read(feedSheetStrategyProvider.notifier).minimize(),

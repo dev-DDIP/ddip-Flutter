@@ -7,10 +7,6 @@ import 'package:ddip/features/map/presentation/widgets/marker_factory.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// -----------------------------------------------------------------------------
-// [기존] 클러스터 탭 -> ViewModel 통신을 위한 Provider
-// -----------------------------------------------------------------------------
-
 /// 클러스터 탭 시 발생하는 카메라 이동 목표 영역을 전달하는 상태 클래스입니다.
 /// ViewModel이 이 상태를 감지하여 카메라 이동을 처리합니다.
 class MapStateForViewModel {
@@ -25,18 +21,28 @@ final mapStateForViewModelProvider =
       (ref) => MapStateNotifier(),
     );
 
+// 1. 기존 ViewModelProvider의 이름을 '피드 화면용'으로 명확하게 변경합니다.
+final feedMapViewModelProvider =
+    StateNotifierProvider.autoDispose<MapViewModel, MapState>((ref) {
+      // 피드 화면은 '모든' 이벤트 목록을 지도에 표시해야 합니다.
+      final allEvents = ref.watch(ddipFeedProvider);
+      // 수정된 ViewModel 생성자에 전체 목록을 주입하여 생성합니다.
+      return MapViewModel(ref, allEvents);
+    });
+
+// 2. 상세 페이지 전용 ViewModelProvider를 '.family'를 사용하여 새롭게 생성합니다.
+// '.family'는 프로바이더에 외부 변수(여기서는 eventId)를 전달하여
+// 각 eventId마다 고유하고 독립적인 ViewModel 인스턴스를 생성하게 해줍니다.
+final detailMapViewModelProvider = StateNotifierProvider.autoDispose
+    .family<MapViewModel, MapState, String>((ref, eventId) {
+      final event = ref.watch(eventDetailProvider(eventId));
+      return MapViewModel(ref, event != null ? [event] : []);
+    });
+
 /// MarkerFactory 인스턴스를 앱 전역에서 싱글턴으로 제공하는 Provider입니다.
 final markerFactoryProvider = Provider<MarkerFactory>((ref) {
   return MarkerFactory();
 });
-
-/// 지도 UI의 모든 상태와 비즈니스 로직을 총괄하는 MapViewModel을 제공하는 Provider입니다.
-/// UI 위젯은 이 Provider를 `watch`하여 상태 변화에 따라 다시 그려집니다.
-final mapViewModelProvider =
-    StateNotifierProvider.autoDispose<MapViewModel, MapState>(
-      (ref) => MapViewModel(ref),
-      dependencies: [mapEventsProvider],
-    );
 
 // 기본적으로는 피드에 있는 모든 이벤트를 반환합니다.
 // 하지만 이 Provider를 다른 위젯에서 'override'하면, 지도에 표시될 데이터를
