@@ -68,16 +68,12 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
       final prev = previous ?? const MapState();
 
-      // 오버레이(마커) 변경 적용
       if (prev.overlays != next.overlays) {
-        final toRemove = prev.overlays.difference(next.overlays);
-        final toAdd = next.overlays.difference(prev.overlays);
-
-        for (final overlay in toRemove) {
-          _mapController!.deleteOverlay(overlay.info);
-        }
-        if (toAdd.isNotEmpty) {
-          _mapController!.addOverlayAll(toAdd);
+        _mapController!.clearOverlays(); // 1. 일단 모두 지운다.
+        if (next.overlays.isNotEmpty) {
+          _mapController!.addOverlayAll(
+            next.overlays,
+          ); // 2. ViewModel이 만든 최신 목록으로 전부 다시 그린다.
         }
       }
 

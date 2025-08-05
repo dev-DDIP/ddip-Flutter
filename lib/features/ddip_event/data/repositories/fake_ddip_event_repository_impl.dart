@@ -42,7 +42,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
 
   @override
   Future<void> selectResponder(String eventId, String responderId) async {
-    await Future.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 200));
     final index = _ddipEvents.indexWhere((event) => event.id == eventId);
 
     if (index != -1) {
@@ -68,7 +68,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     required ActionType action,
     MessageCode? messageCode,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 200));
     final index = _ddipEvents.indexWhere((event) => event.id == eventId);
     if (index != -1) {
       final event = _ddipEvents[index];

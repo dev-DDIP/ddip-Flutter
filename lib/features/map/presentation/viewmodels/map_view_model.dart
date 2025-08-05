@@ -2,9 +2,7 @@
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/widgets/marker_factory.dart';
-import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart'; // EdgeInsets를 위해 material.dart 임포트
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -38,56 +36,40 @@ class MapState with _$MapState {
 class MapViewModel extends StateNotifier<MapState> {
   final Ref _ref;
   final MarkerFactory _markerFactory;
+  final List<DdipEvent> _initialEvents;
+  final Map<String, NClusterableMarker> _markerCache = {};
 
   MapViewModel(this._ref, List<DdipEvent> initialEvents)
     : _markerFactory = _ref.read(markerFactoryProvider),
+      _initialEvents = initialEvents,
       super(const MapState()) {
-    // 2. 생성되자마자 외부에서 주입받은 initialEvents로 첫 상태를 바로 만듭니다.
-    _updateState(initialEvents);
+    _updateState(_initialEvents);
 
-    // 3. 더 이상 mapEventsProvider를 직접 구독하지 않습니다. 이 ViewModel은 이제 외부 상황을 모릅니다.
-    // _ref.listen<List<DdipEvent>>(
-    //   mapEventsProvider,
-    //   (_, events) => _updateState(events),
-    //   fireImmediately: true,
-    // );
-
-    // selectedEventIdProvider는 여전히 UI 상호작용에 필요하므로 유지하되, 로직을 수정합니다.
     _ref.listen<String?>(selectedEventIdProvider, (previous, next) {
-      // 선택된 ID가 변경되면, 현재 자신이 관리하던 이벤트 목록을 기준으로 다시 상태를 업데이트합니다.
-      final currentEvents =
-          state.overlays
-              .whereType<NClusterableMarker>()
-              .map(
-                (marker) => _ref
-                    .read(ddipFeedProvider)
-                    .firstWhere((e) => e.id == marker.info.id),
-              )
-              .toList();
-      _updateState(currentEvents, selectedId: next);
+      // 1. 마커 아이콘 색상 등 UI 상태를 업데이트합니다.
+      _updateState(_initialEvents, selectedId: next);
+
+      // 2. 그리고 "여기서만" 카메라 이동을 명령합니다.
+      _moveCameraToSelectedEvent(next, _initialEvents);
     });
 
     _ref.listen<MapStateForViewModel>(
       mapStateForViewModelProvider,
-      (_, next) => _handleClusterTap(next),
+      (previous, next) => _handleClusterTap(next),
     );
   }
 
-  // 4. _updateState 메서드가 이벤트 목록과 선택된 ID를 인자로 받도록 수정합니다.
   Future<void> _updateState(
     List<DdipEvent> events, {
     String? selectedId,
   }) async {
-    // 5. 인자로 받은 selectedId를 사용합니다. 없다면 ref에서 읽어옵니다.
     final currentSelectedId = selectedId ?? _ref.read(selectedEventIdProvider);
+    final Set<String> newEventIds = events.map((e) => e.id).toSet();
 
-    if (events.isEmpty) {
-      state = state.copyWith(overlays: {});
-      return;
-    }
+    // 사라진 마커 정리
+    _markerCache.removeWhere((id, marker) => !newEventIds.contains(id));
 
-    final newOverlays = <NAddableOverlay>{};
-
+    // 기존 마커 업데이트 및 신규 마커 생성
     for (final event in events) {
       final isSelected = currentSelectedId == event.id;
       final icon = await _markerFactory.getOrCacheMarkerIcon(
@@ -95,29 +77,29 @@ class MapViewModel extends StateNotifier<MapState> {
         isSelected: isSelected,
       );
 
-      // --- ▼▼▼ [수정] NClusterableMarker 생성 방식 변경 ---
-      // zIndex는 생성자 파라미터가 아니므로, 객체 생성 후 메서드로 설정합니다.
-      final marker = NClusterableMarker(
-        id: event.id,
-        position: NLatLng(event.latitude, event.longitude),
-        icon: icon,
-      )..setZIndex(isSelected ? 10 : 1); // 선택된 마커가 항상 위에 보이도록 z-index 설정
-      // --- ▲▲▲ [수정] NClusterableMarker 생성 방식 변경 ---
+      // 캐시에 마커가 있는지 확인
+      if (_markerCache.containsKey(event.id)) {
+        // 있으면 아이콘과 zIndex만 업데이트 (리모델링)
+        final marker = _markerCache[event.id]!;
+        marker.setIcon(icon);
+        marker.setZIndex(isSelected ? 10 : 1);
+      } else {
+        // 없으면 새로 생성해서 캐시에 추가 (신축)
+        final marker = NClusterableMarker(
+          id: event.id,
+          position: NLatLng(event.latitude, event.longitude),
+          icon: icon,
+        )..setZIndex(isSelected ? 10 : 1);
 
-      // 마커를 탭했을 때의 동작을 정의합니다.
-      marker.setOnTapListener((_) {
-        _ref.read(feedSheetStrategyProvider.notifier).showOverview(event.id);
-      });
-      newOverlays.add(marker);
+        marker.setOnTapListener((_) {
+          _ref.read(feedSheetStrategyProvider.notifier).showOverview(event.id);
+        });
+        _markerCache[event.id] = marker;
+      }
     }
 
-    // TODO: 상세 화면의 사진 마커(Photo)를 오버레이로 변환하는 로직도 이곳에 추가해야 합니다.
-
-    // 새로 계산된 오버레이 목록으로 상태를 업데이트합니다.
-    state = state.copyWith(overlays: newOverlays);
-
-    // 목록이 업데이트된 후, 선택된 이벤트가 있다면 카메라를 이동시킵니다.
-    _moveCameraToSelectedEvent(selectedId, events);
+    // 최종적으로 캐시에 있는 모든 마커들로 상태를 업데이트
+    state = state.copyWith(overlays: _markerCache.values.toSet());
   }
 
   /// 선택된 이벤트의 위치로 카메라를 이동시키는 `NCameraUpdate` 객체를 생성합니다.
@@ -140,15 +122,14 @@ class MapViewModel extends StateNotifier<MapState> {
   /// 클러스터가 탭되었을 때 해당 클러스터 영역으로 카메라를 이동시킵니다.
   void _handleClusterTap(MapStateForViewModel clusterState) {
     if (clusterState.cameraTargetBounds != null) {
-      // --- ▼▼▼ [수정] EdgeInsets.all 생성자 오타 수정 ---
       final cameraUpdate = NCameraUpdate.fitBounds(
         clusterState.cameraTargetBounds!,
-        padding: const EdgeInsets.all(80), // .all() 메서드 호출 방식으로 수정
+        padding: const EdgeInsets.all(80),
       )..setAnimation(
         animation: NCameraAnimation.easing,
         duration: const Duration(milliseconds: 300),
       );
-      // --- ▲▲▲ [수정] EdgeInsets.all 생성자 오타 수정 ---
+      // ViewModel의 상태(MapState)에 cameraUpdate 명령을 기록합니다.
       state = state.copyWith(cameraUpdate: cameraUpdate);
     }
   }
@@ -156,6 +137,7 @@ class MapViewModel extends StateNotifier<MapState> {
   /// View에서 카메라 이동 애니메이션이 완료된 후 호출되어,
   /// 일회성 명령이었던 `cameraUpdate`를 null로 초기화합니다.
   void onCameraMoveCompleted() {
+    // 이미 처리된 명령이 다시 실행되지 않도록 null로 초기화합니다.
     if (state.cameraUpdate != null) {
       state = state.copyWith(cameraUpdate: null);
     }
