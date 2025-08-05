@@ -2,6 +2,7 @@
 
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 import '../entities/ddip_event.dart';
 
@@ -14,7 +15,7 @@ abstract class DdipEventRepository {
   Future<void> createDdipEvent(DdipEvent event);
 
   // '띱 목록'을 가져오는 기능을 요구합니다.
-  Future<List<DdipEvent>> getDdipEvents();
+  Future<List<DdipEvent>> getDdipEvents({required NLatLngBounds bounds});
 
   // ID로 특정 '띱'을 가져오는 기능을 요구합니다.
   Future<DdipEvent> getDdipEventById(String id);

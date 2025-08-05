@@ -7,13 +7,37 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
-class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
+@immutable // 불변 객체임을 명시
+class DdipFeedState {
+  final List<DdipEvent> events;
+  final NCameraPosition? lastFetchedCameraPosition; // 마지막으로 요청했던 카메라 위치
+
+  const DdipFeedState({this.events = const [], this.lastFetchedCameraPosition});
+
+  DdipFeedState copyWith({
+    List<DdipEvent>? events,
+    NCameraPosition? lastFetchedCameraPosition,
+  }) {
+    return DdipFeedState(
+      events: events ?? this.events,
+      lastFetchedCameraPosition:
+          lastFetchedCameraPosition ?? this.lastFetchedCameraPosition,
+    );
+  }
+}
+
+class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
   final Ref _ref;
   StreamSubscription? _newEventsSubscription;
 
-  DdipEventsNotifier(this._ref) : super(const AsyncValue.loading()) {
+  DdipEventsNotifier(this._ref)
+    : super(AsyncValue.data(const DdipFeedState())) {
     loadEvents();
     _listenToNewEvents();
   }
@@ -24,13 +48,53 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     super.dispose();
   }
 
-  // 저장소에서 모든 이벤트 목록(원본 데이터)을 가져와 상태를 초기화합니다.
+  //  최초 로드 시, 현재 위치를 기반으로 초기 영역 데이터를 가져오도록 수정
   Future<void> loadEvents() async {
     state = const AsyncValue.loading();
     try {
-      final repository = _ref.read(ddipEventRepositoryProvider);
-      final events = await repository.getDdipEvents();
-      state = AsyncValue.data(events);
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition();
+      } catch (e) {
+        position = Position(
+          latitude: 35.890,
+          longitude: 128.612,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+      }
+      final initialPosition = NLatLng(position.latitude, position.longitude);
+
+      // 1. 초기 지도 영역(Bounds) 생성 (기존과 동일)
+      final initialBounds = NLatLngBounds(
+        southWest: initialPosition.offsetByMeter(
+          northMeter: -1500,
+          eastMeter: -1500,
+        ),
+        northEast: initialPosition.offsetByMeter(
+          northMeter: 1500,
+          eastMeter: 1500,
+        ),
+      );
+
+      // 2. [신규] 초기 카메라 위치(Position) 생성 (기본 줌 레벨 15로 설정)
+      const initialZoom = 15.0;
+      final initialCameraPosition = NCameraPosition(
+        target: initialPosition,
+        zoom: initialZoom,
+      );
+
+      // 3. [수정] 새로운 메서드 호출
+      await fetchEventsIfNeeded(
+        currentPosition: initialCameraPosition,
+        currentBounds: initialBounds,
+      );
     } catch (e, s) {
       state = AsyncValue.error(e, s);
     }
@@ -38,19 +102,15 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
 
   // 새로운 '띱' 이벤트를 실시간으로 감지하고 상태를 업데이트하는 메서드
   void _listenToNewEvents() {
+    // 실시간으로 새 이벤트가 추가될 때 상태를 업데이트하는 로직
     final repository = _ref.read(ddipEventRepositoryProvider);
-    _newEventsSubscription = repository.getNewEventsStream().listen(
-      (newEvent) {
-        // 현재 상태가 데이터가 있는 경우에만 업데이트
-        final currentState = state.valueOrNull ?? [];
-        // 새로운 이벤트를 목록의 가장 맨 앞에 추가하여 상태를 업데이트
-        state = AsyncValue.data([newEvent, ...currentState]);
-      },
-      onError: (error) {
-        // (선택) 에러 처리 로직
-        print("Error listening to new events: $error");
-      },
-    );
+    _newEventsSubscription = repository.getNewEventsStream().listen((newEvent) {
+      final previousState = state.value;
+      if (previousState == null) return;
+
+      final newEvents = [newEvent, ...previousState.events];
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
+    });
   }
 
   // '띱'에 지원하는 메서드
@@ -58,53 +118,43 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     final currentUser = _ref.read(authProvider);
     if (currentUser == null) throw Exception("로그인이 필요합니다.");
 
-    // state.valueOrNull를 사용해 현재 로드된 데이터 목록을 가져옵니다.
-    final previousState = state.valueOrNull;
-    if (previousState == null) return; // 데이터가 아직 로드되지 않았으면 아무것도 하지 않음
+    final previousState = state.value;
+    if (previousState == null) return;
 
     try {
-      // 1. API 호출은 그대로 진행
       final repository = _ref.read(ddipEventRepositoryProvider);
       await repository.applyToEvent(eventId, currentUser.id);
 
-      // 2. API 성공 시, 메모리에서 상태를 직접 업데이트 (loadEvents() 대체)
       final newEvents =
-          previousState.map((event) {
+          previousState.events.map((event) {
             if (event.id == eventId) {
-              // 1. 먼저 현재 사용자가 지원자 목록에 없는지 확인합니다.
-              if (!event.applicants.contains(currentUser.id)) {
-                // 2. 없는 경우에만 지원자 목록에 추가한 새로운 이벤트 객체를 반환합니다.
-                return event.copyWith(
-                  applicants: [...event.applicants, currentUser.id],
-                );
-              }
+              return event.copyWith(
+                applicants: [...event.applicants, currentUser.id],
+              );
             }
             return event;
           }).toList();
 
-      // 3. 새로 만들어진 목록으로 상태를 갱신
-      state = AsyncValue.data(newEvents);
+      // copyWith를 사용해 events 목록만 갱신하고 lastFetchedBounds는 유지합니다.
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
-      // 에러가 발생하면 UI를 롤백할 수도 있지만, 지금은 에러를 던지기만 합니다.
       rethrow;
     }
   }
 
   // 수행자를 선택하는 메서드
   Future<void> selectResponder(String eventId, String responderId) async {
-    final previousState = state.valueOrNull;
+    final previousState = state.value; // .valueOrNull 대신 .value 사용
     if (previousState == null) return;
 
     try {
-      // 1. API 호출은 그대로 진행
       final repository = _ref.read(ddipEventRepositoryProvider);
       await repository.selectResponder(eventId, responderId);
 
-      // 2. API 성공 시, 메모리에서 상태를 직접 업데이트
+      // [수정] previousState에서 .events를 통해 목록에 접근
       final newEvents =
-          previousState.map((event) {
+          previousState.events.map((event) {
             if (event.id == eventId) {
-              // 상태(status)와 선택된 수행자 ID(selectedResponderId)를 업데이트
               return event.copyWith(
                 status: DdipEventStatus.in_progress,
                 selectedResponderId: responderId,
@@ -113,8 +163,8 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
             return event;
           }).toList();
 
-      // 3. 새로 만들어진 목록으로 상태를 갱신
-      state = AsyncValue.data(newEvents);
+      // [수정] copyWith로 새로운 DdipFeedState를 만들어 상태 업데이트
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
       rethrow;
     }
@@ -127,7 +177,7 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     ActionType action = ActionType.submitPhoto,
     MessageCode? messageCode,
   }) async {
-    final previousState = state.valueOrNull;
+    final previousState = state.value; // .valueOrNull 대신 .value 사용
     if (previousState == null) return;
 
     try {
@@ -139,16 +189,13 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
         messageCode: messageCode,
       );
 
+      // [수정] previousState.events.map으로 수정
       final newEvents =
-          previousState.map((event) {
+          previousState.events.map((event) {
             if (event.id == eventId) {
-              // 새로운 사진을 photos 리스트에 추가
               final newPhotos = [...event.photos, photo];
-
-              // 새로운 상호작용 로그도 interactions 리스트에 추가
               final newInteraction = Interaction(
                 id: photo.id,
-                // 임시로 사진 ID를 사용
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.responder,
                 actionType: action,
@@ -157,7 +204,6 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
                 timestamp: DateTime.now(),
               );
               final newInteractions = [...event.interactions, newInteraction];
-
               return event.copyWith(
                 photos: newPhotos,
                 interactions: newInteractions,
@@ -165,7 +211,9 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
             }
             return event;
           }).toList();
-      state = AsyncValue.data(newEvents);
+
+      // [수정] copyWith로 상태 업데이트
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
       rethrow;
     }
@@ -178,7 +226,7 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
     PhotoStatus status, {
     MessageCode? messageCode,
   }) async {
-    final previousState = state.valueOrNull;
+    final previousState = state.value; // .valueOrNull 대신 .value 사용
     if (previousState == null) return;
 
     try {
@@ -190,10 +238,10 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
         messageCode: messageCode,
       );
 
+      // [수정] previousState.events.map으로 수정
       final newEvents =
-          previousState.map((event) {
+          previousState.events.map((event) {
             if (event.id == eventId) {
-              // 1. 사진 상태 업데이트
               final newPhotos =
                   event.photos.map((p) {
                     if (p.id == photoId) {
@@ -202,12 +250,10 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
                     return p;
                   }).toList();
 
-              // 2. 이벤트 전체 상태 결정
               DdipEventStatus newEventStatus = event.status;
               if (status == PhotoStatus.approved) {
                 newEventStatus = DdipEventStatus.completed;
               } else if (status == PhotoStatus.rejected) {
-                // 거절된 사진이 3개 이상이면 실패 처리 (Fake Repo 로직 참고)
                 final rejectedCount =
                     newPhotos
                         .where((p) => p.status == PhotoStatus.rejected)
@@ -217,10 +263,8 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
                 }
               }
 
-              // 3. 상호작용 로그 추가
               final newInteraction = Interaction(
                 id: 'feedback_${photoId}',
-                // 임시 ID
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.requester,
                 actionType:
@@ -232,7 +276,6 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
                 timestamp: DateTime.now(),
               );
               final newInteractions = [...event.interactions, newInteraction];
-
               return event.copyWith(
                 photos: newPhotos,
                 status: newEventStatus,
@@ -241,9 +284,52 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<List<DdipEvent>>> {
             }
             return event;
           }).toList();
-      state = AsyncValue.data(newEvents);
+
+      // [수정] copyWith로 상태 업데이트
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
       rethrow;
     }
+  }
+
+  // 데이터 요청 메서드를 카메라 위치 기반으로
+  Future<void> fetchEventsIfNeeded({
+    required NCameraPosition currentPosition,
+    required NLatLngBounds currentBounds,
+  }) async {
+    final lastPosition = state.value?.lastFetchedCameraPosition;
+
+    // [핵심] 카메라의 '위치'와 '줌 레벨'이 거의 같다면 API 호출을 막습니다.
+    if (_isCameraPositionSimilar(lastPosition, currentPosition)) {
+      return;
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      final getDdipEvents = _ref.read(getDdipEventsUseCaseProvider);
+      // API 요청에는 여전히 bounds를 사용합니다.
+      final events = await getDdipEvents(bounds: currentBounds);
+
+      // 성공 시, 이벤트 목록과 함께 '요청했던 카메라 위치'를 상태에 저장합니다.
+      state = AsyncValue.data(
+        DdipFeedState(
+          events: events,
+          lastFetchedCameraPosition: currentPosition,
+        ),
+      );
+    } catch (e, s) {
+      state = AsyncValue.error(e, s);
+    }
+  }
+
+  bool _isCameraPositionSimilar(NCameraPosition? a, NCameraPosition b) {
+    if (a == null) return false;
+
+    final latDiff = (a.target.latitude - b.target.latitude).abs();
+    final lonDiff = (a.target.longitude - b.target.longitude).abs();
+    final zoomDiff = (a.zoom - b.zoom).abs();
+
+    // 위도/경도 0.0001도 이내, 줌 레벨 0.1 이내의 변화는 무시
+    return latDiff < 0.0001 && lonDiff < 0.0001 && zoomDiff < 0.1;
   }
 }

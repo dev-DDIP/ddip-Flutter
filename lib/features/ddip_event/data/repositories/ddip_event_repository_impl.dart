@@ -6,6 +6,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 class DdipEventRepositoryImpl implements DdipEventRepository {
   final DdipEventRemoteDataSource remoteDataSource;
@@ -41,10 +42,11 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Future<List<DdipEvent>> getDdipEvents() async {
-    final List<DdipEventModel> eventModels =
-        await remoteDataSource.getDdipEvents();
-    // 모델을 엔티티로 변환
+  Future<List<DdipEvent>> getDdipEvents({required NLatLngBounds bounds}) async {
+    // [수정]
+    // remoteDataSource를 호출할 때 bounds를 그대로 전달합니다.
+    final List<DdipEventModel> eventModels = await remoteDataSource
+        .getDdipEvents(bounds: bounds); // [수정]
     final List<DdipEvent> events =
         eventModels.map((model) => model.toEntity()).toList();
     return events;

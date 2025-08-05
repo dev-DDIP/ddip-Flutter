@@ -2,6 +2,7 @@
 
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 import '../models/ddip_event_model.dart';
 
@@ -21,7 +22,7 @@ DataSource는 '최종 실무자'로서, Dio라는 전문 장비를 사용해 데
 abstract class DdipEventRemoteDataSource {
   Future<void> createDdipEvent(DdipEventModel eventModel);
 
-  Future<List<DdipEventModel>> getDdipEvents();
+  Future<List<DdipEventModel>> getDdipEvents({required NLatLngBounds bounds});
 
   Future<DdipEventModel> getDdipEventById(String id);
 
@@ -72,9 +73,19 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
   }
 
   @override
-  Future<List<DdipEventModel>> getDdipEvents() async {
+  Future<List<DdipEventModel>> getDdipEvents({
+    required NLatLngBounds bounds,
+  }) async {
     try {
-      final response = await dio.get('/ddips'); // 실제 목록 API 경로
+      final response = await dio.get(
+        '/ddips',
+        queryParameters: {
+          'sw_lat': bounds.southWest.latitude,
+          'sw_lon': bounds.southWest.longitude,
+          'ne_lat': bounds.northEast.latitude,
+          'ne_lon': bounds.northEast.longitude,
+        },
+      );
 
       // 1. [해결] response.data가 List<dynamic> 타입이라고 명시적으로 알려줍니다.
       final List<dynamic> data = response.data as List<dynamic>;
@@ -83,7 +94,7 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
       return data
           .map((item) => DdipEventModel.fromJson(item as Map<String, dynamic>))
           .toList();
-    } on DioException catch (e) {
+    } catch (e) {
       print('Error getting ddip events: $e');
       rethrow;
     }

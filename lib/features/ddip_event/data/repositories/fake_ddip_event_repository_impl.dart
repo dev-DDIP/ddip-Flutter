@@ -8,6 +8,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -176,10 +177,17 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     ref.read(proximityServiceProvider).simulateEventCreation(event);
   }
 
-  @override
-  Future<List<DdipEvent>> getDdipEvents() async {
-    await Future.delayed(const Duration(seconds: 1));
-    return _ddipEvents;
+  Future<List<DdipEvent>> getDdipEvents({required NLatLngBounds bounds}) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // API 호출 흉내
+
+    // bounds를 이용해 mock 데이터를 필터링하는 로직
+    final filteredEvents =
+        _ddipEvents.where((event) {
+          final eventPosition = NLatLng(event.latitude, event.longitude);
+          return bounds.containsPoint(eventPosition);
+        }).toList();
+
+    return filteredEvents;
   }
 
   @override

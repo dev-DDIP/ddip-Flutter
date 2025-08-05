@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/notifiers/map_state_notifier.dart';
 import 'package:ddip/features/map/presentation/viewmodels/map_view_model.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
@@ -30,6 +31,9 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
   NLatLng? _initialPosition;
   bool _isLoading = true;
 
+  // ----- ▼▼▼ [핵심 수정] '사용자 이동 여부'를 추적할 상태 변수 추가 ▼▼▼ -----
+  bool _mapMovedByUser = false;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +55,22 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         _isLoading = false;
       });
     }
+  }
+
+  void _fetchCurrentMapDataIfNeeded() async {
+    if (_mapController == null) return;
+
+    // 1. Controller에서 '카메라 위치'와 '화면 영역'을 모두 가져옵니다.
+    final cameraPosition = await _mapController!.getCameraPosition();
+    final bounds = await _mapController!.getContentBounds();
+
+    // 2. [수정] Notifier의 새 메서드인 'fetchEventsIfNeeded'를 호출합니다.
+    ref
+        .read(ddipEventsNotifierProvider.notifier)
+        .fetchEventsIfNeeded(
+          currentPosition: cameraPosition,
+          currentBounds: bounds,
+        );
   }
 
   @override
@@ -143,10 +163,30 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         if (initialState.overlays.isNotEmpty) {
           controller.addOverlayAll(initialState.overlays);
         }
+
+        // 지도가 준비되면, 현재 보이는 초기 영역의 데이터를 바로 로드합니다.
+        _fetchCurrentMapDataIfNeeded();
+      },
+      // 사용자가 지도 이동을 멈추면 호출되는 콜백을 추가합니다.
+      onCameraIdle: () {
+        // [핵심] 카메라가 멈췄을 때, '사용자에 의해 움직였다'는 깃발이 올라와 있을 때만
+        // 데이터 요청을 하고, 깃발을 바로 다시 내립니다.
+        if (_mapMovedByUser) {
+          _fetchCurrentMapDataIfNeeded();
+          _mapMovedByUser = false;
+        }
       },
       // 사용자 인터랙션은 ViewModel에 '보고'만 합니다.
       onMapTapped: (point, latLng) => viewModel.onMapTapped(),
-      onCameraChange: (reason, animated) => viewModel.onCameraChange(reason),
+      onCameraChange: (reason, animated) {
+        // ViewModel에 보고하는 로직은 그대로 유지
+        viewModel.onCameraChange(reason);
+
+        // [핵심] 카메라 이동의 '이유'가 사용자의 제스처일 때만 깃발을 올립니다.
+        if (reason == NCameraUpdateReason.gesture) {
+          _mapMovedByUser = true;
+        }
+      },
     );
   }
 }

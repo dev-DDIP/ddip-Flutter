@@ -35,9 +35,14 @@ class FeedBottomSheet extends ConsumerWidget {
         return eventsState.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(child: Text('오류: $err')),
-          data: (allEvents) {
+          // 1. 콜백 파라미터 이름을 'allEvents' -> 'feedState'로 변경하여 명확히 함
+          data: (feedState) {
+            // 2. feedState 객체에서 실제 이벤트 목록을 추출!
+            final allEvents = feedState.events;
+
             final selectedEvent =
                 selectedEventId != null
+                    // 3. 이제 allEvents는 List이므로 모든 메서드가 정상 작동합니다.
                     ? allEvents.firstWhereOrNull((e) => e.id == selectedEventId)
                     : null;
 
@@ -47,7 +52,7 @@ class FeedBottomSheet extends ConsumerWidget {
               itemCount: selectedEvent != null ? 2 : allEvents.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return _buildHandle(ref); // 핸들 위젯
+                  return _buildHandle(ref);
                 }
                 if (selectedEvent != null) {
                   return EventOverviewCard(

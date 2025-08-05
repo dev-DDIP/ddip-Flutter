@@ -8,6 +8,7 @@ import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repos
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/usecases/get_ddip_events.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
@@ -37,13 +38,16 @@ final createDdipEventUseCaseProvider = Provider<CreateDdipEvent>((ref) {
   return CreateDdipEvent(repository: repository);
 });
 
+final getDdipEventsUseCaseProvider = Provider<GetDdipEvents>((ref) {
+  final repository = ref.watch(ddipEventRepositoryProvider);
+  return GetDdipEvents(repository: repository);
+});
+
 // --- 3. Presentation 계층 프로바이더 (State Notifier & View Model) ---
 
 /// '띱' 이벤트 데이터의 원본을 관리하고 비즈니스 로직을 처리하는 Notifier
 final ddipEventsNotifierProvider =
-    StateNotifierProvider<DdipEventsNotifier, AsyncValue<List<DdipEvent>>>((
-      ref,
-    ) {
+    StateNotifierProvider<DdipEventsNotifier, AsyncValue<DdipFeedState>>((ref) {
       return DdipEventsNotifier(ref);
     });
 
@@ -52,11 +56,11 @@ final ddipFeedProvider = Provider<List<DdipEvent>>((ref) {
   // '띱' 이벤트 데이터의 원본을 관리하는 Notifier를 감시
   final eventsState = ref.watch(ddipEventsNotifierProvider);
 
-  // 로드된 데이터를 그대로 반환 (이제 필터링하지 않음)
-  return eventsState.when(
-    data: (events) => events,
-    loading: () => [],
-    error: (e, s) => [],
+  // 로드된 데이터(feedState)에서 .events 속성을 통해 실제 목록을 반환합니다.
+  // maybeWhen을 사용하면 data 상태일 때만 처리하고, loading/error일 때는 orElse로 기본값을 반환하여 코드가 간결해집니다.
+  return eventsState.maybeWhen(
+    data: (feedState) => feedState.events,
+    orElse: () => [], // 로딩 중이거나 에러일 때는 빈 목록 반환
   );
 });
 
@@ -71,11 +75,13 @@ final eventDetailProvider = Provider.autoDispose.family<DdipEvent?, String>((
   // 데이터의 원천인 ddipEventsNotifierProvider를 감시
   final eventsState = ref.watch(ddipEventsNotifierProvider);
 
-  // 데이터가 성공적으로 로드된 경우에만 목록에서 찾기를 시도
-  return eventsState.whenData((events) {
-    // collection 패키지의 firstWhereOrNull을 사용해 안전하게 검색
-    return events.firstWhereOrNull((event) => event.id == eventId);
-  }).value; // whenData의 결과에서 실제 값(DdipEvent? 또는 null)을 추출
+  // 데이터가 성공적으로 로드된 경우(feedState), 그 안의 events 목록에서 검색합니다.
+  return eventsState.maybeWhen(
+    data:
+        (feedState) =>
+            feedState.events.firstWhereOrNull((event) => event.id == eventId),
+    orElse: () => null, // 로딩 중이거나 에러일 때는 null 반환
+  );
 });
 
 final detailSheetStrategyProvider =
