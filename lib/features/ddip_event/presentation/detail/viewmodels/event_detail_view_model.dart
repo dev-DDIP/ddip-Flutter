@@ -1,6 +1,7 @@
 // lib/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart
 
 import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
@@ -92,6 +93,102 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
         buttonColor: color,
       );
     });
+  }
+
+  // 버튼 클릭을 처리하는 유일한 진입점 메서드
+  Future<void> handleButtonPress(BuildContext context) async {
+    // 현재 이벤트 데이터를 가져옵니다.
+    final event = _ref.read(eventStreamProvider(_eventId)).value;
+    if (event == null) return; // 이벤트 데이터가 없으면 중단
+
+    // 이벤트 상태에 따라 적절한 로직을 호출합니다.
+    if (event.status == DdipEventStatus.open) {
+      await applyToEvent();
+    } else if (event.status == DdipEventStatus.in_progress) {
+      await _processPhotoSubmission(context);
+    }
+  }
+
+  // 사진 제출과 관련된 전체 흐름을 담당하는 내부 메서드
+  Future<void> _processPhotoSubmission(BuildContext context) async {
+    state = state.copyWith(isProcessing: true);
+    try {
+      // 1. 카메라 화면으로 이동하여 사진 경로를 받아옵니다.
+      final imagePath = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(builder: (context) => const CameraScreen()),
+      );
+      if (imagePath == null || !context.mounted) {
+        state = state.copyWith(isProcessing: false);
+        return;
+      }
+
+      // 2. 제출 옵션 다이얼로그를 띄웁니다.
+      final submissionResult = await _showSubmissionOptionsDialog(context);
+      if (submissionResult == null) {
+        state = state.copyWith(isProcessing: false);
+        return;
+      }
+
+      // 3. 기존의 사진 제출 로직을 호출합니다. (이 부분은 다음 단계에서 수정됩니다)
+      await submitPhoto(
+        imagePath: imagePath,
+        submissionResult: submissionResult,
+      );
+    } catch (e) {
+      // 에러 처리
+      rethrow;
+    } finally {
+      if (mounted) {
+        state = state.copyWith(isProcessing: false);
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>?> _showSubmissionOptionsDialog(
+    BuildContext context,
+  ) async {
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('수행 옵션 선택'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                const Text('현장 상황을 선택해주세요.'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  child: const Text('단순 사진 제출'),
+                  onPressed:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.submitPhoto,
+                        'message': null,
+                      }),
+                ),
+                const Divider(height: 24),
+                const Text('또는, 특별한 상황 보고:'),
+                ListTile(
+                  title: const Text('재료가 소진되어 마감됐어요.'),
+                  onTap:
+                      () => Navigator.pop(context, {
+                        'action': ActionType.reportSituation,
+                        'message': MessageCode.soldOut,
+                      }),
+                ),
+                // ... (다른 옵션들도 동일하게 포함) ...
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('취소'),
+              onPressed: () => Navigator.pop(context, null),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// '지원하기' 비즈니스 로직을 수행하는 메서드
