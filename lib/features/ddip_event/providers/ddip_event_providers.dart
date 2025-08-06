@@ -12,6 +12,8 @@ import 'package:ddip/features/ddip_event/domain/usecases/get_ddip_events.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
+import 'package:ddip/features/map/providers/map_providers.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // --- 1. Data 계층 프로바이더 ---
@@ -102,3 +104,27 @@ final eventDetailViewModelProvider = StateNotifierProvider.autoDispose
     .family<EventDetailViewModel, EventDetailState, String>((ref, eventId) {
       return EventDetailViewModel(ref, eventId);
     });
+
+/// 지도에 현재 보이는 영역 내의 '띱' 이벤트 목록만 필터링하여 제공하는 Provider
+final visibleEventsProvider = Provider.autoDispose<List<DdipEvent>>((ref) {
+  // 1. 전체 이벤트 목록의 '상태'를 감시
+  final eventsState = ref.watch(ddipEventsNotifierProvider);
+  // 2. 지도의 현재 '영역'을 감시
+  final currentBounds = ref.watch(mapBoundsProvider);
+
+  // 이벤트 목록이 로딩 중이거나, 지도 영역이 아직 설정되지 않았다면 빈 목록 반환
+  return eventsState.maybeWhen(
+    data: (feedState) {
+      if (currentBounds == null) {
+        return []; // 지도 준비 전에는 아무것도 보여주지 않음
+      }
+
+      // '지도 영역(currentBounds)'에 포함되는 이벤트만 필터링하여 반환
+      return feedState.events.where((event) {
+        final eventPosition = NLatLng(event.latitude, event.longitude);
+        return currentBounds.containsPoint(eventPosition);
+      }).toList();
+    },
+    orElse: () => [], // 로딩 또는 에러 시 빈 목록 반환
+  );
+});

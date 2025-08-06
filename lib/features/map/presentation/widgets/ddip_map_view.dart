@@ -168,21 +168,35 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         _fetchCurrentMapDataIfNeeded();
       },
       // 사용자가 지도 이동을 멈추면 호출되는 콜백을 추가합니다.
-      onCameraIdle: () {
-        // [핵심] 카메라가 멈췄을 때, '사용자에 의해 움직였다'는 깃발이 올라와 있을 때만
-        // 데이터 요청을 하고, 깃발을 바로 다시 내립니다.
+      onCameraIdle: () async {
+        // [핵심] 이제 모든 중요한 작업은 _mapMovedByUser 플래그가 true일 때만 수행됩니다.
         if (_mapMovedByUser) {
+          // 1. 서버에 새로운 데이터를 요청합니다. (비용이 큰 작업)
           _fetchCurrentMapDataIfNeeded();
+
+          // 2. 새로운 데이터 요청이 끝난 후, 그 시점의 지도 영역을
+          // 로컬 필터링의 새로운 기준으로 삼기 위해 mapBoundsProvider를 업데이트합니다.
+          if (_mapController != null) {
+            final bounds = await _mapController!.getContentBounds();
+            ref.read(mapBoundsProvider.notifier).state = bounds;
+          }
+
+          // 3. 모든 작업이 끝났으므로 플래그를 다시 내립니다.
           _mapMovedByUser = false;
         }
+        // 만약 _mapMovedByUser가 false라면 (바텀시트 조작 등),
+        // 아무 작업도 수행하지 않으므로 필터링 기준이 변하지 않고 목록이 유지됩니다.
       },
       // 사용자 인터랙션은 ViewModel에 '보고'만 합니다.
       onMapTapped: (point, latLng) => viewModel.onMapTapped(),
       onCameraChange: (reason, animated) {
+        // 바텀시트 조작 시: contentPadding, 지도 조작 시: gesture 가 출력되어야 정상입니다.
+        print('onCameraChange reason: $reason');
+
         // ViewModel에 보고하는 로직은 그대로 유지
         viewModel.onCameraChange(reason);
 
-        // [핵심] 카메라 이동의 '이유'가 사용자의 제스처일 때만 깃발을 올립니다.
+        // [핵심] 카메라 이동의 '이유'가 사용자의 제스처일 때만 _mapMovedByUser 깃발을 올립니다.
         if (reason == NCameraUpdateReason.gesture) {
           _mapMovedByUser = true;
         }

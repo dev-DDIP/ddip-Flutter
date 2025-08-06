@@ -16,8 +16,8 @@ class FeedBottomSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // UI를 그리는 데 필요한 상태들을 watch 합니다.
-    final eventsState = ref.watch(ddipEventsNotifierProvider);
+    // 필터링된 '보이는 이벤트 목록'만 구독합니다.
+    final visibleEvents = ref.watch(visibleEventsProvider);
     final selectedEventId = ref.watch(selectedEventIdProvider);
     final isEventSelected = selectedEventId != null;
 
@@ -32,46 +32,34 @@ class FeedBottomSheet extends ConsumerWidget {
               : [peekFraction, fullListFraction],
       // builder를 통해 시트 내부에 들어갈 콘텐츠를 정의하여 주입합니다.
       builder: (context, scrollController) {
-        return eventsState.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('오류: $err')),
-          // 1. 콜백 파라미터 이름을 'allEvents' -> 'feedState'로 변경하여 명확히 함
-          data: (feedState) {
-            // 2. feedState 객체에서 실제 이벤트 목록을 추출!
-            final allEvents = feedState.events;
+        final selectedEvent =
+            selectedEventId != null
+                ? visibleEvents.firstWhereOrNull((e) => e.id == selectedEventId)
+                : null;
 
-            final selectedEvent =
-                selectedEventId != null
-                    // 3. 이제 allEvents는 List이므로 모든 메서드가 정상 작동합니다.
-                    ? allEvents.firstWhereOrNull((e) => e.id == selectedEventId)
-                    : null;
-
-            return ListView.builder(
-              controller: scrollController,
-              padding: EdgeInsets.zero,
-              itemCount: selectedEvent != null ? 2 : allEvents.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _buildHandle(ref);
-                }
-                if (selectedEvent != null) {
-                  return EventOverviewCard(
-                    event: selectedEvent,
-                    onBackToList: () {
-                      ref
-                          .read(feedSheetStrategyProvider.notifier)
-                          .showFullList();
-                    },
-                    onViewDetails: () {
-                      context.push('/feed/${selectedEvent.id}');
-                    },
-                  );
-                } else {
-                  final event = allEvents[index - 1];
-                  return DdipListItem(event: event);
-                }
-              },
-            );
+        return ListView.builder(
+          controller: scrollController,
+          padding: EdgeInsets.zero,
+          itemCount: selectedEvent != null ? 2 : visibleEvents.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return _buildHandle(ref);
+            }
+            if (selectedEvent != null) {
+              return EventOverviewCard(
+                event: selectedEvent,
+                onBackToList: () {
+                  ref.read(feedSheetStrategyProvider.notifier).showFullList();
+                },
+                onViewDetails: () {
+                  context.push('/feed/${selectedEvent.id}');
+                },
+              );
+            } else {
+              // index 0번이 핸들이므로, 이벤트 목록의 인덱스는 index - 1이 됩니다.
+              final event = visibleEvents[index - 1];
+              return DdipListItem(event: event);
+            }
           },
         );
       },

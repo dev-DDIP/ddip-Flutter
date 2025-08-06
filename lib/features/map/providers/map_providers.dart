@@ -50,3 +50,8 @@ final markerFactoryProvider = Provider<MarkerFactory>((ref) {
 final mapEventsProvider = Provider<List<DdipEvent>>((ref) {
   return ref.watch(ddipFeedProvider);
 });
+
+/// 지도의 현재 보이는 영역(Bounds)을 실시간으로 관리하는 Provider
+final mapBoundsProvider = StateProvider.autoDispose<NLatLngBounds?>(
+  (ref) => null,
+);
