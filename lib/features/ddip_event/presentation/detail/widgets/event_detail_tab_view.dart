@@ -91,6 +91,7 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
-    return false;
+    return oldDelegate._tabBar.tabs.length != _tabBar.tabs.length ||
+        oldDelegate._tabBar.tabs.toString() != _tabBar.tabs.toString();
   }
 }

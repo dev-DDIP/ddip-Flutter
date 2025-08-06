@@ -17,10 +17,6 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$MapState {
-  /// 지도에 표시될 모든 오버레이(마커, 사진 마커 등)의 최종 세트입니다.
-  Set<NAddableOverlay<NOverlay<void>>> get overlays =>
-      throw _privateConstructorUsedError;
-
   /// View에 전달하는 일회성 카메라 이동 명령입니다.
   /// View는 이 명령을 수행한 후 null로 초기화해야 합니다.
   NCameraUpdate? get cameraUpdate => throw _privateConstructorUsedError;
@@ -41,7 +37,6 @@ abstract class $MapStateCopyWith<$Res> {
       _$MapStateCopyWithImpl<$Res, MapState>;
   @useResult
   $Res call({
-    Set<NAddableOverlay<NOverlay<void>>> overlays,
     NCameraUpdate? cameraUpdate,
     NaverMapViewOptions? viewOptions,
     NaverMapClusteringOptions? clusterOptions,
@@ -63,18 +58,12 @@ class _$MapStateCopyWithImpl<$Res, $Val extends MapState>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? overlays = null,
     Object? cameraUpdate = freezed,
     Object? viewOptions = freezed,
     Object? clusterOptions = freezed,
   }) {
     return _then(
       _value.copyWith(
-            overlays:
-                null == overlays
-                    ? _value.overlays
-                    : overlays // ignore: cast_nullable_to_non_nullable
-                        as Set<NAddableOverlay<NOverlay<void>>>,
             cameraUpdate:
                 freezed == cameraUpdate
                     ? _value.cameraUpdate
@@ -106,7 +95,6 @@ abstract class _$$MapStateImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    Set<NAddableOverlay<NOverlay<void>>> overlays,
     NCameraUpdate? cameraUpdate,
     NaverMapViewOptions? viewOptions,
     NaverMapClusteringOptions? clusterOptions,
@@ -127,18 +115,12 @@ class __$$MapStateImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? overlays = null,
     Object? cameraUpdate = freezed,
     Object? viewOptions = freezed,
     Object? clusterOptions = freezed,
   }) {
     return _then(
       _$MapStateImpl(
-        overlays:
-            null == overlays
-                ? _value._overlays
-                : overlays // ignore: cast_nullable_to_non_nullable
-                    as Set<NAddableOverlay<NOverlay<void>>>,
         cameraUpdate:
             freezed == cameraUpdate
                 ? _value.cameraUpdate
@@ -163,23 +145,10 @@ class __$$MapStateImplCopyWithImpl<$Res>
 
 class _$MapStateImpl implements _MapState {
   const _$MapStateImpl({
-    final Set<NAddableOverlay<NOverlay<void>>> overlays = const {},
     this.cameraUpdate,
     this.viewOptions,
     this.clusterOptions,
-  }) : _overlays = overlays;
-
-  /// 지도에 표시될 모든 오버레이(마커, 사진 마커 등)의 최종 세트입니다.
-  final Set<NAddableOverlay<NOverlay<void>>> _overlays;
-
-  /// 지도에 표시될 모든 오버레이(마커, 사진 마커 등)의 최종 세트입니다.
-  @override
-  @JsonKey()
-  Set<NAddableOverlay<NOverlay<void>>> get overlays {
-    if (_overlays is EqualUnmodifiableSetView) return _overlays;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableSetView(_overlays);
-  }
+  });
 
   /// View에 전달하는 일회성 카메라 이동 명령입니다.
   /// View는 이 명령을 수행한 후 null로 초기화해야 합니다.
@@ -192,7 +161,7 @@ class _$MapStateImpl implements _MapState {
 
   @override
   String toString() {
-    return 'MapState(overlays: $overlays, cameraUpdate: $cameraUpdate, viewOptions: $viewOptions, clusterOptions: $clusterOptions)';
+    return 'MapState(cameraUpdate: $cameraUpdate, viewOptions: $viewOptions, clusterOptions: $clusterOptions)';
   }
 
   @override
@@ -200,7 +169,6 @@ class _$MapStateImpl implements _MapState {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$MapStateImpl &&
-            const DeepCollectionEquality().equals(other._overlays, _overlays) &&
             (identical(other.cameraUpdate, cameraUpdate) ||
                 other.cameraUpdate == cameraUpdate) &&
             (identical(other.viewOptions, viewOptions) ||
@@ -210,13 +178,8 @@ class _$MapStateImpl implements _MapState {
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    const DeepCollectionEquality().hash(_overlays),
-    cameraUpdate,
-    viewOptions,
-    clusterOptions,
-  );
+  int get hashCode =>
+      Object.hash(runtimeType, cameraUpdate, viewOptions, clusterOptions);
 
   /// Create a copy of MapState
   /// with the given fields replaced by the non-null parameter values.
@@ -229,15 +192,10 @@ class _$MapStateImpl implements _MapState {
 
 abstract class _MapState implements MapState {
   const factory _MapState({
-    final Set<NAddableOverlay<NOverlay<void>>> overlays,
     final NCameraUpdate? cameraUpdate,
     final NaverMapViewOptions? viewOptions,
     final NaverMapClusteringOptions? clusterOptions,
   }) = _$MapStateImpl;
-
-  /// 지도에 표시될 모든 오버레이(마커, 사진 마커 등)의 최종 세트입니다.
-  @override
-  Set<NAddableOverlay<NOverlay<void>>> get overlays;
 
   /// View에 전달하는 일회성 카메라 이동 명령입니다.
   /// View는 이 명령을 수행한 후 null로 초기화해야 합니다.

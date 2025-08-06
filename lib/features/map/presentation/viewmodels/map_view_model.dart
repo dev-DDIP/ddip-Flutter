@@ -1,7 +1,9 @@
 // lib/features/map/presentation/viewmodels/map_view_model.dart
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:ddip/features/ddip_event/presentation/providers/feed_view_interaction_provider.dart';
+import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:ddip/features/map/presentation/widgets/marker_factory.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart'; // EdgeInsets를 위해 material.dart 임포트
@@ -18,9 +20,6 @@ part 'map_view_model.freezed.dart';
 @freezed
 class MapState with _$MapState {
   const factory MapState({
-    /// 지도에 표시될 모든 오버레이(마커, 사진 마커 등)의 최종 세트입니다.
-    @Default({}) Set<NAddableOverlay> overlays,
-
     /// View에 전달하는 일회성 카메라 이동 명령입니다.
     /// View는 이 명령을 수행한 후 null로 초기화해야 합니다.
     NCameraUpdate? cameraUpdate,
@@ -36,70 +35,119 @@ class MapState with _$MapState {
 class MapViewModel extends StateNotifier<MapState> {
   final Ref _ref;
   final MarkerFactory _markerFactory;
-  final List<DdipEvent> _initialEvents;
+  final DdipEvent? _initialEvent;
   final Map<String, NClusterableMarker> _markerCache = {};
+  NaverMapController? _mapController;
 
-  MapViewModel(this._ref, List<DdipEvent> initialEvents)
+  // 지도에 현재 표시된 오버레이를 추적하기 위한 Set
+  final Set<NAddableOverlay> _currentOverlaysOnMap = {};
+
+  MapViewModel(this._ref, {DdipEvent? initialEvent})
     : _markerFactory = _ref.read(markerFactoryProvider),
-      _initialEvents = initialEvents,
+      _initialEvent = initialEvent,
       super(const MapState()) {
-    _updateState(_initialEvents);
+    if (_initialEvent != null) {
+      _updateOverlays([_initialEvent!]);
+    } else {
+      _ref.listen<AsyncValue<DdipFeedState>>(ddipEventsNotifierProvider, (
+        AsyncValue<DdipFeedState>? previous,
+        AsyncValue<DdipFeedState> next,
+      ) {
+        next.whenData((state) => _updateOverlays(state.events));
+      }, fireImmediately: true);
+    }
 
-    _ref.listen<String?>(selectedEventIdProvider, (previous, next) {
-      // 1. 마커 아이콘 색상 등 UI 상태를 업데이트합니다.
-      _updateState(_initialEvents, selectedId: next);
-
-      // 2. 그리고 "여기서만" 카메라 이동을 명령합니다.
-      _moveCameraToSelectedEvent(next, _initialEvents);
+    _ref.listen<String?>(selectedEventIdProvider, (
+      String? previous,
+      String? next,
+    ) {
+      final events =
+          _initialEvent != null
+              ? [_initialEvent!]
+              : _ref.read(ddipEventsNotifierProvider).value?.events ?? [];
+      _updateOverlays(events, selectedId: next);
+      _moveCameraToSelectedEvent(next, events);
     });
 
     _ref.listen<MapStateForViewModel>(
       mapStateForViewModelProvider,
-      (previous, next) => _handleClusterTap(next),
+      (MapStateForViewModel? previous, MapStateForViewModel next) =>
+          _handleClusterTap(next),
     );
   }
 
-  Future<void> _updateState(
+  void onMapReady(NaverMapController controller) {
+    _mapController = controller;
+    // 컨트롤러가 준비되면, 현재 ViewModel이 알고있는 오버레이들을 지도에 그립니다.
+    if (_currentOverlaysOnMap.isNotEmpty) {
+      _mapController?.addOverlayAll(_currentOverlaysOnMap);
+    }
+  }
+
+  Future<void> _updateOverlays(
     List<DdipEvent> events, {
     String? selectedId,
   }) async {
     final currentSelectedId = selectedId ?? _ref.read(selectedEventIdProvider);
-    final Set<String> newEventIds = events.map((e) => e.id).toSet();
+    final visibleEventIds = events.map((e) => e.id).toSet();
 
-    // 사라진 마커 정리
-    _markerCache.removeWhere((id, marker) => !newEventIds.contains(id));
+    // 1. [정리] 화면에서 사라진 마커들을 캐시에서 제거합니다.
+    _markerCache.removeWhere((id, marker) => !visibleEventIds.contains(id));
 
-    // 기존 마커 업데이트 및 신규 마커 생성
-    for (final event in events) {
-      final isSelected = currentSelectedId == event.id;
-      final icon = await _markerFactory.getOrCacheMarkerIcon(
-        type: 'event',
-        isSelected: isSelected,
-      );
+    // 2. [업데이트 또는 생성] 화면에 보여야 할 마커들을 준비합니다.
+    await Future.wait(
+      events.map((event) async {
+        final isSelected = currentSelectedId == event.id;
+        final icon = await _markerFactory.getOrCacheMarkerIcon(
+          type: 'event',
+          isSelected: isSelected,
+        );
 
-      // 캐시에 마커가 있는지 확인
-      if (_markerCache.containsKey(event.id)) {
-        // 있으면 아이콘과 zIndex만 업데이트 (리모델링)
-        final marker = _markerCache[event.id]!;
-        marker.setIcon(icon);
-        marker.setZIndex(isSelected ? 10 : 1);
-      } else {
-        // 없으면 새로 생성해서 캐시에 추가 (신축)
-        final marker = NClusterableMarker(
-          id: event.id,
-          position: NLatLng(event.latitude, event.longitude),
-          icon: icon,
-        )..setZIndex(isSelected ? 10 : 1);
+        final cachedMarker = _markerCache[event.id];
+        if (cachedMarker != null) {
+          // [재사용] 이미 캐시에 있다면, 속성만 업데이트합니다. (매우 효율적)
+          cachedMarker.setIcon(icon);
+          cachedMarker.setZIndex(isSelected ? 10 : 1);
+        } else {
+          // [신규 생성] 캐시에 없다면, 새로 만들어서 캐시에 추가합니다.
+          final newMarker =
+              NClusterableMarker(
+                  id: event.id,
+                  position: NLatLng(event.latitude, event.longitude),
+                  icon: icon,
+                )
+                ..setZIndex(isSelected ? 10 : 1)
+                ..setOnTapListener((_) {
+                  _ref
+                      .read(feedSheetStrategyProvider.notifier)
+                      .showOverview(event.id);
+                });
+          _markerCache[event.id] = newMarker;
+        }
+      }),
+    );
 
-        marker.setOnTapListener((_) {
-          _ref.read(feedSheetStrategyProvider.notifier).showOverview(event.id);
-        });
-        _markerCache[event.id] = marker;
+    // 3. [지도에 반영] 최종적으로 정리된 캐시를 기준으로 지도에 diff 업데이트를 수행합니다.
+    final newOverlaysOnMap = _markerCache.values.toSet();
+
+    // 이전에 지도에 그려졌던 마커 목록과 현재 캐시 목록을 비교
+    final overlaysToAdd = newOverlaysOnMap.difference(_currentOverlaysOnMap);
+    final overlaysToRemove = _currentOverlaysOnMap.difference(newOverlaysOnMap);
+
+    if (_mapController != null) {
+      if (overlaysToAdd.isNotEmpty) {
+        _mapController!.addOverlayAll(overlaysToAdd);
+      }
+      if (overlaysToRemove.isNotEmpty) {
+        for (final overlay in overlaysToRemove) {
+          _mapController!.deleteOverlay(overlay.info);
+        }
       }
     }
 
-    // 최종적으로 캐시에 있는 모든 마커들로 상태를 업데이트
-    state = state.copyWith(overlays: _markerCache.values.toSet());
+    // 4. [상태 동기화] 현재 지도에 그려진 마커 목록을 최신 상태로 기록합니다.
+    _currentOverlaysOnMap.clear();
+    _currentOverlaysOnMap.addAll(newOverlaysOnMap);
   }
 
   /// 선택된 이벤트의 위치로 카메라를 이동시키는 `NCameraUpdate` 객체를 생성합니다.

@@ -75,29 +75,15 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. GPS 위치 로딩이 끝나지 않았으면, 무조건 로딩 화면을 보여줍니다.
+    // GPS 위치 로딩이 끝나지 않았으면, 무조건 로딩 화면을 보여줍니다.
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // 2. ViewModel의 상태 변화를 감지하여 지도 컨트롤러에 명령을 내리는 리스너를 설정합니다.
-    //    build 메서드 안에서 listen을 사용하는 것은 일반적으로 권장되지 않지만,
-    //    이 경우엔 화면 전환 시 리스너를 재설정해야 하므로 여기에 두는 것이 더 안정적입니다.
     ref.listen<MapState>(widget.viewModelProvider, (previous, next) {
       if (_mapController == null) return;
 
-      final prev = previous ?? const MapState();
-
-      if (prev.overlays != next.overlays) {
-        _mapController!.clearOverlays(); // 1. 일단 모두 지운다.
-        if (next.overlays.isNotEmpty) {
-          _mapController!.addOverlayAll(
-            next.overlays,
-          ); // 2. ViewModel이 만든 최신 목록으로 전부 다시 그린다.
-        }
-      }
-
-      // 카메라 이동 명령 실행
+      // 카메라 이동 명령이 있을 경우에만 실행
       if (next.cameraUpdate != null) {
         _mapController!.updateCamera(next.cameraUpdate!);
         ref.read(widget.viewModelProvider.notifier).onCameraMoveCompleted();
@@ -158,11 +144,10 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         setState(() {
           _mapController = controller;
         });
-        // 지도가 준비되면, 현재 ViewModel이 가진 초기 마커들을 바로 그려줍니다.
-        final initialState = ref.read(widget.viewModelProvider);
-        if (initialState.overlays.isNotEmpty) {
-          controller.addOverlayAll(initialState.overlays);
-        }
+
+        // 2. 지도가 준비되면, ViewModel의 onMapReady 메서드를 호출하여
+        //    컨트롤러의 제어권을 ViewModel에게 완전히 넘겨줍니다.
+        viewModel.onMapReady(controller);
 
         // 지도가 준비되면, 현재 보이는 초기 영역의 데이터를 바로 로드합니다.
         _fetchCurrentMapDataIfNeeded();

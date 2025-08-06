@@ -24,10 +24,7 @@ final mapStateForViewModelProvider =
 // 1. 기존 ViewModelProvider의 이름을 '피드 화면용'으로 명확하게 변경합니다.
 final feedMapViewModelProvider =
     StateNotifierProvider.autoDispose<MapViewModel, MapState>((ref) {
-      // 피드 화면은 '모든' 이벤트 목록을 지도에 표시해야 합니다.
-      final allEvents = ref.watch(ddipFeedProvider);
-      // 수정된 ViewModel 생성자에 전체 목록을 주입하여 생성합니다.
-      return MapViewModel(ref, allEvents);
+      return MapViewModel(ref);
     });
 
 // 2. 상세 페이지 전용 ViewModelProvider를 '.family'를 사용하여 새롭게 생성합니다.
@@ -36,7 +33,7 @@ final feedMapViewModelProvider =
 final detailMapViewModelProvider = StateNotifierProvider.autoDispose
     .family<MapViewModel, MapState, String>((ref, eventId) {
       final event = ref.watch(eventDetailProvider(eventId));
-      return MapViewModel(ref, event != null ? [event] : []);
+      return MapViewModel(ref, initialEvent: event);
     });
 
 /// MarkerFactory 인스턴스를 앱 전역에서 싱글턴으로 제공하는 Provider입니다.
