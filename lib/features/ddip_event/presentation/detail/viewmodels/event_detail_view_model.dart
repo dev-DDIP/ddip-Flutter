@@ -2,11 +2,13 @@
 
 import 'dart:async';
 
+import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/CommunicationLogSliver.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -203,6 +205,128 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
         state = state.copyWith(isProcessing: false);
       }
     }
+  }
+
+  /// 현재 이벤트 상태에 따라 올바른 Sliver 위젯 목록을 조립하여 반환합니다.
+  List<Widget> buildMissionLogSlivers(DdipEvent event) {
+    final List<Widget> slivers = [];
+
+    // 공통 영역: 미션 상세 내용
+    slivers.add(
+      SliverToBoxAdapter(
+        child: Card(
+          elevation: 0,
+          color: Colors.grey.shade50,
+          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              event.content,
+              style: const TextStyle(fontSize: 15, height: 1.6),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 상태별 분기
+    switch (event.status) {
+      case DdipEventStatus.open:
+        slivers.add(_buildApplicantListSliver(event));
+        break;
+      case DdipEventStatus.in_progress:
+      case DdipEventStatus.completed:
+      case DdipEventStatus.failed:
+        // 방금 만든 CommunicationLogSliver 위젯을 여기에 추가합니다.
+        slivers.add(CommunicationLogSliver(event: event));
+        break;
+    }
+    return slivers;
+  }
+
+  /// '지원자 목록'을 표시하는 SliverList를 생성하는 헬퍼 메서드입니다.
+  Widget _buildApplicantListSliver(DdipEvent event) {
+    // Sliver 위젯의 헤더 부분
+    final header = SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20.0, 16.0, 16.0, 8.0),
+        child: Text(
+          '지원자 목록 (${event.applicants.length}명)',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+
+    // 지원자가 없으면 헤더와 안내 메시지만 표시
+    if (event.applicants.isEmpty) {
+      return SliverList(
+        delegate: SliverChildListDelegate([
+          header.child!,
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40.0),
+            child: Center(
+              child: Text(
+                '아직 지원자가 없습니다.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          ),
+        ]),
+      );
+    }
+
+    // 지원자 목록을 렌더링하는 SliverList 본문
+    final body = SliverList.builder(
+      itemCount: event.applicants.length,
+      itemBuilder: (context, index) {
+        final applicantId = event.applicants[index];
+        final User applicant = _ref
+            .watch(mockUsersProvider)
+            .firstWhere(
+              (user) => user.id == applicantId,
+              orElse: () => User(id: applicantId, name: '알 수 없는 사용자'),
+            );
+
+        final isRequester = event.requesterId == _ref.read(authProvider)?.id;
+
+        // v2.0 디자인에 맞춘 ListTile
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+            title: Text(
+              applicant.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Row(
+              children: [
+                Icon(Icons.star, color: Colors.amber, size: 14),
+                Text(' 4.5 / 8회 완료'), // TODO: 실제 평판 데이터 연동
+              ],
+            ),
+            trailing:
+                isRequester
+                    ? FilledButton(
+                      onPressed: () {
+                        _ref
+                            .read(ddipEventsNotifierProvider.notifier)
+                            .selectResponder(event.id, applicantId);
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      child: const Text('선택'),
+                    )
+                    : null,
+            onTap: () {
+              // TODO: 지원자 프로필 상세 페이지로 이동
+            },
+          ),
+        );
+      },
+    );
+
+    return SliverMainAxisGroup(slivers: [header, body]);
   }
 
   // 사진 제출 시 옵션을 선택하는 다이얼로그를 보여주는 메서드

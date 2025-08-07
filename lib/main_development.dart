@@ -1,5 +1,4 @@
 // lib/main_development.dart
-
 import 'package:ddip/core/navigation/router.dart';
 import 'package:ddip/core/providers/core_providers.dart';
 import 'package:ddip/core/services/real_proximity_service_impl.dart';
@@ -14,6 +13,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // ------------------- 백그라운드 FCM 핸들러 -------------------
 // main.dart와 동일하게 최상위 레벨에 핸들러를 정의합니다.
@@ -46,6 +46,8 @@ void main() async {
       clientId: naverMapClientId,
       onAuthFailed: (ex) => print('네이버 지도 인증 실패: $ex'),
     );
+
+    await initializeDateFormatting('ko_KR');
 
     // --- 2단계: 알림 시스템 설정 (main.dart와 동일) ---
     void handleNotificationTap(String? eventId) {

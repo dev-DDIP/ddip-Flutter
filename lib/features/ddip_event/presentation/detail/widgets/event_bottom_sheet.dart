@@ -1,8 +1,7 @@
 // lib/features/ddip_event/presentation/detail/widgets/event_bottom_sheet.dart
 
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_action_button.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_detail_tab_view.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/MissionControlLayout.dart';
 import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
 import 'package:ddip/features/ddip_event/presentation/widgets/multi_stage_bottom_sheet.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
@@ -23,21 +22,10 @@ class EventBottomSheet extends ConsumerWidget {
       maxSnapSize: detailFullFraction,
       snapSizes: const [detailInitialFraction, detailFullFraction],
       builder: (context, scrollController) {
-        // EventBottomSheet의 유일한 책임:
-        // 필요한 위젯들(TabView, ActionButton)을 조립하여 배치하는 것.
-        return Column(
-          children: [
-            Expanded(
-              child: EventDetailTabView(
-                event: event,
-                scrollController: scrollController,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: EventActionButton(event: event),
-            ),
-          ],
+        // TabView와 ActionButton을 제거하고 새로운 레이아웃으로 교체!
+        return MissionControlLayout(
+          event: event,
+          scrollController: scrollController,
         );
       },
     );

@@ -1,7 +1,9 @@
 // lib/features/ddip_event/data/repositories/mock_ddip_event_data.dart
 
 import 'dart:math';
+
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:uuid/uuid.dart';
 
 /// 클러스터링 테스트를 위해 의도적으로 그룹화된 가짜 '띱' 이벤트 데이터 목록입니다.
@@ -67,6 +69,27 @@ double _jitter(double value, double amount) {
 // 전체 목 데이터를 생성하는 메인 함수
 List<DdipEvent> _generateMockEvents() {
   final events = <DdipEvent>[];
+
+  events.add(
+    DdipEvent(
+      id: 'test-event-in-progress',
+      // 테스트를 위해 고정 ID 사용
+      title: '[테스트] 북문 앞 푸드트럭 지금 줄 긴가요?',
+      content: '오늘 온 푸드트럭 가보려고 하는데, 지금 바로 가도 될지 궁금합니다. 사진 한 장만 부탁드려요!',
+      requesterId: 'requester_1',
+      // 김요청
+      reward: 1500,
+      latitude: _jitter(_centerNorthGate['lat']!, 0.0001),
+      longitude: _jitter(_centerNorthGate['lon']!, 0.0001),
+      status: DdipEventStatus.in_progress,
+      createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      applicants: ['responder_1', 'responder_2'],
+      // 이수행, 박지원 지원
+      selectedResponderId: 'responder_1',
+      // 이수행 선택됨
+      interactions: [],
+    ),
+  );
 
   // --- 클러스터 A: 북문 근처 (매우 밀집, 12개) ---
   for (int i = 0; i < 12; i++) {
@@ -139,7 +162,8 @@ DdipEvent _createRandomEvent({
     title: _sampleTitles[_random.nextInt(_sampleTitles.length)],
     content: _sampleContents[_random.nextInt(_sampleContents.length)],
     requesterId: _requesterIds[_random.nextInt(_requesterIds.length)],
-    reward: (_random.nextInt(30) + 5) * 100, // 500 ~ 3400원
+    reward: (_random.nextInt(30) + 5) * 100,
+    // 500 ~ 3400원
     // ✨ [수정] 이제 상위에서 타입을 명시해주었기 때문에, 불필요한 'as double' 캐스팅을 제거하여 코드를 더 깔끔하게 만듭니다.
     latitude: _jitter(center['lat']!, jitterAmount),
     longitude: _jitter(center['lon']!, jitterAmount),
@@ -147,7 +171,8 @@ DdipEvent _createRandomEvent({
     status: status,
     createdAt: DateTime.now().subtract(
       Duration(minutes: _random.nextInt(24 * 60)),
-    ), // 최근 24시간 내
+    ),
+    // 최근 24시간 내
     applicants:
         status == DdipEventStatus.in_progress
             ? ['responder_1', 'responder_2']

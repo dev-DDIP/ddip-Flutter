@@ -1,30 +1,22 @@
 // lib/main.dart
 
-// ------------------- Flutter 및 외부 패키지 Import -------------------
-import 'dart:io';
-import 'package:ddip/core/providers/core_providers.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_naver_map/flutter_naver_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// ------------------- DDIP 프로젝트 내부 모듈 Import -------------------
-// 앱의 최상위 위젯 및 라우팅 설정
-import 'package:ddip/app.dart';
 import 'package:ddip/core/navigation/router.dart';
-
+import 'package:ddip/core/providers/core_providers.dart';
 // 앱 전반에서 사용되는 서비스 및 Provider (의존성 주입 대상)
 import 'package:ddip/core/services/proximity_service.dart';
 import 'package:ddip/core/services/real_proximity_service_impl.dart';
 import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
-import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // ------------------- 백그라운드 FCM 핸들러 -------------------
 /// 앱이 백그라운드 또는 종료된 상태일 때 FCM 메시지를 수신하는 핸들러입니다.
@@ -65,6 +57,8 @@ void main() async {
       clientId: naverMapClientId,
       onAuthFailed: (ex) => print('네이버 지도 인증 실패: $ex'),
     );
+
+    await initializeDateFormatting('ko_KR');
 
     // --- 2단계: 알림 시스템 설정 ---
     // 앱이 어떤 상태에 있든 알림을 수신하고 적절히 반응하도록 설정합니다.
