@@ -19,30 +19,38 @@ class MissionControlLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. ViewModel을 구독(watch)하여 데이터 변경 시 UI가 자동으로 다시 그려지도록 합니다.
     final eventDetailState = ref.watch(eventDetailViewModelProvider(event.id));
     final viewModel = ref.read(eventDetailViewModelProvider(event.id).notifier);
 
-    // 2. AsyncValue를 사용하여 로딩, 에러, 데이터 상태를 안전하게 처리합니다.
     return eventDetailState.event.when(
       data:
-          (currentEvent) => Column(
+          (currentEvent) => Stack(
             children: [
-              Expanded(
-                child: CustomScrollView(
-                  controller: scrollController,
-                  slivers: [
-                    // 미션 브리핑 헤더
-                    SliverToBoxAdapter(
-                      child: MissionBriefingHeader(event: currentEvent),
-                    ),
-                    // ViewModel의 builder를 호출하여 동적 Sliver 목록을 가져옴
-                    ...viewModel.buildMissionLogSlivers(currentEvent),
-                  ],
-                ),
+              // 배경이 될 스크롤 뷰
+              CustomScrollView(
+                controller: scrollController,
+                // [오류 수정] CustomScrollView의 잘못된 padding 속성은 여기서 제거합니다.
+                slivers: [
+                  // 1. 미션 브리핑 헤더 Sliver
+                  SliverToBoxAdapter(
+                    child: MissionBriefingHeader(event: currentEvent),
+                  ),
+                  // 2. 미션 로그 Sliver 목록
+                  ...viewModel.buildMissionLogSlivers(currentEvent),
+
+                  // 3. [핵심 수정] 맨 마지막에 '투명한 여백' Sliver를 추가합니다.
+                  // 이 SizedBox가 CommandBar의 높이만큼의 공간을 차지하여,
+                  // 스크롤의 마지막 내용이 버튼에 가려지는 것을 완벽하게 방지합니다.
+                  const SliverToBoxAdapter(child: SizedBox(height: 100.0)),
+                ],
               ),
-              // 커맨드 바
-              CommandBar(event: currentEvent),
+              // 최상단에 위치할 커맨드 바
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: CommandBar(event: currentEvent),
+              ),
             ],
           ),
       loading: () => const Center(child: CircularProgressIndicator()),

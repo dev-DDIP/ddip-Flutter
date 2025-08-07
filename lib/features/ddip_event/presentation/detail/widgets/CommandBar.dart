@@ -16,45 +16,34 @@ class CommandBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ViewModel을 구독하여 로딩 상태(isProcessing)를 가져옴
     final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
-    // ViewModel의 메서드를 호출하기 위해 notifier를 읽음
     final viewModel = ref.read(eventDetailViewModelProvider(event.id).notifier);
     final currentUser = ref.watch(authProvider);
 
-    // 로딩 중일 때는 인디케이터 표시
-    if (viewModelState.isProcessing) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // 현재 사용자와 이벤트 상태에 따라 표시할 버튼 위젯을 동적으로 결정
-    final Widget actionButton = _buildActionButton(
+    final Widget actionWidget = _buildActionButton(
       context,
       ref,
       viewModel,
       currentUser?.id,
     );
 
+    if (viewModelState.isProcessing) {
+      return const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // [핵심 수정] Container에서 decoration(배경)을 완전히 제거합니다.
+    // 이제 이 Container의 역할은 오직 '버튼 주변의 안전 여백' 뿐입니다.
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), // 하단 여백 추가
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: actionButton,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      // 배경 관련 코드(decoration)가 완전히 사라졌습니다.
+      child: actionWidget,
     );
   }
 
-  // 복잡한 버튼 생성 로직을 별도 메서드로 분리하여 build 메서드를 깔끔하게 유지
+  /// 현재 미션 상태와 사용자 역할에 따라 적절한 위젯(버튼 또는 상태 표시)을 반환합니다.
   Widget _buildActionButton(
     BuildContext context,
     WidgetRef ref,
@@ -68,77 +57,159 @@ class CommandBar extends ConsumerWidget {
       (p) => p.status == PhotoStatus.pending,
     );
 
-    // 설계안 v2.0의 상태별 버튼 규칙 적용
+    // [핵심 수정] switch 구문을 사용하여 각 상태별로 다른 위젯을 반환합니다.
     switch (event.status) {
       case DdipEventStatus.open:
         if (isRequester) {
           // 요청자는 지원자가 있을 때만 '수행자 선택' 버튼 활성화
-          return FilledButton(
+          return _buildStyledButton(
+            text: '수행자 선택하기',
             onPressed:
                 event.applicants.isNotEmpty
-                    ? () => viewModel.handleButtonPress(context)
-                    : null,
-            child: const Text('수행자 선택하기'),
+                    ? () {
+                      // TODO: 지원자 선택 BottomSheet 띄우기 로직 연결
+                      print('수행자 선택하기 버튼 클릭');
+                    }
+                    : null, // 지원자가 없으면 비활성화
           );
         } else if (hasApplied) {
-          // 이미 지원한 사용자는 '지원 취소' 버튼 비활성화 상태로 표시
-          return const FilledButton(onPressed: null, child: Text('지원 처리됨'));
+          return const _StatusIndicator(
+            icon: Icons.check_circle_outline,
+            text: '지원 완료! 요청자가 선택할 때까지 기다려주세요.',
+          );
         } else {
-          // 방문자는 '미션 지원하기'
-          return FilledButton(
+          return _buildStyledButton(
+            text: '미션 지원하기',
             onPressed: () => viewModel.handleButtonPress(context),
-            child: const Text('미션 지원하기'),
+            backgroundColor: Colors.blue,
           );
         }
 
       case DdipEventStatus.in_progress:
-        if (isSelectedResponder && !hasPendingPhoto) {
-          // 선택된 수행자는 '증거 사진 제출'
-          return FilledButton.icon(
-            onPressed: () => viewModel.handleButtonPress(context),
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('증거 사진 제출하기'),
-            style: FilledButton.styleFrom(backgroundColor: Colors.green),
-          );
-        } else if (isRequester && hasPendingPhoto) {
-          // 요청자는 사진 확인 대기 중일 때 두 개의 버튼 표시
-          // 참고: ViewModel에 approveMission, requestRevision 같은 세분화된 메서드 추가 필요
-          return Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed:
-                      () => print('수정 요청 버튼 클릭'), // TODO: ViewModel에 메서드 연결
-                  child: const Text('수정 요청'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed:
-                      () => print('미션 승인 버튼 클릭'), // TODO: ViewModel에 메서드 연결
-                  child: const Text('미션 승인'),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.blue),
-                ),
-              ),
-            ],
-          );
+        if (isSelectedResponder) {
+          return hasPendingPhoto
+              ? const _StatusIndicator(
+                icon: Icons.hourglass_top_rounded,
+                text: '사진 제출 완료! 요청자가 확인 중입니다.',
+              )
+              : _buildStyledButton(
+                text: '증거 사진 제출하기',
+                icon: Icons.camera_alt,
+                onPressed: () => viewModel.handleButtonPress(context),
+                backgroundColor: Colors.green,
+              );
+        } else if (isRequester) {
+          return hasPendingPhoto
+              ? const _StatusIndicator(
+                icon: Icons.rate_review_outlined,
+                text: '제출된 사진을 확인하고 평가해주세요.',
+              )
+              : const _StatusIndicator(
+                icon: Icons.directions_run_rounded,
+                text: '수행자가 미션을 진행하고 있습니다.',
+              );
         }
-        break; // 다른 역할의 사용자는 버튼 없음
+        break;
 
       case DdipEventStatus.completed:
       case DdipEventStatus.failed:
-        // 미션 종료 후 '평가 남기기' 버튼
-        return ElevatedButton(
-          onPressed: () => print('평가 남기기 버튼 클릭'), // TODO: 평가 시스템 연동
-          child: const Text('평가 남기기'),
+        // TODO: 평가 시스템 구현 후, 평가를 아직 안했을 경우에만 버튼 표시
+        return _buildStyledButton(
+          text: '평가 남기기',
+          icon: Icons.star_border_rounded,
+          onPressed: () {
+            /* TODO: 평가 남기기 로직 연결 */
+          },
         );
     }
 
-    // 위 조건에 해당하지 않는 모든 경우 버튼을 표시하지 않음
+    // 위 조건에 해당하지 않는 모든 경우, 빈 공간을 반환합니다.
     return const SizedBox.shrink();
+  }
+
+  // ▲▲▲ 2. _buildActionButton 메서드 전체를 여기까지의 코드로 교체합니다. ▲▲▲
+
+  // ▼▼▼ 3. 새로운 헬퍼 메서드(_buildStyledButton)를 CommandBar 클래스 내부에 추가합니다. ▼▼▼
+  /// 일관된 스타일의 '플로팅' 버튼을 생성하는 헬퍼 메서드입니다.
+  Widget _buildStyledButton({
+    required String text,
+    required VoidCallback? onPressed,
+    IconData? icon,
+    Color? backgroundColor,
+  }) {
+    final buttonContent =
+        icon != null
+            ? FilledButton.icon(
+              icon: Icon(icon),
+              label: Text(text),
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                elevation: 4,
+                backgroundColor: backgroundColor,
+              ),
+            )
+            : FilledButton(
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                elevation: 4,
+                backgroundColor: backgroundColor,
+              ),
+              child: Text(text),
+            );
+
+    // 버튼이 여러개일 경우를 대비하여 Row로 감싸고 Expanded를 사용합니다.
+    // 현재는 버튼이 하나이므로, Sizedbox로 감싸서 전체 너비를 차지하게 만듭니다.
+    return SizedBox(width: double.infinity, child: buttonContent);
+  }
+
+  // ▲▲▲ 3. 새로운 헬퍼 메서드(_buildStyledButton)를 여기까지 추가합니다. ▲▲▲
+}
+
+// ▼▼▼ 4. 새로운 헬퍼 위젯(_StatusIndicator)을 CommandBar 클래스 외부에 추가합니다. ▼▼▼
+/// 버튼 대신 현재 상태를 알려주는 UI 위젯입니다.
+class _StatusIndicator extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _StatusIndicator({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(50), // 둥근 알약 형태
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.grey.shade700, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.grey.shade800,
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
