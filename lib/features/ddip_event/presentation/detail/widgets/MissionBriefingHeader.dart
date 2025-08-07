@@ -55,9 +55,8 @@ class MissionBriefingHeader extends ConsumerWidget {
           // 2. 요청자 정보 (v2.0 강화된 UI)
           GestureDetector(
             onTap: () {
-              // TODO: 사용자 프로필 상세 페이지로 이동하는 로직 구현
-              // context.push('/profile/${requester.id}');
-              print('Requestor tapped: ${requester.id}');
+              // go_router를 사용해 프로필 화면으로 이동합니다.
+              context.push('/profile/${requester.id}');
             },
             child: Container(
               padding: const EdgeInsets.all(8.0),

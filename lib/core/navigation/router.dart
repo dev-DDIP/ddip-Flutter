@@ -4,6 +4,7 @@ import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_crea
 import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
+import 'package:ddip/features/profile/presentation/screens/profile_screen.dart';
 import 'package:go_router/go_router.dart';
 
 final GoRouter router = GoRouter(
@@ -36,6 +37,15 @@ final GoRouter router = GoRouter(
           ],
         ),
       ],
+    ),
+    GoRoute(
+      path: '/profile/:userId', // 예: /profile/requester_1
+      builder: (context, state) {
+        // URL에서 userId 파라미터를 추출합니다.
+        final userId = state.pathParameters['userId']!;
+        // 추출한 userId를 ProfileScreen에 전달합니다.
+        return ProfileScreen(userId: userId);
+      },
     ),
   ],
 );

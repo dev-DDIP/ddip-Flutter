@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 part 'event_detail_view_model.freezed.dart';
@@ -319,7 +320,8 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
                     )
                     : null,
             onTap: () {
-              // TODO: 지원자 프로필 상세 페이지로 이동
+              // go_router를 사용해 프로필 화면으로 이동합니다.
+              context.push('/profile/${applicant.id}');
             },
           ),
         );
