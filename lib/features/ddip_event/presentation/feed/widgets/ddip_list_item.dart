@@ -1,5 +1,6 @@
 // lib/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart
 
+import 'package:ddip/common/utils/time_utils.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
@@ -50,7 +51,9 @@ class DdipListItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 현재 로그인한 사용자와 작성자 정보를 가져옴
     final currentUser = ref.watch(authProvider);
-    final requester = mockUsers.firstWhere(
+
+    final allUsers = ref.watch(mockUsersProvider);
+    final requester = allUsers.firstWhere(
       (user) => user.id == event.requesterId,
       orElse: () => User(id: event.requesterId, name: '알 수 없는 작성자'),
     );
@@ -87,7 +90,9 @@ class DdipListItem extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          subtitle: Text('작성자: ${requester.name} | 보상: ${event.reward}원'),
+          subtitle: Text(
+            '${requester.name} · ${formatTimeAgo(event.createdAt)} · ${event.reward}원',
+          ),
           trailing: _buildStatusChip(event.status),
           onTap:
               canAccessDetail

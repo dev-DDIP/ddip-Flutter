@@ -8,6 +8,10 @@ import 'package:ddip/features/ddip_event/data/models/ddip_event_model.dart';
 import 'package:ddip/features/ddip_event/data/models/interaction_model.dart';
 import 'package:uuid/uuid.dart';
 
+// ▼▼▼ 데이터 생성 주기를 상수로 정의합니다. ▼▼▼
+const _interactionSimulationInterval = Duration(seconds: 15);
+const _newEventSimulationInterval = Duration(seconds: 15);
+
 // ----- ▼▼▼ [신규] 가짜 실시간 데이터를 생성하는 FakeWebSocketDataSource 구현 ▼▼▼ -----
 /// 실제 백엔드 서버 없이 실시간 데이터 스트림을 시뮬레이션하는 가짜 데이터 소스입니다.
 class FakeWebSocketDataSource implements WebSocketDataSource {
@@ -21,8 +25,7 @@ class FakeWebSocketDataSource implements WebSocketDataSource {
 
   @override
   Stream<InteractionModel> getInteractionStream(String eventId) {
-    // 5초에 한 번씩 새로운 가짜 Interaction을 생성하여 파이프에 흘려보냅니다.
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _timer = Timer.periodic(_interactionSimulationInterval, (_) {
       final fakeInteraction = _createFakeInteraction();
       _controller.add(fakeInteraction);
     });
@@ -31,8 +34,7 @@ class FakeWebSocketDataSource implements WebSocketDataSource {
 
   @override
   Stream<DdipEventModel> getNewDdipEventStream() {
-    // 5초마다 새로운 가짜 DdipEvent를 생성하여 파이프에 흘려보냅니다.
-    _newEventTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _newEventTimer = Timer.periodic(_newEventSimulationInterval, (timer) {
       final newEvent = _createFakeDdipEvent();
       _newEventController.add(newEvent);
     });

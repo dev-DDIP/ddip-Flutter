@@ -107,6 +107,17 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
       (eventModel) => eventModel.toEntity(),
     );
   }
+
+  @override
+  Future<List<DdipEvent>> getEventsByUserId(
+    String userId,
+    UserActivityType type,
+  ) async {
+    // 실제 작업은 RemoteDataSource에 위임합니다.
+    final eventModels = await remoteDataSource.getEventsByUserId(userId, type);
+    // DataSource로부터 받은 Model(DTO) 리스트를 Domain 계층의 Entity 리스트로 변환하여 반환합니다.
+    return eventModels.map((model) => model.toEntity()).toList();
+  }
 }
 
 /*

@@ -1,6 +1,7 @@
 // lib/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart
 
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
@@ -40,6 +41,11 @@ abstract class DdipEventRemoteDataSource {
   Stream<DdipEventModel> getNewDdipEventStream();
 
   Stream<DdipEvent> getEventStreamById(String id);
+
+  Future<List<DdipEventModel>> getEventsByUserId(
+    String userId,
+    UserActivityType type,
+  );
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -161,5 +167,32 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
     throw UnimplementedError(
       'WebSocket for real remote data source is not implemented yet.',
     );
+  }
+
+  // ▼▼▼ 클래스 하단에 누락된 메소드의 실제 구현을 추가합니다. ▼▼▼
+  @override
+  Future<List<DdipEventModel>> getEventsByUserId(
+    String userId,
+    UserActivityType type,
+  ) async {
+    try {
+      // type enum을 API가 이해할 수 있는 문자열로 변환합니다.
+      final typeString = type.name; // e.g., "requested", "responded"
+
+      // TODO: 백엔드와 실제 API 엔드포인트 및 쿼리 파라미터 협의 필요
+      // e.g., GET /users/{userId}/ddips?type=requested
+      final response = await dio.get(
+        '/users/$userId/ddips',
+        queryParameters: {'type': typeString},
+      );
+
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data
+          .map((item) => DdipEventModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      print('Error getting events by user id: $e');
+      rethrow;
+    }
   }
 }

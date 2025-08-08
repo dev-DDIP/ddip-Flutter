@@ -91,57 +91,46 @@ List<DdipEvent> _generateMockEvents() {
     ),
   );
 
-  // --- 클러스터 A: 북문 근처 (매우 밀집, 12개) ---
-  for (int i = 0; i < 12; i++) {
+  // --- 클러스터 A: 북문 근처 (3개) ---
+  for (int i = 0; i < 3; i++) {
     events.add(
       _createRandomEvent(
         center: _centerNorthGate,
-        jitterAmount: 0.0008, // 좁은 반경
+        jitterAmount: 0.0008,
         status: DdipEventStatus.open,
       ),
     );
   }
 
-  // --- 클러스터 B: 센트럴파크 (중간 밀집, 10개) ---
-  for (int i = 0; i < 10; i++) {
+  // --- 클러스터 B: 센트럴파크 (3개) ---
+  for (int i = 0; i < 3; i++) {
     events.add(
       _createRandomEvent(
         center: _centerCentralPark,
-        jitterAmount: 0.0012, // 조금 더 넓은 반경
-        status: i < 4 ? DdipEventStatus.in_progress : DdipEventStatus.open,
+        jitterAmount: 0.0012,
+        status: i < 1 ? DdipEventStatus.in_progress : DdipEventStatus.open,
       ),
     );
   }
 
-  // --- 클러스터 C: 중앙도서관 (밀집, 8개) ---
-  for (int i = 0; i < 8; i++) {
+  // --- 클러스터 C: 중앙도서관 (2개) ---
+  for (int i = 0; i < 2; i++) {
     events.add(
       _createRandomEvent(
         center: _centerLibrary,
         jitterAmount: 0.0010,
-        status: i < 5 ? DdipEventStatus.completed : DdipEventStatus.failed,
+        status: i < 1 ? DdipEventStatus.completed : DdipEventStatus.failed,
       ),
     );
   }
 
-  // --- 클러스터 D: IT-1호관 (느슨한 그룹, 10개) ---
-  for (int i = 0; i < 10; i++) {
+  // --- 클러스터 D: IT-1호관 (2개) ---
+  for (int i = 0; i < 2; i++) {
     events.add(
       _createRandomEvent(
         center: _centerIT1,
-        jitterAmount: 0.0025, // 넓은 반경
+        jitterAmount: 0.0025,
         status: DdipEventStatus.open,
-      ),
-    );
-  }
-
-  // --- 클러스터 E: 기숙사 (매우 밀집, 10개) ---
-  for (int i = 0; i < 10; i++) {
-    events.add(
-      _createRandomEvent(
-        center: _centerDorm,
-        jitterAmount: 0.0007,
-        status: i.isEven ? DdipEventStatus.open : DdipEventStatus.completed,
       ),
     );
   }

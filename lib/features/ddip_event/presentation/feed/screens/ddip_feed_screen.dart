@@ -17,15 +17,17 @@ class DdipFeedScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
+        final allUsers = ref.read(mockUsersProvider);
+
         return AlertDialog(
           title: const Text('로그인할 사용자를 선택하세요'),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: mockUsers.length,
+              itemCount: allUsers.length,
               itemBuilder: (context, index) {
-                final user = mockUsers[index];
+                final user = allUsers[index];
                 return ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: Text(user.name),

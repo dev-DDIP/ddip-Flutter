@@ -6,6 +6,8 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 import '../entities/ddip_event.dart';
 
+enum UserActivityType { requested, responded, ongoing }
+
 // '띱 생성' 기능이 데이터 계층에 요구하는 기능 목록입니다.
 // 지금은 '띱 생성' 기능 하나만 필요합니다.
 abstract class DdipEventRepository {
@@ -47,6 +49,12 @@ abstract class DdipEventRepository {
 
   /// 새로 생성되는 DdipEvent의 실시간 스트림을 제공합니다.
   Stream<DdipEvent> getNewEventsStream();
+
+  // '나의 활동 기록'을 가져오기 위한 메소드를 새로 추가합니다.
+  Future<List<DdipEvent>> getEventsByUserId(
+    String userId,
+    UserActivityType type,
+  );
 }
 
 /*

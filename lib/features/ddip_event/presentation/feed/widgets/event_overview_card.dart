@@ -1,3 +1,4 @@
+import 'package:ddip/common/utils/time_utils.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
@@ -19,7 +20,8 @@ class EventOverviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final requester = mockUsers.firstWhere(
+    final allUsers = ref.watch(mockUsersProvider);
+    final requester = allUsers.firstWhere(
       (user) => user.id == event.requesterId,
       orElse: () => User(id: event.requesterId, name: '알 수 없는 작성자'),
     );
@@ -62,20 +64,16 @@ class EventOverviewCard extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.person_outline,
-                      size: 16,
-                      color: Colors.grey,
+                    Text(
+                      '${requester.name} · ${formatTimeAgo(event.createdAt)}',
                     ),
-                    const SizedBox(width: 8),
-                    Text(requester.name),
                     const Spacer(),
                     const Icon(
                       Icons.monetization_on_outlined,
                       size: 16,
                       color: Colors.grey,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Text('${NumberFormat('#,###').format(event.reward)}원'),
                   ],
                 ),

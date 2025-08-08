@@ -1,5 +1,6 @@
 // lib/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart
 
+import 'package:ddip/common/utils/time_utils.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
@@ -50,7 +51,15 @@ class MissionBriefingHeader extends ConsumerWidget {
               _buildStatusChip(event.status),
             ],
           ),
-          const SizedBox(height: 16),
+
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0, left: 4.0),
+            child: Text(
+              '${formatTimeAgo(event.createdAt)}에 요청됨',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // 2. 요청자 정보 (v2.0 강화된 UI)
           GestureDetector(

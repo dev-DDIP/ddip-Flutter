@@ -242,4 +242,39 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       return newEvent;
     });
   }
+
+  // ▼▼▼ 새로 추가된 getEventsByUserId 메소드를 구현합니다. ▼▼▼
+  @override
+  Future<List<DdipEvent>> getEventsByUserId(
+    String userId,
+    UserActivityType type,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // API 호출 흉내
+
+    switch (type) {
+      case UserActivityType.requested:
+        return _ddipEvents
+            .where((event) => event.requesterId == userId)
+            .toList();
+      case UserActivityType.responded:
+        return _ddipEvents
+            .where(
+              (event) =>
+                  event.selectedResponderId == userId &&
+                  (event.status == DdipEventStatus.completed ||
+                      event.status == DdipEventStatus.failed),
+            )
+            .toList();
+      case UserActivityType.ongoing:
+        return _ddipEvents
+            .where(
+              (event) =>
+                  (event.requesterId == userId ||
+                      event.selectedResponderId == userId) &&
+                  (event.status == DdipEventStatus.open ||
+                      event.status == DdipEventStatus.in_progress),
+            )
+            .toList();
+    }
+  }
 }

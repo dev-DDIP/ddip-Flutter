@@ -41,9 +41,9 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/profile/:userId', // 예: /profile/requester_1
       builder: (context, state) {
-        // URL에서 userId 파라미터를 추출합니다.
+        // URL 경로에서 ':userId' 부분의 값을 추출합니다.
         final userId = state.pathParameters['userId']!;
-        // 추출한 userId를 ProfileScreen에 전달합니다.
+        // 추출한 userId를 ProfileScreen 위젯에 파라미터로 전달합니다.
         return ProfileScreen(userId: userId);
       },
     ),

@@ -128,3 +128,13 @@ final visibleEventsProvider = Provider.autoDispose<List<DdipEvent>>((ref) {
     orElse: () => [], // 로딩 또는 에러 시 빈 목록 반환
   );
 });
+
+// 2개의 파라미터(userId, type)를 받기 위해 Record 타입을 사용합니다.
+final userActivityProvider = FutureProvider.autoDispose
+    .family<List<DdipEvent>, ({String userId, UserActivityType type})>((
+      ref,
+      params,
+    ) {
+      final repository = ref.watch(ddipEventRepositoryProvider);
+      return repository.getEventsByUserId(params.userId, params.type);
+    });
