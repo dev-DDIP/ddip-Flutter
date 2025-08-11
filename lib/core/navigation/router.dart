@@ -5,47 +5,82 @@ import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detai
 import 'package:ddip/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
 import 'package:ddip/features/profile/presentation/screens/profile_screen.dart';
+import 'package:ddip/features/shell/main_shell.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/feed',
   routes: <RouteBase>[
-    GoRoute(
-      path: '/feed',
-      builder: (context, state) => const DdipFeedScreen(),
-      routes: [
+    // ShellRoute가 모든 메인 화면을 감쌉니다.
+    ShellRoute(
+      builder: (BuildContext context, GoRouterState state, Widget child) {
+        return MainShell(child: child);
+      },
+      routes: <RouteBase>[
+        // --- 1. 홈 탭 ---
         GoRoute(
-          path: 'create', // /feed/create
-          builder: (context, state) => const DdipCreationScreen(),
-        ),
-        GoRoute(
-          path: ':eventId', // /feed/{eventId}
-          builder: (context, state) {
-            final eventId = state.pathParameters['eventId'] ?? '0';
-            return EventDetailScreen(eventId: eventId);
-          },
+          path: '/feed',
+          builder: (context, state) => const DdipFeedScreen(),
           routes: [
-            // ▼▼▼ 사진 상세 페이지를 위한 경로 추가 ▼▼▼
             GoRoute(
-              path: 'photo/:photoId', // /feed/{eventId}/photo/{photoId}
+              path: 'create',
+              builder: (context, state) => const DdipCreationScreen(),
+            ),
+            GoRoute(
+              path: ':eventId',
               builder: (context, state) {
                 final eventId = state.pathParameters['eventId'] ?? '0';
-                final photoId = state.pathParameters['photoId'] ?? '0';
-                return FullScreenPhotoView(eventId: eventId, photoId: photoId);
+                return EventDetailScreen(eventId: eventId);
               },
+              routes: [
+                GoRoute(
+                  path: 'photo/:photoId',
+                  builder: (context, state) {
+                    final eventId = state.pathParameters['eventId'] ?? '0';
+                    final photoId = state.pathParameters['photoId'] ?? '0';
+                    return FullScreenPhotoView(
+                      eventId: eventId,
+                      photoId: photoId,
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
+
+        // --- 2. 현재 활동 탭 ---
+        GoRoute(
+          path: '/activity',
+          builder: (context, state) => const ActivityScreen(),
+        ),
+
+        // --- 3. 프로필 탭 ---
+        // '/profile/:userId' 경로는 이곳에 단 한 번만 정의되어야 합니다.
+        GoRoute(
+          path: '/profile/:userId',
+          builder: (context, state) {
+            final userId = state.pathParameters['userId']!;
+            return ProfileScreen(userId: userId);
+          },
+        ),
       ],
     ),
-    GoRoute(
-      path: '/profile/:userId', // 예: /profile/requester_1
-      builder: (context, state) {
-        // URL 경로에서 ':userId' 부분의 값을 추출합니다.
-        final userId = state.pathParameters['userId']!;
-        // 추출한 userId를 ProfileScreen 위젯에 파라미터로 전달합니다.
-        return ProfileScreen(userId: userId);
-      },
-    ),
+
+    // --- ShellRoute 외부에 있는 중복된 GoRoute를 삭제했습니다 ---
   ],
 );
+
+// 임시 Placeholder 화면
+class ActivityScreen extends StatelessWidget {
+  const ActivityScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('현재 활동')),
+      body: const Center(child: Text('현재 활동 화면')),
+    );
+  }
+}
