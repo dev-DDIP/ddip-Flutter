@@ -1,5 +1,6 @@
 // lib/core/navigation/router.dart
 
+import 'package:ddip/features/activity/presentation/screens/activity_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart';
@@ -53,7 +54,7 @@ final GoRouter router = GoRouter(
         // --- 2. 현재 활동 탭 ---
         GoRoute(
           path: '/activity',
-          builder: (context, state) => const ActivityScreen(),
+          builder: (context, state) => const ActivityScreen(), // 실제 화면으로 변경
         ),
 
         // --- 3. 프로필 탭 ---
@@ -71,16 +72,3 @@ final GoRouter router = GoRouter(
     // --- ShellRoute 외부에 있는 중복된 GoRoute를 삭제했습니다 ---
   ],
 );
-
-// 임시 Placeholder 화면
-class ActivityScreen extends StatelessWidget {
-  const ActivityScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('현재 활동')),
-      body: const Center(child: Text('현재 활동 화면')),
-    );
-  }
-}
