@@ -28,7 +28,7 @@ mixin _$InteractionModel {
   String get actorRole => throw _privateConstructorUsedError;
   @JsonKey(name: 'actionType')
   String get actionType => throw _privateConstructorUsedError;
-  String? get messageCode => throw _privateConstructorUsedError;
+  String? get comment => throw _privateConstructorUsedError;
   String? get relatedPhotoId => throw _privateConstructorUsedError;
   DateTime get timestamp => throw _privateConstructorUsedError;
 
@@ -54,7 +54,7 @@ abstract class $InteractionModelCopyWith<$Res> {
     @JsonKey(name: 'actorId') String actorId,
     String actorRole,
     @JsonKey(name: 'actionType') String actionType,
-    String? messageCode,
+    String? comment,
     String? relatedPhotoId,
     DateTime timestamp,
   });
@@ -79,7 +79,7 @@ class _$InteractionModelCopyWithImpl<$Res, $Val extends InteractionModel>
     Object? actorId = null,
     Object? actorRole = null,
     Object? actionType = null,
-    Object? messageCode = freezed,
+    Object? comment = freezed,
     Object? relatedPhotoId = freezed,
     Object? timestamp = null,
   }) {
@@ -105,10 +105,10 @@ class _$InteractionModelCopyWithImpl<$Res, $Val extends InteractionModel>
                     ? _value.actionType
                     : actionType // ignore: cast_nullable_to_non_nullable
                         as String,
-            messageCode:
-                freezed == messageCode
-                    ? _value.messageCode
-                    : messageCode // ignore: cast_nullable_to_non_nullable
+            comment:
+                freezed == comment
+                    ? _value.comment
+                    : comment // ignore: cast_nullable_to_non_nullable
                         as String?,
             relatedPhotoId:
                 freezed == relatedPhotoId
@@ -140,7 +140,7 @@ abstract class _$$InteractionModelImplCopyWith<$Res>
     @JsonKey(name: 'actorId') String actorId,
     String actorRole,
     @JsonKey(name: 'actionType') String actionType,
-    String? messageCode,
+    String? comment,
     String? relatedPhotoId,
     DateTime timestamp,
   });
@@ -164,7 +164,7 @@ class __$$InteractionModelImplCopyWithImpl<$Res>
     Object? actorId = null,
     Object? actorRole = null,
     Object? actionType = null,
-    Object? messageCode = freezed,
+    Object? comment = freezed,
     Object? relatedPhotoId = freezed,
     Object? timestamp = null,
   }) {
@@ -190,10 +190,10 @@ class __$$InteractionModelImplCopyWithImpl<$Res>
                 ? _value.actionType
                 : actionType // ignore: cast_nullable_to_non_nullable
                     as String,
-        messageCode:
-            freezed == messageCode
-                ? _value.messageCode
-                : messageCode // ignore: cast_nullable_to_non_nullable
+        comment:
+            freezed == comment
+                ? _value.comment
+                : comment // ignore: cast_nullable_to_non_nullable
                     as String?,
         relatedPhotoId:
             freezed == relatedPhotoId
@@ -218,7 +218,7 @@ class _$InteractionModelImpl extends _InteractionModel {
     @JsonKey(name: 'actorId') required this.actorId,
     required this.actorRole,
     @JsonKey(name: 'actionType') required this.actionType,
-    this.messageCode,
+    this.comment,
     this.relatedPhotoId,
     required this.timestamp,
   }) : super._();
@@ -238,7 +238,7 @@ class _$InteractionModelImpl extends _InteractionModel {
   @JsonKey(name: 'actionType')
   final String actionType;
   @override
-  final String? messageCode;
+  final String? comment;
   @override
   final String? relatedPhotoId;
   @override
@@ -246,7 +246,7 @@ class _$InteractionModelImpl extends _InteractionModel {
 
   @override
   String toString() {
-    return 'InteractionModel(id: $id, actorId: $actorId, actorRole: $actorRole, actionType: $actionType, messageCode: $messageCode, relatedPhotoId: $relatedPhotoId, timestamp: $timestamp)';
+    return 'InteractionModel(id: $id, actorId: $actorId, actorRole: $actorRole, actionType: $actionType, comment: $comment, relatedPhotoId: $relatedPhotoId, timestamp: $timestamp)';
   }
 
   @override
@@ -260,8 +260,7 @@ class _$InteractionModelImpl extends _InteractionModel {
                 other.actorRole == actorRole) &&
             (identical(other.actionType, actionType) ||
                 other.actionType == actionType) &&
-            (identical(other.messageCode, messageCode) ||
-                other.messageCode == messageCode) &&
+            (identical(other.comment, comment) || other.comment == comment) &&
             (identical(other.relatedPhotoId, relatedPhotoId) ||
                 other.relatedPhotoId == relatedPhotoId) &&
             (identical(other.timestamp, timestamp) ||
@@ -276,7 +275,7 @@ class _$InteractionModelImpl extends _InteractionModel {
     actorId,
     actorRole,
     actionType,
-    messageCode,
+    comment,
     relatedPhotoId,
     timestamp,
   );
@@ -304,7 +303,7 @@ abstract class _InteractionModel extends InteractionModel {
     @JsonKey(name: 'actorId') required final String actorId,
     required final String actorRole,
     @JsonKey(name: 'actionType') required final String actionType,
-    final String? messageCode,
+    final String? comment,
     final String? relatedPhotoId,
     required final DateTime timestamp,
   }) = _$InteractionModelImpl;
@@ -325,7 +324,7 @@ abstract class _InteractionModel extends InteractionModel {
   @JsonKey(name: 'actionType')
   String get actionType;
   @override
-  String? get messageCode;
+  String? get comment;
   @override
   String? get relatedPhotoId;
   @override

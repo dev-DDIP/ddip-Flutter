@@ -13,7 +13,7 @@ class InteractionModel with _$InteractionModel {
     @JsonKey(name: 'actorId') required String actorId,
     required String actorRole,
     @JsonKey(name: 'actionType') required String actionType,
-    String? messageCode,
+    String? comment,
     String? relatedPhotoId,
     required DateTime timestamp,
   }) = _InteractionModel;
@@ -35,13 +35,7 @@ class InteractionModel with _$InteractionModel {
         (e) => e.name == actionType.toLowerCase(),
         orElse: () => ActionType.reportIssue,
       ),
-      messageCode:
-          messageCode != null
-              ? MessageCode.values.firstWhere(
-                (e) => e.name == messageCode!.toLowerCase(),
-                orElse: () => MessageCode.thanksALot,
-              )
-              : null,
+      comment: comment,
       relatedPhotoId: relatedPhotoId,
       timestamp: timestamp,
     );

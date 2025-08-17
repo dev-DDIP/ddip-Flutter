@@ -17,28 +17,8 @@ enum ActionType {
   expire,
   rewardPaid,
   reportIssue,
-}
-
-/// 특정 ActionType에 따라 사용될 매크로 메시지 코드를 정의하는 Enum
-enum MessageCode {
-  // APPROVE
-  thanksALot,
-  greatSense,
-  // REQUEST_REVISION
-  blurred,
-  tooFar,
-  wrongSubject,
-  // REPORT_SITUATION
-  goneAlready,
-  soldOut,
-  placeClosed,
-  accessDenied,
-  tooCrowdedToShoot,
-  longQueue,
-  // GIVE_UP_BY_RESPONDER
-  personalReason,
-  tooLongDistance,
-  requestUnclear,
+  askQuestion, // 요청자의 질문 행위
+  answerQuestion, // 수행자의 답변 행위
 }
 
 /// '띱' 이벤트와 관련된 모든 행위를 기록하는 핵심 엔티티
@@ -47,7 +27,7 @@ class Interaction {
   final String actorId;
   final ActorRole actorRole;
   final ActionType actionType;
-  final MessageCode? messageCode; // Nullable
+  final String? comment;
   final String? relatedPhotoId; // Nullable (사진과 관련될 경우)
   final DateTime timestamp;
 
@@ -56,7 +36,7 @@ class Interaction {
     required this.actorId,
     required this.actorRole,
     required this.actionType,
-    this.messageCode,
+    this.comment,
     this.relatedPhotoId,
     required this.timestamp,
   });
@@ -67,7 +47,7 @@ class Interaction {
     String? actorId,
     ActorRole? actorRole,
     ActionType? action,
-    MessageCode? messageCode,
+    String? comment,
     String? relatedPhotoId,
     DateTime? timestamp,
   }) {
@@ -76,7 +56,7 @@ class Interaction {
       actorId: actorId ?? this.actorId,
       actorRole: actorRole ?? this.actorRole,
       actionType: action ?? this.actionType,
-      messageCode: messageCode ?? this.messageCode,
+      comment: comment ?? this.comment,
       relatedPhotoId: relatedPhotoId ?? this.relatedPhotoId,
       timestamp: timestamp ?? this.timestamp,
     );

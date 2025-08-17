@@ -2,7 +2,6 @@
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
-import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +11,7 @@ import 'package:go_router/go_router.dart';
 class FullScreenPhotoView extends ConsumerStatefulWidget {
   final String eventId;
   final String photoId;
+
   const FullScreenPhotoView({
     super.key,
     required this.eventId,
@@ -26,9 +26,10 @@ class FullScreenPhotoView extends ConsumerStatefulWidget {
 class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
   bool _isProcessing = false;
 
+  // ▼▼▼ _updateStatus 메서드의 전체 코드를 아래 내용으로 교체합니다. ▼▼▼
   Future<void> _updateStatus(
     PhotoStatus status, {
-    MessageCode? messageCode,
+    String? comment, // [수정] messageCode -> comment
   }) async {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
@@ -40,7 +41,7 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
             widget.eventId,
             widget.photoId,
             status,
-            messageCode: messageCode,
+            comment: comment, // [수정] messageCode -> comment
           );
       if (mounted) {
         context.pop(); // 처리가 끝나면 뒤로가기
@@ -54,31 +55,33 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
       }
     }
   }
+  // ▲▲▲ _updateStatus 메서드의 전체 코드를 여기까지 교체합니다. ▲▲▲
 
-  Future<MessageCode?> _showRejectionReasonDialog() async {
-    // 거절 사유 선택 다이얼로그 (내용은 기존과 동일)
-    return await showDialog<MessageCode>(
+  // ▼▼▼ _showRejectionReasonDialog 메서드의 전체 코드를 아래 내용으로 교체합니다. ▼▼▼
+  /// [교체] 반려 사유를 직접 입력받는 다이얼로그
+  Future<String?> _showRejectionReasonDialog() async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('사진 거절 사유 선택'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('사진이 흐려요'),
-                  onTap: () => Navigator.pop(context, MessageCode.blurred),
-                ),
-                ListTile(
-                  title: const Text('너무 멀리서 찍었어요'),
-                  onTap: () => Navigator.pop(context, MessageCode.tooFar),
-                ),
-                ListTile(
-                  title: const Text('요청한 대상이 아니에요'),
-                  onTap: () => Navigator.pop(context, MessageCode.wrongSubject),
-                ),
-              ],
+          title: const Text('사진 반려 사유 입력'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '최초 요청사항과 어떻게 다른지 알려주세요.',
+              ),
+              autofocus: true,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '반려 사유를 반드시 입력해야 합니다.';
+                }
+                return null;
+              },
             ),
           ),
           actions: <Widget>[
@@ -88,21 +91,28 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
                 Navigator.pop(context, null);
               },
             ),
+            TextButton(
+              child: const Text('확인'),
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(context, controller.text);
+                }
+              },
+            ),
           ],
         );
       },
     );
   }
+  // ▲▲▲ _showRejectionReasonDialog 메서드의 전체 코드를 여기까지 교체합니다. ▲▲▲
 
   @override
   Widget build(BuildContext context) {
-    // 1. [수정] 전역 eventDetailProvider 대신, 상세화면의 ViewModel을 직접 구독합니다.
     final viewModelState = ref.watch(
       eventDetailViewModelProvider(widget.eventId),
     );
     final currentUser = ref.watch(authProvider);
 
-    // 2. [수정] ViewModel의 AsyncValue 상태를 사용하여 로딩/에러/데이터를 안전하게 처리합니다.
     return viewModelState.event.when(
       loading:
           () => const Scaffold(
@@ -120,7 +130,6 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
             ),
           ),
       data: (event) {
-        // ViewModel로부터 받은 최신 event 데이터에서 사진을 찾습니다.
         final photo = event.photos.firstWhereOrNull(
           (p) => p.id == widget.photoId,
         );
@@ -157,11 +166,9 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
                     panEnabled: true,
                     minScale: 1.0,
                     maxScale: 4.0,
-                    // 로컬 파일 경로를 사용하여 이미지를 표시
                     child: Center(child: Image.file(File(photo.url))),
                   ),
                 ),
-                // 요청자이고, 사진이 '대기중' 상태일 때만 액션 버튼을 표시
                 if (isRequester && photo.status == PhotoStatus.pending)
                   _buildActionButtons(),
               ],
@@ -188,15 +195,18 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.thumb_down_alt_outlined),
                       label: const Text('거절'),
+                      // ▼▼▼ '거절' 버튼의 onPressed 로직을 수정합니다. ▼▼▼
                       onPressed: () async {
                         final reason = await _showRejectionReasonDialog();
                         if (reason != null) {
+                          // 사용자가 취소하지 않은 경우
                           _updateStatus(
                             PhotoStatus.rejected,
-                            messageCode: reason,
+                            comment: reason, // [수정] 입력받은 텍스트를 comment로 전달
                           );
                         }
                       },
+                      // ▲▲▲ '거절' 버튼의 onPressed 로직을 여기까지 수정합니다. ▲▲▲
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
@@ -209,7 +219,10 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.thumb_up_alt_outlined),
                       label: const Text('승인'),
-                      onPressed: () => _updateStatus(PhotoStatus.approved),
+                      onPressed:
+                          () => _updateStatus(
+                            PhotoStatus.approved,
+                          ), // 승인 시에는 코멘트 없음
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,

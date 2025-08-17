@@ -13,7 +13,7 @@ _$InteractionModelImpl _$$InteractionModelImplFromJson(
   actorId: json['actorId'] as String,
   actorRole: json['actorRole'] as String,
   actionType: json['actionType'] as String,
-  messageCode: json['messageCode'] as String?,
+  comment: json['comment'] as String?,
   relatedPhotoId: json['relatedPhotoId'] as String?,
   timestamp: DateTime.parse(json['timestamp'] as String),
 );
@@ -25,7 +25,7 @@ Map<String, dynamic> _$$InteractionModelImplToJson(
   'actorId': instance.actorId,
   'actorRole': instance.actorRole,
   'actionType': instance.actionType,
-  'messageCode': instance.messageCode,
+  'comment': instance.comment,
   'relatedPhotoId': instance.relatedPhotoId,
   'timestamp': instance.timestamp.toIso8601String(),
 };

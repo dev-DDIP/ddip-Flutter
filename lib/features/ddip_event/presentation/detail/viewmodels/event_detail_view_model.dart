@@ -165,6 +165,59 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
     }
   }
 
+  /// 텍스트 입력을 위한 공용 다이얼로그를 표시하는 헬퍼 메서드.
+  /// [isRequired]가 true이면 빈 문자열을 제출할 수 없습니다.
+  Future<String?> _showTextInputDialog(
+    BuildContext context, {
+    required String title,
+    String hintText = '내용을 입력하세요...',
+    bool isRequired = true,
+  }) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(hintText: hintText),
+              autofocus: true,
+              validator:
+                  isRequired
+                      ? (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '내용을 입력해주세요.';
+                        }
+                        return null;
+                      }
+                      : null,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (isRequired && !formKey.currentState!.validate()) {
+                  return;
+                }
+                Navigator.pop(context, controller.text);
+              },
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // 사진 제출과 관련된 전체 흐름을 담당하는 내부 메서드
   Future<void> _processPhotoSubmission(BuildContext context) async {
     state = state.copyWith(isProcessing: true);
@@ -174,27 +227,26 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
         context,
         MaterialPageRoute(builder: (context) => const CameraScreen()),
       );
-      // 사용자가 사진을 찍지 않고 뒤로가기 한 경우
       if (imagePath == null || !context.mounted) {
         state = state.copyWith(isProcessing: false);
         return;
       }
 
-      // 2. 제출 옵션 다이얼로그를 띄워 추가 정보를 받습니다.
-      final submissionResult = await _showSubmissionOptionsDialog(context);
-      // 사용자가 다이얼로그에서 '취소'를 누른 경우
-      if (submissionResult == null) {
-        state = state.copyWith(isProcessing: false);
-        return;
-      }
+      // 2. [수정] 수행자 코멘트를 (선택적으로) 입력받는 다이얼로그를 띄웁니다.
+      final responderComment = await _showTextInputDialog(
+        context,
+        title: '코멘트 추가 (선택)',
+        hintText: '사진에 대한 부연 설명을 남길 수 있습니다.',
+        isRequired: false, // 코멘트는 선택 사항
+      );
 
+      // 사용자가 다이얼로그를 그냥 닫은 경우에도 진행은 계속됩니다 (코멘트만 null).
       // 3. 최종적으로 사진과 추가 정보를 제출하는 로직을 호출합니다.
       await submitPhoto(
         imagePath: imagePath,
-        submissionResult: submissionResult,
+        responderComment: responderComment, // 입력받은 코멘트 전달
       );
     } catch (e) {
-      // 에러 처리
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -331,99 +383,114 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
     return SliverMainAxisGroup(slivers: [header, body]);
   }
 
-  // 사진 제출 시 옵션을 선택하는 다이얼로그를 보여주는 메서드
-  Future<Map<String, dynamic>?> _showSubmissionOptionsDialog(
-    BuildContext context,
-  ) async {
-    return await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('수행 옵션 선택'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                const Text('현장 상황을 선택해주세요.'),
-                const SizedBox(height: 16),
-                // --- 단순 사진 제출 ---
-                ElevatedButton(
-                  child: const Text('단순 사진 제출'),
-                  onPressed:
-                      () => Navigator.pop(context, {
-                        'action': ActionType.submitPhoto,
-                        'message': null,
-                      }),
-                ),
-                const Divider(height: 24),
-                // --- 특별 상황 보고 ---
-                const Text('또는, 특별한 상황 보고:'),
-                ListTile(
-                  title: const Text('재료가 소진되어 마감됐어요.'),
-                  onTap:
-                      () => Navigator.pop(context, {
-                        'action': ActionType.reportSituation,
-                        'message': MessageCode.soldOut,
-                      }),
-                ),
-                ListTile(
-                  title: const Text('대기 줄이 너무 길어요.'),
-                  onTap:
-                      () => Navigator.pop(context, {
-                        'action': ActionType.reportSituation,
-                        'message': MessageCode.longQueue,
-                      }),
-                ),
-                ListTile(
-                  title: const Text('요청 장소가 현재 닫혀있어요.'),
-                  onTap:
-                      () => Navigator.pop(context, {
-                        'action': ActionType.reportSituation,
-                        'message': MessageCode.placeClosed,
-                      }),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('취소'),
-              onPressed: () => Navigator.pop(context, null),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   /// 사진 제출 비즈니스 로직의 '후반부'를 담당하는 메서드
   Future<void> submitPhoto({
     required String imagePath,
-    required Map<String, dynamic> submissionResult,
+    String? responderComment, // [추가] 수행자 코멘트 파라미터
   }) async {
     try {
-      // 1. geolocator로 현재 위치를 정확하게 가져옵니다.
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      // 2. 제출할 Photo 객체를 생성합니다.
+      // [수정] Photo 객체 생성 시, responderComment 필드를 채워줍니다.
       final newPhoto = Photo(
         id: const Uuid().v4(),
         url: imagePath,
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
+        responderComment: responderComment, // 코멘트 저장
       );
-      // 3. DdipEventsNotifier에 최종 데이터를 전달하여 상태 업데이트를 요청합니다.
+
+      // [수정] Notifier에 Photo 객체와 함께 comment도 전달합니다.
       await _ref
           .read(ddipEventsNotifierProvider.notifier)
           .addPhoto(
             _eventId,
-            newPhoto,
-            action: submissionResult['action'] as ActionType,
-            messageCode: submissionResult['message'] as MessageCode?,
+            newPhoto, // 모든 정보가 담긴 Photo 객체
+            action: ActionType.submitPhoto,
+            comment: responderComment, // Interaction 기록용 코멘트
           );
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// 요청자가 사진에 대해 질문을 남기는 메서드
+  Future<void> askQuestion(BuildContext context, String photoId) async {
+    final question = await _showTextInputDialog(
+      context,
+      title: '질문하기',
+      hintText: '사진에서 파악하기 어려운 점을 질문해주세요.',
+      isRequired: true,
+    );
+
+    if (question != null && question.trim().isNotEmpty) {
+      state = state.copyWith(isProcessing: true);
+      try {
+        // Notifier에 새로운 메서드를 호출해야 하지만, 우선 Interaction을 직접 생성하는 로직으로 대체
+        // TODO: Notifier에 askQuestion 로직 구현 후 호출
+        final event = state.event.value;
+        if (event == null) return;
+
+        final newInteraction = Interaction(
+          id: Uuid().v4(),
+          actorId: _ref.read(authProvider)!.id,
+          actorRole: ActorRole.requester,
+          actionType: ActionType.askQuestion,
+          comment: question,
+          relatedPhotoId: photoId,
+          timestamp: DateTime.now(),
+        );
+        // ... (상태 업데이트 로직)
+        print('질문 제출: $question');
+      } finally {
+        if (mounted) state = state.copyWith(isProcessing: false);
+      }
+    }
+  }
+
+  /// 수행자가 요청자의 질문에 답변하는 메서드
+  Future<void> answerQuestion(BuildContext context, String photoId) async {
+    final answer = await _showTextInputDialog(
+      context,
+      title: '답변하기',
+      hintText: '요청자의 질문에 대해 답변해주세요.',
+      isRequired: true,
+    );
+
+    if (answer != null && answer.trim().isNotEmpty) {
+      state = state.copyWith(isProcessing: true);
+      try {
+        // TODO: Notifier에 answerQuestion 로직 구현 후 호출
+        print('답변 제출: $answer');
+      } finally {
+        if (mounted) state = state.copyWith(isProcessing: false);
+      }
+    }
+  }
+
+  /// 요청자가 사진을 반려하는 메서드
+  Future<void> rejectPhotoWithReason(
+    BuildContext context,
+    String photoId,
+  ) async {
+    final reason = await _showTextInputDialog(
+      context,
+      title: '사진 반려 사유 입력',
+      hintText: '최초 요청사항과 어떻게 다른지 구체적으로 작성해주세요.',
+      isRequired: true,
+    );
+
+    if (reason != null && reason.trim().isNotEmpty) {
+      await _ref
+          .read(ddipEventsNotifierProvider.notifier)
+          .updatePhotoStatus(
+            _eventId,
+            photoId,
+            PhotoStatus.rejected,
+            comment: reason,
+          );
     }
   }
 }

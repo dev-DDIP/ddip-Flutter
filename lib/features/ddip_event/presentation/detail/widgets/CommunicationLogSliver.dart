@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 
 /// '커뮤니케이션 로그' UI를 그리는 모든 책임을 가지는 전용 Sliver 위젯입니다.
 class CommunicationLogSliver extends ConsumerWidget {
@@ -88,16 +89,32 @@ class CommunicationLogSliver extends ConsumerWidget {
     Interaction interaction,
     DdipEvent event,
   ) {
+    // [수정] interaction에 comment가 있으면 그것을 최우선으로 표시
+    if (interaction.comment != null && interaction.comment!.trim().isNotEmpty) {
+      // ActionType에 따라 말머리를 붙여주면 더 자연스러움
+      switch (interaction.actionType) {
+        case ActionType.askQuestion:
+          return '질문: ${interaction.comment}';
+        case ActionType.answerQuestion:
+          return '답변: ${interaction.comment}';
+        case ActionType.requestRevision:
+          return '반려 사유: ${interaction.comment}';
+        default:
+          return interaction.comment!;
+      }
+    }
+
+    // comment가 없는 경우, 기존처럼 ActionType에 따라 기본 메시지 생성
     switch (interaction.actionType) {
       case ActionType.selectResponder:
         final responderName =
             ref
                 .watch(mockUsersProvider)
-                .firstWhere(
+                .firstWhereOrNull(
                   (user) => user.id == event.selectedResponderId,
-                  orElse: () => User(id: '', name: '수행자'),
                 )
-                .name;
+                ?.name ??
+            '수행자';
         return '🤝 $responderName 님과 매칭되었습니다. 지금부터 미션을 시작해주세요!';
       case ActionType.submitPhoto:
         return '사진을 제출했어요. 확인해주세요!';

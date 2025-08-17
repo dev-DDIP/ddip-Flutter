@@ -33,7 +33,7 @@ abstract class DdipEventRepository {
     String eventId,
     Photo photo, {
     required ActionType action,
-    MessageCode? messageCode,
+    String? comment,
   });
 
   /// 요청자가 제출된 사진에 대해 피드백(승인/거절)을 남기는 기능을 요구합니다.
@@ -41,7 +41,7 @@ abstract class DdipEventRepository {
     String eventId,
     String photoId,
     PhotoStatus status, {
-    MessageCode? messageCode,
+    String? comment,
   });
 
   /// WebSocket 연결을 시뮬레이션하는 Stream을 반환합니다.

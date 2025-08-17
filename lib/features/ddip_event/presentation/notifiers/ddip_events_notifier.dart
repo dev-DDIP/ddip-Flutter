@@ -175,31 +175,32 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
     String eventId,
     Photo photo, {
     ActionType action = ActionType.submitPhoto,
-    MessageCode? messageCode,
+    String? comment, // [수정] MessageCode -> String?
   }) async {
-    final previousState = state.value; // .valueOrNull 대신 .value 사용
+    final previousState = state.value;
     if (previousState == null) return;
-
     try {
       final repository = _ref.read(ddipEventRepositoryProvider);
+      // [수정] Repository에 comment를 그대로 전달합니다.
       await repository.addPhoto(
         eventId,
         photo,
         action: action,
-        messageCode: messageCode,
+        comment: comment,
       );
 
-      // [수정] previousState.events.map으로 수정
       final newEvents =
           previousState.events.map((event) {
             if (event.id == eventId) {
+              // [수정] ViewModel에서 이미 comment가 포함된 photo 객체를 생성하여 전달하므로,
+              // 여기서는 전달받은 photo 객체를 그대로 리스트에 추가하기만 하면 됩니다.
               final newPhotos = [...event.photos, photo];
               final newInteraction = Interaction(
                 id: photo.id,
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.responder,
                 actionType: action,
-                messageCode: messageCode,
+                comment: comment, // [수정] Interaction 로그에도 comment를 기록합니다.
                 relatedPhotoId: photo.id,
                 timestamp: DateTime.now(),
               );
@@ -211,8 +212,6 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
             }
             return event;
           }).toList();
-
-      // [수정] copyWith로 상태 업데이트
       state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
       rethrow;
@@ -224,28 +223,31 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
     String eventId,
     String photoId,
     PhotoStatus status, {
-    MessageCode? messageCode,
+    String? comment, // [수정] MessageCode -> String?
   }) async {
-    final previousState = state.value; // .valueOrNull 대신 .value 사용
+    final previousState = state.value;
     if (previousState == null) return;
-
     try {
       final repository = _ref.read(ddipEventRepositoryProvider);
+      // [수정] Repository에 comment(반려 사유 등)를 그대로 전달합니다.
       await repository.updatePhotoStatus(
         eventId,
         photoId,
         status,
-        messageCode: messageCode,
+        comment: comment,
       );
-
-      // [수정] previousState.events.map으로 수정
       final newEvents =
           previousState.events.map((event) {
             if (event.id == eventId) {
               final newPhotos =
                   event.photos.map((p) {
                     if (p.id == photoId) {
-                      return p.copyWith(status: status);
+                      // [수정] 반려 시 Photo 객체에 반려 사유도 함께 기록합니다.
+                      return p.copyWith(
+                        status: status,
+                        rejectionReason:
+                            status == PhotoStatus.rejected ? comment : null,
+                      );
                     }
                     return p;
                   }).toList();
@@ -271,7 +273,7 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
                     status == PhotoStatus.approved
                         ? ActionType.approve
                         : ActionType.requestRevision,
-                messageCode: messageCode,
+                comment: comment, // [수정] Interaction 로그에도 코멘트를 기록합니다.
                 relatedPhotoId: photoId,
                 timestamp: DateTime.now(),
               );
@@ -284,8 +286,6 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
             }
             return event;
           }).toList();
-
-      // [수정] copyWith로 상태 업데이트
       state = AsyncValue.data(previousState.copyWith(events: newEvents));
     } catch (e) {
       rethrow;

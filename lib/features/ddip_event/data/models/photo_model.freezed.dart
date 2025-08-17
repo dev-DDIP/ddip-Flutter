@@ -29,6 +29,10 @@ mixin _$PhotoModel {
   double get longitude => throw _privateConstructorUsedError;
   DateTime get timestamp => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
+  String? get responderComment => throw _privateConstructorUsedError;
+  String? get requesterQuestion => throw _privateConstructorUsedError;
+  String? get responderAnswer => throw _privateConstructorUsedError;
+  String? get rejectionReason => throw _privateConstructorUsedError;
 
   /// Serializes this PhotoModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -54,6 +58,10 @@ abstract class $PhotoModelCopyWith<$Res> {
     double longitude,
     DateTime timestamp,
     String status,
+    String? responderComment,
+    String? requesterQuestion,
+    String? responderAnswer,
+    String? rejectionReason,
   });
 }
 
@@ -78,6 +86,10 @@ class _$PhotoModelCopyWithImpl<$Res, $Val extends PhotoModel>
     Object? longitude = null,
     Object? timestamp = null,
     Object? status = null,
+    Object? responderComment = freezed,
+    Object? requesterQuestion = freezed,
+    Object? responderAnswer = freezed,
+    Object? rejectionReason = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -111,6 +123,26 @@ class _$PhotoModelCopyWithImpl<$Res, $Val extends PhotoModel>
                     ? _value.status
                     : status // ignore: cast_nullable_to_non_nullable
                         as String,
+            responderComment:
+                freezed == responderComment
+                    ? _value.responderComment
+                    : responderComment // ignore: cast_nullable_to_non_nullable
+                        as String?,
+            requesterQuestion:
+                freezed == requesterQuestion
+                    ? _value.requesterQuestion
+                    : requesterQuestion // ignore: cast_nullable_to_non_nullable
+                        as String?,
+            responderAnswer:
+                freezed == responderAnswer
+                    ? _value.responderAnswer
+                    : responderAnswer // ignore: cast_nullable_to_non_nullable
+                        as String?,
+            rejectionReason:
+                freezed == rejectionReason
+                    ? _value.rejectionReason
+                    : rejectionReason // ignore: cast_nullable_to_non_nullable
+                        as String?,
           )
           as $Val,
     );
@@ -133,6 +165,10 @@ abstract class _$$PhotoModelImplCopyWith<$Res>
     double longitude,
     DateTime timestamp,
     String status,
+    String? responderComment,
+    String? requesterQuestion,
+    String? responderAnswer,
+    String? rejectionReason,
   });
 }
 
@@ -156,6 +192,10 @@ class __$$PhotoModelImplCopyWithImpl<$Res>
     Object? longitude = null,
     Object? timestamp = null,
     Object? status = null,
+    Object? responderComment = freezed,
+    Object? requesterQuestion = freezed,
+    Object? responderAnswer = freezed,
+    Object? rejectionReason = freezed,
   }) {
     return _then(
       _$PhotoModelImpl(
@@ -189,6 +229,26 @@ class __$$PhotoModelImplCopyWithImpl<$Res>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                     as String,
+        responderComment:
+            freezed == responderComment
+                ? _value.responderComment
+                : responderComment // ignore: cast_nullable_to_non_nullable
+                    as String?,
+        requesterQuestion:
+            freezed == requesterQuestion
+                ? _value.requesterQuestion
+                : requesterQuestion // ignore: cast_nullable_to_non_nullable
+                    as String?,
+        responderAnswer:
+            freezed == responderAnswer
+                ? _value.responderAnswer
+                : responderAnswer // ignore: cast_nullable_to_non_nullable
+                    as String?,
+        rejectionReason:
+            freezed == rejectionReason
+                ? _value.rejectionReason
+                : rejectionReason // ignore: cast_nullable_to_non_nullable
+                    as String?,
       ),
     );
   }
@@ -204,6 +264,10 @@ class _$PhotoModelImpl extends _PhotoModel {
     required this.longitude,
     required this.timestamp,
     required this.status,
+    this.responderComment,
+    this.requesterQuestion,
+    this.responderAnswer,
+    this.rejectionReason,
   }) : super._();
 
   factory _$PhotoModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -223,10 +287,18 @@ class _$PhotoModelImpl extends _PhotoModel {
   final DateTime timestamp;
   @override
   final String status;
+  @override
+  final String? responderComment;
+  @override
+  final String? requesterQuestion;
+  @override
+  final String? responderAnswer;
+  @override
+  final String? rejectionReason;
 
   @override
   String toString() {
-    return 'PhotoModel(id: $id, url: $url, latitude: $latitude, longitude: $longitude, timestamp: $timestamp, status: $status)';
+    return 'PhotoModel(id: $id, url: $url, latitude: $latitude, longitude: $longitude, timestamp: $timestamp, status: $status, responderComment: $responderComment, requesterQuestion: $requesterQuestion, responderAnswer: $responderAnswer, rejectionReason: $rejectionReason)';
   }
 
   @override
@@ -242,13 +314,32 @@ class _$PhotoModelImpl extends _PhotoModel {
                 other.longitude == longitude) &&
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
-            (identical(other.status, status) || other.status == status));
+            (identical(other.status, status) || other.status == status) &&
+            (identical(other.responderComment, responderComment) ||
+                other.responderComment == responderComment) &&
+            (identical(other.requesterQuestion, requesterQuestion) ||
+                other.requesterQuestion == requesterQuestion) &&
+            (identical(other.responderAnswer, responderAnswer) ||
+                other.responderAnswer == responderAnswer) &&
+            (identical(other.rejectionReason, rejectionReason) ||
+                other.rejectionReason == rejectionReason));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, url, latitude, longitude, timestamp, status);
+  int get hashCode => Object.hash(
+    runtimeType,
+    id,
+    url,
+    latitude,
+    longitude,
+    timestamp,
+    status,
+    responderComment,
+    requesterQuestion,
+    responderAnswer,
+    rejectionReason,
+  );
 
   /// Create a copy of PhotoModel
   /// with the given fields replaced by the non-null parameter values.
@@ -272,6 +363,10 @@ abstract class _PhotoModel extends PhotoModel {
     required final double longitude,
     required final DateTime timestamp,
     required final String status,
+    final String? responderComment,
+    final String? requesterQuestion,
+    final String? responderAnswer,
+    final String? rejectionReason,
   }) = _$PhotoModelImpl;
   const _PhotoModel._() : super._();
 
@@ -292,6 +387,14 @@ abstract class _PhotoModel extends PhotoModel {
   DateTime get timestamp;
   @override
   String get status;
+  @override
+  String? get responderComment;
+  @override
+  String? get requesterQuestion;
+  @override
+  String? get responderAnswer;
+  @override
+  String? get rejectionReason;
 
   /// Create a copy of PhotoModel
   /// with the given fields replaced by the non-null parameter values.

@@ -67,7 +67,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     String eventId,
     Photo photo, {
     required ActionType action,
-    MessageCode? messageCode,
+    String? comment, // [수정] messageCode -> comment
   }) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final index = _ddipEvents.indexWhere((event) => event.id == eventId);
@@ -76,24 +76,25 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       final currentUser = ref.read(authProvider);
       if (currentUser == null) throw Exception("User not logged in");
 
-      // 1. 새로운 사진을 photos 리스트에 추가합니다.
+      // [수정] Photo 객체는 이제 모든 정보를 담아서 파라미터로 전달받으므로,
+      // 여기서는 photo.responderComment에 comment를 별도로 할당할 필요가 없습니다.
+      // 뷰모델 단에서 Photo 객체를 만들 때 comment를 포함해서 만들게 됩니다.
       final newPhotos = List<Photo>.from(event.photos)..add(photo);
 
-      // 2. 새로운 Interaction 로그를 생성합니다.
+      // 새로운 Interaction 로그를 생성합니다.
       final newInteraction = Interaction(
         id: const Uuid().v4(),
         actorId: currentUser.id,
         actorRole: ActorRole.responder,
         actionType: action,
-        messageCode: messageCode,
+        comment: comment,
+        // [수정] messageCode -> comment
         relatedPhotoId: photo.id,
-        // 이 상호작용이 어떤 사진과 관련있는지 명시
         timestamp: DateTime.now(),
       );
       final newInteractions = List<Interaction>.from(event.interactions)
         ..add(newInteraction);
-
-      // 3. 사진과 상호작용 로그가 모두 업데이트된 새로운 이벤트 객체를 만듭니다.
+      // 사진과 상호작용 로그가 모두 업데이트된 새로운 이벤트 객체를 만듭니다.
       final updatedEvent = event.copyWith(
         photos: newPhotos,
         interactions: newInteractions,
@@ -109,7 +110,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     String eventId,
     String photoId,
     PhotoStatus status, {
-    MessageCode? messageCode,
+    String? comment, // [수정] messageCode -> comment (반려 사유 등이 담김)
   }) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final eventIndex = _ddipEvents.indexWhere((event) => event.id == eventId);
@@ -118,15 +119,16 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       final event = _ddipEvents[eventIndex];
       final currentUser = ref.read(authProvider);
       if (currentUser == null) throw Exception("User not logged in");
-
       final photoIndex = event.photos.indexWhere((p) => p.id == photoId);
       if (photoIndex != -1) {
-        // 1. 사진의 상태를 업데이트합니다.
-        final updatedPhoto = event.photos[photoIndex].copyWith(status: status);
+        // [수정] 사진의 상태와 반려 사유를 함께 업데이트합니다.
+        final updatedPhoto = event.photos[photoIndex].copyWith(
+          status: status,
+          rejectionReason: status == PhotoStatus.rejected ? comment : null,
+        );
         final newPhotos = List<Photo>.from(event.photos);
         newPhotos[photoIndex] = updatedPhoto;
 
-        // 2. 이벤트의 최종 상태를 결정합니다.
         DdipEventStatus newEventStatus = event.status;
         if (status == PhotoStatus.approved) {
           newEventStatus = DdipEventStatus.completed;
@@ -136,7 +138,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           newEventStatus = DdipEventStatus.failed;
         }
 
-        // 3. 새로운 Interaction 로그를 생성합니다.
+        // 새로운 Interaction 로그를 생성합니다.
         final newInteraction = Interaction(
           id: const Uuid().v4(),
           actorId: currentUser.id,
@@ -145,14 +147,14 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
               status == PhotoStatus.approved
                   ? ActionType.approve
                   : ActionType.requestRevision,
-          messageCode: messageCode,
+          comment: comment,
+          // [수정] 반려 사유 또는 승인 코멘트가 담길 수 있음
           relatedPhotoId: photoId,
           timestamp: DateTime.now(),
         );
         final newInteractions = List<Interaction>.from(event.interactions)
           ..add(newInteraction);
-
-        // 4. 모든 변경사항을 반영한 최종 이벤트 객체를 만듭니다.
+        // 모든 변경사항을 반영한 최종 이벤트 객체를 만듭니다.
         final updatedEvent = event.copyWith(
           photos: newPhotos,
           status: newEventStatus,
