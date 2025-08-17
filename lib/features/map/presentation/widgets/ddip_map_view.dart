@@ -102,7 +102,10 @@ class _DdipMapViewState extends ConsumerState<DdipMapView> {
         contentPadding: EdgeInsets.only(bottom: widget.bottomPadding),
       ),
       clusterOptions: NaverMapClusteringOptions(
-        enableZoomRange: const NInclusiveRange(0, 15),
+        enableZoomRange: const NInclusiveRange(
+          0,
+          10,
+        ), // 클러스터링을 0~10 줌 레벨에서만 활성화합니다. 기존에는 15였음
         mergeStrategy: NClusterMergeStrategy(
           willMergedScreenDistance: const {
             NInclusiveRange(15, 15): 70,

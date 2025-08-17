@@ -16,7 +16,7 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeCamera();    // 화면이 생성될 때 카메라 초기화를 시작합니다.
+    _initializeCamera(); // 화면이 생성될 때 카메라 초기화를 시작합니다.
   }
 
   Future<void> _initializeCamera() async {
@@ -39,7 +39,9 @@ class _CameraScreenState extends State<CameraScreen> {
       // 3. 컨트롤러를 실제 하드웨어와 연결(초기화)합니다.
       await cameraController.initialize();
 
-      await cameraController.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      await cameraController.lockCaptureOrientation(
+        DeviceOrientation.portraitUp,
+      );
 
       // 4. 초기화가 성공적으로 끝나면, setState를 호출하여 위젯을 다시 빌드합니다.
       //    mounted 체크는 비동기 작업 후 setState를 안전하게 호출하기 위한 좋은 습관입니다.
@@ -74,7 +76,9 @@ class _CameraScreenState extends State<CameraScreen> {
       // 이렇게 하면 사용자가 폰을 가로로 눕혀 찍어도 사진이 올바르게 저장됩니다.
       final orientation = MediaQuery.of(context).orientation;
       if (orientation == Orientation.landscape) {
-        await _controller!.lockCaptureOrientation(DeviceOrientation.landscapeLeft);
+        await _controller!.lockCaptureOrientation(
+          DeviceOrientation.landscapeLeft,
+        );
       } else {
         await _controller!.lockCaptureOrientation(DeviceOrientation.portraitUp);
       }
