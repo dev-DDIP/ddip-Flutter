@@ -61,6 +61,7 @@ dependencies:
   percent_indicator: ^4.2.3
   riverpod_annotation: ^2.3.5
   app_settings: ^6.1.1
+  image_picker: ^1.1.2 # 최신 버전 확인 후 추가
 
 
 dev_dependencies:

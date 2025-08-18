@@ -4,17 +4,18 @@ import 'dart:async';
 
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
-import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/CommunicationLogSliver.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 part 'event_detail_view_model.freezed.dart';
@@ -257,43 +258,24 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   // 사진 제출과 관련된 전체 흐름을 담당하는 내부 메서드
   Future<void> _processPhotoSubmission(BuildContext context) async {
-    state = state.copyWith(isProcessing: true);
     try {
-      // 1. 카메라 화면으로 이동하여 사진 경로를 받아옵니다.
-      final imagePath = await Navigator.push<String>(
-        context,
-        MaterialPageRoute(builder: (context) => const CameraScreen()),
-      );
-      if (imagePath == null || !context.mounted) {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+      if (image == null || !context.mounted) {
         state = state.copyWith(isProcessing: false);
         return;
       }
 
-      // 2. [수정] 수행자 코멘트를 (선택적으로) 입력받는 다이얼로그를 띄웁니다.
-      final responderComment = await _showTextInputDialog(
-        context,
-        title: '코멘트 추가 (선택)',
-        hintText: '사진에 대한 부연 설명을 남길 수 있습니다.',
-        isRequired: false, // 코멘트는 선택 사항
-      );
-
-      // 사용자가 다이얼로그를 그냥 닫은 경우에도 진행은 계속됩니다 (코멘트만 null).
-      // 3. 최종적으로 사진과 추가 정보를 제출하는 로직을 호출합니다.
-      await submitPhoto(
-        imagePath: imagePath,
-        responderComment: responderComment, // 입력받은 코멘트 전달
-      );
+      // 코멘트를 묻는 과정 없이, 사진 경로만 가지고 바로 submitPhoto를 호출합니다.
+      await submitPhoto(imagePath: image.path);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+        ).showSnackBar(SnackBar(content: Text('사진을 가져오는 중 오류가 발생했습니다: $e')));
       }
       rethrow;
-    } finally {
-      if (mounted) {
-        state = state.copyWith(isProcessing: false);
-      }
     }
   }
 
@@ -301,53 +283,41 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   List<Widget> buildMissionLogSlivers(DdipEvent event) {
     final List<Widget> slivers = [];
 
-    // 공통 영역: 미션 상세 내용
+    // 1. 공통 영역: 요청 상세 내용 카드를 먼저 추가합니다.
     slivers.add(
-      SliverToBoxAdapter(
-        child: Card(
-          elevation: 0,
-          color: Colors.grey.shade50,
-          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              event.content,
-              style: const TextStyle(fontSize: 15, height: 1.6),
-            ),
-          ),
-        ),
-      ),
+      SliverToBoxAdapter(child: DetailedRequestCard(content: event.content)),
     );
 
-    // 상태별 분기
+    // 2. 상태별 분기: 미션 상태에 따라 다른 Sliver를 추가합니다.
     switch (event.status) {
+      // '지원 가능' 상태일 때는 '수행자 목록' Sliver를 추가합니다.
       case DdipEventStatus.open:
         slivers.add(_buildApplicantListSliver(event));
         break;
+      // 그 외의 상태(진행중, 완료, 실패)일 때는 '활동 타임라인' Sliver를 추가합니다.
       case DdipEventStatus.in_progress:
       case DdipEventStatus.completed:
       case DdipEventStatus.failed:
-        // 방금 만든 CommunicationLogSliver 위젯을 여기에 추가합니다.
         slivers.add(CommunicationLogSliver(event: event));
         break;
     }
     return slivers;
   }
 
-  /// '지원자 목록'을 표시하는 SliverList를 생성하는 헬퍼 메서드입니다.
+  /// '수행자 목록'을 표시하는 SliverList를 생성하는 헬퍼 메서드입니다.
   Widget _buildApplicantListSliver(DdipEvent event) {
     // Sliver 위젯의 헤더 부분
     final header = SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20.0, 16.0, 16.0, 8.0),
         child: Text(
-          '지원자 목록 (${event.applicants.length}명)',
+          '수행자 목록 (${event.applicants.length}명)',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
 
-    // 지원자가 없으면 헤더와 안내 메시지만 표시
+    // 수행자가 없으면 헤더와 안내 메시지만 표시
     if (event.applicants.isEmpty) {
       return SliverList(
         delegate: SliverChildListDelegate([
@@ -356,7 +326,7 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
             padding: EdgeInsets.symmetric(vertical: 40.0),
             child: Center(
               child: Text(
-                '아직 지원자가 없습니다.',
+                '아직 수행자가 없습니다.',
                 style: TextStyle(color: Colors.grey),
               ),
             ),
@@ -365,7 +335,7 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       );
     }
 
-    // 지원자 목록을 렌더링하는 SliverList 본문
+    // 수행자 목록을 렌더링하는 SliverList 본문
     final body = SliverList.builder(
       itemCount: event.applicants.length,
       itemBuilder: (context, index) {
@@ -421,36 +391,34 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   }
 
   /// 사진 제출 비즈니스 로직의 '후반부'를 담당하는 메서드
-  Future<void> submitPhoto({
-    required String imagePath,
-    String? responderComment,
-  }) async {
+  Future<void> submitPhoto({required String imagePath}) async {
     try {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
       final newPhoto = Photo(
         id: const Uuid().v4(),
         url: imagePath,
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
-        // responderComment: responderComment, // Photo 엔티티에 이 필드가 있어야 합니다.
+        // 코멘트 없이 Photo 객체 생성
       );
 
-      // Notifier에는 Photo 객체 하나만 전달하도록 간소화합니다.
-      await _ref
+      final updatedEvent = await _ref
           .read(ddipEventsNotifierProvider.notifier)
-          .addPhoto(
-            _eventId,
-            newPhoto,
-            action: ActionType.submitPhoto,
-            // comment 파라미터는 제거합니다. Notifier가 Photo 객체에서 직접 꺼내 쓰도록 합니다.
-          );
+          .addPhoto(_eventId, newPhoto, action: ActionType.submitPhoto);
+
+      _updateStateFromEvent(updatedEvent);
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<void> addCommentToPhoto(String photoId, String comment) async {
+    // TODO: Notifier에 사진 코멘트를 업데이트하는 로직을 호출하도록 구현해야 합니다.
+    print('코멘트 추가: [사진 ID: $photoId] $comment');
+    // 예: await _ref.read(ddipEventsNotifierProvider.notifier).addComment(photoId, comment);
   }
 
   Future<void> askQuestion(String photoId, String question) async {

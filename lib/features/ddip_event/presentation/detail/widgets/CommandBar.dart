@@ -65,16 +65,9 @@ class CommandBar extends ConsumerWidget {
     switch (event.status) {
       case DdipEventStatus.open:
         if (isRequester) {
-          return _buildStyledButton(
-            text: '수행자 선택하기',
-            // 지원자가 있을 때만 버튼 활성화
-            onPressed:
-                event.applicants.isNotEmpty
-                    ? () {
-                      // TODO: 지원자 선택 BottomSheet 띄우기 로직 연결
-                      print('수행자 선택하기 버튼 클릭');
-                    }
-                    : null,
+          return const _StatusIndicator(
+            icon: Icons.person_search_outlined,
+            text: '수행자 목록에서 원하는 수행자를 선택해주세요.',
           );
         } else if (hasApplied) {
           return const _StatusIndicator(

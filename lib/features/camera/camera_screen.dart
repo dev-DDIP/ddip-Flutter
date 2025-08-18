@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:ddip/features/camera/photo_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -65,31 +66,28 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _takePicture() async {
-    // 컨트롤러가 준비되지 않았으면 아무것도 하지 않습니다.
     if (_controller == null || !_controller!.value.isInitialized) {
       print('카메라가 준비되지 않았습니다.');
       return;
     }
 
     try {
-      // 사진 촬영 직전에 현재 기기 방향에 맞춰 촬영 방향을 설정합니다.
-      // 이렇게 하면 사용자가 폰을 가로로 눕혀 찍어도 사진이 올바르게 저장됩니다.
-      final orientation = MediaQuery.of(context).orientation;
-      if (orientation == Orientation.landscape) {
-        await _controller!.lockCaptureOrientation(
-          DeviceOrientation.landscapeLeft,
-        );
-      } else {
-        await _controller!.lockCaptureOrientation(DeviceOrientation.portraitUp);
-      }
-
-      // 사진을 찍고, 결과물(XFile)을 받습니다.
+      // 사진을 찍습니다.
       final image = await _controller!.takePicture();
 
-      // TODO: 찍은 사진 처리 (지금은 경로 출력 및 화면 닫기)
-      print('사진 찍힘: ${image.path}');
-      if (mounted) {
-        Navigator.pop(context, image.path);
+      if (!mounted) return;
+
+      // 촬영 후, 미리보기 화면으로 이동하고 결과를 기다립니다.
+      final result = await Navigator.of(context).push<PhotoSubmissionResult?>(
+        MaterialPageRoute(
+          builder: (context) => PhotoPreviewScreen(image: image),
+        ),
+      );
+
+      // 만약 미리보기 화면에서 '전송하기'를 눌러 결과값이 넘어왔다면,
+      // 그 결과값을 가지고 카메라 화면도 닫습니다.
+      if (mounted && result != null) {
+        Navigator.of(context).pop(result);
       }
     } catch (e) {
       print("사진 촬영 오류: $e");

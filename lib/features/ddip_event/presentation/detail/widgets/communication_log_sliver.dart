@@ -103,18 +103,48 @@ class CommunicationLogSliver extends ConsumerWidget {
 }
 
 /// 사진 제출과 관련된 모든 정보(사진, 코멘트, Q&A)를 담는 카드 위젯
-class _PhotoSubmissionCard extends ConsumerWidget {
+class _PhotoSubmissionCard extends ConsumerStatefulWidget {
   final DdipEvent event;
   final Photo photo;
 
   const _PhotoSubmissionCard({required this.event, required this.photo});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PhotoSubmissionCard> createState() =>
+      _PhotoSubmissionCardState();
+}
+
+class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
+  // 코멘트 입력창을 보여줄지 여부를 관리하는 내부 상태
+  late bool _isEditingComment;
+  final _commentController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 사진에 코멘트가 없으면 편집 모드로 시작
+    _isEditingComment = widget.photo.responderComment == null;
+    // 만약 코멘트가 이미 있다면, 컨트롤러의 초기 텍스트로 설정
+    if (widget.photo.responderComment != null) {
+      _commentController.text = widget.photo.responderComment!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentUser = ref.watch(authProvider);
-    final viewModel = ref.read(eventDetailViewModelProvider(event.id).notifier);
-    final isRequester = currentUser?.id == event.requesterId;
-    final timeString = DateFormat('a h:mm', 'ko_KR').format(photo.timestamp);
+    final isRequester = currentUser?.id == widget.event.requesterId;
+    final isMyPhoto = widget.event.selectedResponderId == currentUser?.id;
+    final timeString = DateFormat(
+      'a h:mm',
+      'ko_KR',
+    ).format(widget.photo.timestamp);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -134,16 +164,25 @@ class _PhotoSubmissionCard extends ConsumerWidget {
 
             // 사진 썸네일
             GestureDetector(
-              onTap: () => context.push('/feed/${event.id}/photo/${photo.id}'),
+              onTap:
+                  () => context.push(
+                    '/feed/${widget.event.id}/photo/${widget.photo.id}',
+                  ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(photo.url)),
+                child: Image.file(File(widget.photo.url)),
               ),
             ),
-            const SizedBox(height: 12),
+
+            // 조건에 따라 코멘트 또는 입력창을 표시
+            if (_isEditingComment && isMyPhoto)
+              _buildCommentEditor()
+            else if (widget.photo.responderComment != null &&
+                widget.photo.responderComment!.isNotEmpty)
+              _buildCommentDisplay(widget.photo.responderComment!),
 
             // 요청자에게만 보이는 인라인 액션
-            if (isRequester && photo.status == PhotoStatus.pending) ...[
+            if (isRequester && widget.photo.status == PhotoStatus.pending) ...[
               const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -152,26 +191,16 @@ class _PhotoSubmissionCard extends ConsumerWidget {
                     context,
                     icon: Icons.question_answer_outlined,
                     label: '사진 내용 질문',
-                    onTap: () async {
-                      // 질문 입력 다이얼로그를 띄웁니다.
-                      final question = await _showQuestionDialog(context);
-                      if (question != null && question.isNotEmpty) {
-                        // ViewModel의 메서드를 호출합니다.
-                        viewModel.askQuestion(photo.id, question);
-                      }
+                    onTap: () {
+                      // TODO: 3단계 - ViewModel과 연동하여 질문 로직 구현
                     },
                   ),
                   _buildInlineAction(
                     context,
                     icon: Icons.sync_problem_outlined,
                     label: '사진 재요청',
-                    onTap: () async {
-                      // 재요청 사유 입력 다이얼로그를 띄웁니다.
-                      final reason = await _showRevisionDialog(context);
-                      if (reason != null && reason.isNotEmpty) {
-                        // ViewModel의 메서드를 호출합니다.
-                        viewModel.requestRevision(photo.id, reason);
-                      }
+                    onTap: () {
+                      // TODO: 3단계 - ViewModel과 연동하여 재요청 로직 구현
                     },
                   ),
                 ],
@@ -187,10 +216,10 @@ class _PhotoSubmissionCard extends ConsumerWidget {
             ],
 
             // 최종 피드백 상태 표시
-            if (photo.status != PhotoStatus.pending)
+            if (widget.photo.status != PhotoStatus.pending)
               Padding(
                 padding: const EdgeInsets.only(top: 12.0),
-                child: _buildFeedbackChip(photo.status),
+                child: _buildFeedbackChip(widget.photo.status),
               ),
           ],
         ),
@@ -198,65 +227,62 @@ class _PhotoSubmissionCard extends ConsumerWidget {
     );
   }
 
-  // '사진 내용 질문' 다이얼로그
-  Future<String?> _showQuestionDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('사진에 대한 질문 입력'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
+  // 코멘트 입력 UI
+  Widget _buildCommentEditor() {
+    final viewModel = ref.read(
+      eventDetailViewModelProvider(widget.event.id).notifier,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _commentController,
             decoration: const InputDecoration(
-              hintText: '예: 사진 왼쪽 줄도 매장 줄인가요?',
-              helperText: "⚠️ 수행자가 찍은 사진에 대한 질문을 하는 공간이에요.",
+              hintText: '사진에 대한 부연 설명을 남겨주세요.',
+              isDense: true,
+            ),
+            maxLines: 2,
+            autofocus: true,
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: () {
+                viewModel.addCommentToPhoto(
+                  widget.photo.id,
+                  _commentController.text,
+                );
+                // 코멘트 등록 후에는 UI가 편집 모드에서 보기 모드로 전환되도록 상태 변경
+                setState(() {
+                  _isEditingComment = false;
+                });
+              },
+              child: const Text('코멘트 등록'),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('질문 제출'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 
-  // '사진 재요청(반려)' 다이얼로그
-  Future<String?> _showRevisionDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('사진 재요청 및 반려 사유'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '예: 전체 줄이 아니라, 키오스크 앞 줄만 찍어주실래요?',
-              helperText: "어떤 사진이 필요한지 명확하게 작성해야 수행자가 원하는 요청대로 수행할 수 있어요!",
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('재요청하기'),
-            ),
-          ],
-        );
-      },
+  // 등록된 코멘트 표시 UI
+  Widget _buildCommentDisplay(String comment) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '"${comment}"',
+          style: const TextStyle(fontStyle: FontStyle.italic),
+        ),
+      ),
     );
   }
 

@@ -171,122 +171,132 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
   }
 
   // 사진을 제출하는 메서드
-  Future<void> addPhoto(
+  Future<DdipEvent> addPhoto(
     String eventId,
     Photo photo, {
     ActionType action = ActionType.submitPhoto,
-    String? comment, // [수정] MessageCode -> String?
   }) async {
     final previousState = state.value;
-    if (previousState == null) return;
+    if (previousState == null) throw Exception("State is not available");
+
     try {
       final repository = _ref.read(ddipEventRepositoryProvider);
-      // [수정] Repository에 comment를 그대로 전달합니다.
-      await repository.addPhoto(
-        eventId,
-        photo,
-        action: action,
-        comment: comment,
-      );
+      // Photo 객체 자체에 responderComment가 있으므로, Notifier는 Photo 객체만 받습니다.
+      await repository.addPhoto(eventId, photo, action: action);
+
+      DdipEvent? updatedEvent; // 변경된 이벤트를 저장할 변수
 
       final newEvents =
           previousState.events.map((event) {
             if (event.id == eventId) {
-              // [수정] ViewModel에서 이미 comment가 포함된 photo 객체를 생성하여 전달하므로,
-              // 여기서는 전달받은 photo 객체를 그대로 리스트에 추가하기만 하면 됩니다.
               final newPhotos = [...event.photos, photo];
               final newInteraction = Interaction(
                 id: photo.id,
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.responder,
                 actionType: action,
-                comment: comment, // [수정] Interaction 로그에도 comment를 기록합니다.
+                comment: photo.responderComment,
                 relatedPhotoId: photo.id,
                 timestamp: DateTime.now(),
               );
               final newInteractions = [...event.interactions, newInteraction];
-              return event.copyWith(
+
+              // 수정된 이벤트를 변수에 저장합니다.
+              updatedEvent = event.copyWith(
                 photos: newPhotos,
                 interactions: newInteractions,
               );
+              return updatedEvent!;
             }
             return event;
           }).toList();
+
       state = AsyncValue.data(previousState.copyWith(events: newEvents));
+
+      if (updatedEvent == null) {
+        throw Exception("Failed to find the updated event.");
+      }
+      // 저장해둔 변경된 이벤트를 반환합니다.
+      return updatedEvent!;
     } catch (e) {
       rethrow;
     }
   }
 
   // 사진에 피드백을 남기는 메서드
-  Future<void> updatePhotoStatus(
+  Future<DdipEvent> updatePhotoStatus(
     String eventId,
     String photoId,
     PhotoStatus status, {
-    String? comment, // [수정] MessageCode -> String?
+    String? comment,
   }) async {
     final previousState = state.value;
-    if (previousState == null) return;
+    if (previousState == null) throw Exception("State is not available");
+
     try {
       final repository = _ref.read(ddipEventRepositoryProvider);
-      // [수정] Repository에 comment(반려 사유 등)를 그대로 전달합니다.
-      await repository.updatePhotoStatus(
-        eventId,
-        photoId,
-        status,
-        comment: comment,
-      );
+      await repository.updatePhotoStatus(eventId, photoId, status);
+
+      DdipEvent? updatedEvent;
+
       final newEvents =
           previousState.events.map((event) {
             if (event.id == eventId) {
+              // 1. 사진 목록에서 해당 사진을 찾아 상태를 업데이트합니다.
+              Photo? targetPhoto;
               final newPhotos =
                   event.photos.map((p) {
                     if (p.id == photoId) {
-                      // [수정] 반려 시 Photo 객체에 반려 사유도 함께 기록합니다.
-                      return p.copyWith(
-                        status: status,
-                        rejectionReason:
-                            status == PhotoStatus.rejected ? comment : null,
-                      );
+                      targetPhoto = p.copyWith(status: status);
+                      return targetPhoto!;
                     }
                     return p;
                   }).toList();
 
+              if (targetPhoto == null) return event;
+
+              // 2. 미션 전체의 상태를 결정합니다.
               DdipEventStatus newEventStatus = event.status;
               if (status == PhotoStatus.approved) {
+                // '승인'일 경우에만 미션 상태를 '완료'로 변경합니다.
                 newEventStatus = DdipEventStatus.completed;
-              } else if (status == PhotoStatus.rejected) {
-                final rejectedCount =
-                    newPhotos
-                        .where((p) => p.status == PhotoStatus.rejected)
-                        .length;
-                if (rejectedCount >= 3) {
-                  newEventStatus = DdipEventStatus.failed;
-                }
               }
+              // '반려'인 경우에는 미션 상태를 변경하지 않습니다 (in_progress 유지).
+              // 3번 카운트 로직을 완전히 제거했습니다.
 
+              // 3. 이 피드백 행위를 Interaction 로그로 생성합니다.
               final newInteraction = Interaction(
-                id: 'feedback_${photoId}',
+                id:
+                    'feedback_${photoId}_${DateTime.now().millisecondsSinceEpoch}',
                 actorId: _ref.read(authProvider)!.id,
                 actorRole: ActorRole.requester,
                 actionType:
                     status == PhotoStatus.approved
                         ? ActionType.approve
                         : ActionType.requestRevision,
-                comment: comment, // [수정] Interaction 로그에도 코멘트를 기록합니다.
+                // comment: comment, // Interaction 엔티티에 comment 필드 추가 필요
                 relatedPhotoId: photoId,
                 timestamp: DateTime.now(),
               );
               final newInteractions = [...event.interactions, newInteraction];
-              return event.copyWith(
+
+              // 4. 모든 변경사항을 종합하여 최종 이벤트 객체를 생성합니다.
+              updatedEvent = event.copyWith(
                 photos: newPhotos,
                 status: newEventStatus,
                 interactions: newInteractions,
               );
+              return updatedEvent!;
             }
             return event;
           }).toList();
+
       state = AsyncValue.data(previousState.copyWith(events: newEvents));
+
+      if (updatedEvent == null) {
+        throw Exception("Failed to find the updated event for photo feedback.");
+      }
+      return updatedEvent!;
     } catch (e) {
       rethrow;
     }

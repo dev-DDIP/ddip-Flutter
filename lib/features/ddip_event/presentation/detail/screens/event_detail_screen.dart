@@ -49,6 +49,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     // StatefulWidget에서는 widget.eventId로 파라미터에 접근합니다.
+
+    final viewModel = ref.read(
+      eventDetailViewModelProvider(widget.eventId).notifier,
+    );
+
     final viewModelState = ref.watch(
       eventDetailViewModelProvider(widget.eventId),
     );
@@ -95,13 +100,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        MissionLocationMap(event: event),
-                        DetailedRequestCard(content: event.content),
-                      ],
+                      children: [MissionLocationMap(event: event)],
                     ),
                   ),
-                  CommunicationLogSliver(event: event),
+                  ...viewModel.buildMissionLogSlivers(event),
                   // 고정 값 대신 측정된 높이(_commandBarHeight)를 사용합니다.
                   SliverToBoxAdapter(
                     child: SizedBox(height: _commandBarHeight),
