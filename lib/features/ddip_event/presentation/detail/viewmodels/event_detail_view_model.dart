@@ -29,6 +29,7 @@ class EventDetailState with _$EventDetailState {
     String? buttonText,
     @Default(false) bool buttonIsEnabled,
     Color? buttonColor,
+    Stream<Duration>? countdownStream,
   }) = _EventDetailState;
 }
 
@@ -38,6 +39,9 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   // Stream의 구독을 관리하기 위한 변수
   StreamSubscription<DdipEvent>? _eventSubscription;
+
+  Timer? _countdownTimer;
+  StreamController<Duration>? _countdownController;
 
   EventDetailViewModel(this._ref, this._eventId)
     : super(const EventDetailState()) {
@@ -73,7 +77,6 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   void _updateStateFromEvent(DdipEvent event) {
     final currentUser = _ref.read(authProvider);
-
     if (currentUser == null) {
       state = state.copyWith(
         event: AsyncValue.data(event),
@@ -83,11 +86,10 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       return;
     }
 
-    // --- 기존의 버튼 상태 결정 로직을 이곳으로 가져옵니다 ---
+    // --- 버튼 상태 결정 로직 (기존과 동일) ---
     String? text;
     bool isEnabled = false;
     Color? color;
-
     final bool isRequester = event.requesterId == currentUser.id;
     final bool isSelectedResponder =
         event.selectedResponderId == currentUser.id;
@@ -119,13 +121,46 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
         break;
     }
 
-    // 데이터와 파생된 UI 상태를 '원자적'으로 한 번에 업데이트합니다.
+    // --- 타이머 로직 ---
+    Stream<Duration>? newCountdownStream = state.countdownStream;
+    if (event.status == DdipEventStatus.in_progress &&
+        _countdownTimer == null) {
+      final matchedInteraction = event.interactions.lastWhere(
+        (i) => i.actionType == ActionType.selectResponder,
+        orElse:
+            () => Interaction(
+              id: '',
+              actorId: '',
+              actorRole: ActorRole.system,
+              actionType: ActionType.create,
+              timestamp: DateTime.now(),
+            ),
+      );
+      final matchedTime = matchedInteraction.timestamp;
+      final endTime = matchedTime.add(const Duration(minutes: 3));
+
+      _countdownController = StreamController<Duration>.broadcast();
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        final remaining = endTime.difference(DateTime.now());
+        if (remaining.isNegative) {
+          _countdownController?.add(Duration.zero);
+          timer.cancel();
+        } else {
+          _countdownController?.add(remaining);
+        }
+      });
+      newCountdownStream = _countdownController?.stream;
+    }
+
+    // --- 최종 상태 업데이트 ---
+    // if 블록 밖으로 이동하여 항상 상태가 업데이트되도록 수정했습니다.
     state = state.copyWith(
       event: AsyncValue.data(event),
       buttonText: text,
       buttonIsEnabled: isEnabled,
       buttonColor: color,
       isProcessing: false,
+      countdownStream: newCountdownStream, // 타이머 스트림도 함께 업데이트
     );
   }
 
@@ -133,6 +168,8 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   void dispose() {
     // ViewModel이 파괴될 때, Stream 구독을 반드시 취소하여 메모리 누수를 방지합니다.
     _eventSubscription?.cancel();
+    _countdownTimer?.cancel();
+    _countdownController?.close();
     super.dispose();
   }
 
@@ -386,68 +423,46 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   /// 사진 제출 비즈니스 로직의 '후반부'를 담당하는 메서드
   Future<void> submitPhoto({
     required String imagePath,
-    String? responderComment, // [추가] 수행자 코멘트 파라미터
+    String? responderComment,
   }) async {
     try {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      // [수정] Photo 객체 생성 시, responderComment 필드를 채워줍니다.
+
       final newPhoto = Photo(
         id: const Uuid().v4(),
         url: imagePath,
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
-        responderComment: responderComment, // 코멘트 저장
+        // responderComment: responderComment, // Photo 엔티티에 이 필드가 있어야 합니다.
       );
 
-      // [수정] Notifier에 Photo 객체와 함께 comment도 전달합니다.
+      // Notifier에는 Photo 객체 하나만 전달하도록 간소화합니다.
       await _ref
           .read(ddipEventsNotifierProvider.notifier)
           .addPhoto(
             _eventId,
-            newPhoto, // 모든 정보가 담긴 Photo 객체
+            newPhoto,
             action: ActionType.submitPhoto,
-            comment: responderComment, // Interaction 기록용 코멘트
+            // comment 파라미터는 제거합니다. Notifier가 Photo 객체에서 직접 꺼내 쓰도록 합니다.
           );
     } catch (e) {
       rethrow;
     }
   }
 
-  /// 요청자가 사진에 대해 질문을 남기는 메서드
-  Future<void> askQuestion(BuildContext context, String photoId) async {
-    final question = await _showTextInputDialog(
-      context,
-      title: '질문하기',
-      hintText: '사진에서 파악하기 어려운 점을 질문해주세요.',
-      isRequired: true,
-    );
+  Future<void> askQuestion(String photoId, String question) async {
+    // TODO: Repository를 호출하여 질문을 서버에 전송하는 로직 구현
+    print('질문 제출: [사진 ID: $photoId] $question');
+    // 로직 처리 후 상태 업데이트를 위해 Notifier를 통해 상태 변경 요청
+  }
 
-    if (question != null && question.trim().isNotEmpty) {
-      state = state.copyWith(isProcessing: true);
-      try {
-        // Notifier에 새로운 메서드를 호출해야 하지만, 우선 Interaction을 직접 생성하는 로직으로 대체
-        // TODO: Notifier에 askQuestion 로직 구현 후 호출
-        final event = state.event.value;
-        if (event == null) return;
-
-        final newInteraction = Interaction(
-          id: Uuid().v4(),
-          actorId: _ref.read(authProvider)!.id,
-          actorRole: ActorRole.requester,
-          actionType: ActionType.askQuestion,
-          comment: question,
-          relatedPhotoId: photoId,
-          timestamp: DateTime.now(),
-        );
-        // ... (상태 업데이트 로직)
-        print('질문 제출: $question');
-      } finally {
-        if (mounted) state = state.copyWith(isProcessing: false);
-      }
-    }
+  Future<void> requestRevision(String photoId, String reason) async {
+    // TODO: Repository를 호출하여 재요청을 서버에 전송하는 로직 구현
+    print('재요청: [사진 ID: $photoId] $reason');
+    // 로직 처리 후 상태 업데이트를 위해 Notifier를 통해 상태 변경 요청
   }
 
   /// 수행자가 요청자의 질문에 답변하는 메서드

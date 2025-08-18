@@ -1,22 +1,57 @@
 // lib/features/ddip_event/presentation/detail/screens/event_detail_screen.dart
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/event_bottom_sheet.dart';
+
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/CommandBar.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/communication_log_sliver.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_location_map.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/situational_guide_banner.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
-import 'package:ddip/features/map/presentation/widgets/ddip_map_view.dart';
-import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class EventDetailScreen extends ConsumerWidget {
+// ConsumerWidget을 ConsumerStatefulWidget으로 변경하여 위젯의 생명주기를 관리합니다.
+class EventDetailScreen extends ConsumerStatefulWidget {
   final String eventId;
 
   const EventDetailScreen({super.key, required this.eventId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final viewModelState = ref.watch(eventDetailViewModelProvider(eventId));
-    final sheetFraction = ref.watch(detailSheetStrategyProvider);
-    final bottomPadding = MediaQuery.of(context).size.height * sheetFraction;
+  ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+  // CommandBar의 크기를 측정하고 참조하기 위한 GlobalKey 생성
+  final GlobalKey _commandBarKey = GlobalKey();
+
+  // 측정된 높이를 저장할 상태 변수 (초기 추정치 제공)
+  double _commandBarHeight = 120.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 위젯이 렌더링된 직후에 CommandBar의 높이를 측정하는 콜백을 등록합니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _commandBarKey.currentContext != null) {
+        final RenderBox renderBox =
+            _commandBarKey.currentContext!.findRenderObject() as RenderBox;
+        // 측정된 높이가 현재 상태와 다를 경우에만 상태를 업데이트하여 불필요한 재빌드를 방지합니다.
+        if (_commandBarHeight != renderBox.size.height) {
+          setState(() {
+            _commandBarHeight = renderBox.size.height;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // StatefulWidget에서는 widget.eventId로 파라미터에 접근합니다.
+    final viewModelState = ref.watch(
+      eventDetailViewModelProvider(widget.eventId),
+    );
 
     return viewModelState.event.when(
       loading:
@@ -26,47 +61,61 @@ class EventDetailScreen extends ConsumerWidget {
           ),
       error:
           (err, stack) => Scaffold(
-            appBar: AppBar(),
+            appBar: AppBar(
+              title: const Text('오류'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              ),
+            ),
             body: Center(child: Text('오류가 발생했습니다: $err')),
           ),
       data: (event) {
-        // ProviderScope는 이 위젯 트리 안에서만 특정 Provider의 값을 재정의하는
-        // 특별한 공간을 만들어줍니다.
-        return ProviderScope(
-          overrides: [
-            // mapEventsProvider의 기본값(전체 목록) 대신,
-            // 이 화면의 이벤트 하나만 담긴 목록을 반환하도록 재정의합니다.
-            mapEventsProvider.overrideWithValue([event]),
-          ],
-          child: Scaffold(
-            body: Stack(
-              children: [
-                // 이제 DdipMapView는 부모에게 데이터를 받지 않습니다.
-                // ProviderScope 덕분에 DdipMapView 내부의 MapViewModel이
-                // 재정의된 mapEventsProvider를 읽어 오직 하나의 마커만 그리게 됩니다.
-                DdipMapView(
-                  viewModelProvider: detailMapViewModelProvider(eventId),
-                  bottomPadding: bottomPadding,
-                  onMapInteraction:
-                      () =>
-                          ref
-                              .read(detailSheetStrategyProvider.notifier)
-                              .minimize(),
-                ),
-                EventBottomSheet(event: event),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 10,
-                  left: 10,
-                  child: CircleAvatar(
-                    backgroundColor: Colors.black.withOpacity(0.5),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => context.pop(),
+        return Scaffold(
+          body: Stack(
+            children: [
+              CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    title: Text(event.title),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.more_vert),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                  SliverToBoxAdapter(
+                    child: MissionBriefingHeader(event: event),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SituationalGuideBanner(event: event),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        MissionLocationMap(event: event),
+                        DetailedRequestCard(content: event.content),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
+                  CommunicationLogSliver(event: event),
+                  // 고정 값 대신 측정된 높이(_commandBarHeight)를 사용합니다.
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: _commandBarHeight),
+                  ),
+                ],
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                // CommandBar에 GlobalKey를 할당하여 위젯을 특정하고 크기를 측정할 수 있도록 합니다.
+                child: CommandBar(key: _commandBarKey, event: event),
+              ),
+            ],
           ),
         );
       },
