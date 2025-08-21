@@ -13,6 +13,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+// ✨ [신설] 카드 내부의 입력 모드를 관리하기 위한 Enum
+enum _InputMode { none, askingQuestion, requestingRevision }
+
 /// '띱' 이벤트의 모든 상호작용을 서사적 타임라인 형태로 보여주는 Sliver 위젯입니다.
 class CommunicationLogSliver extends ConsumerWidget {
   final DdipEvent event;
@@ -21,11 +24,44 @@ class CommunicationLogSliver extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 시스템 메시지와 사진 카드를 시간순으로 정렬하기 위해 하나의 리스트로 합칩니다.
-    final timelineItems = _buildTimelineItems(event, ref);
+    // 1. 시스템 메시지(매칭 등)와 사진을 시간순으로 정렬하기 위한 리스트를 생성합니다.
+    final allUsers = ref.watch(mockUsersProvider);
+    final List<dynamic> timelineItems = [];
 
+    // 1-1. 사진과 직접 관련 없는 시스템 상호작용을 타임라인에 추가합니다.
+    final systemInteractions = event.interactions.where(
+      (i) => i.relatedPhotoId == null,
+    );
+    for (final interaction in systemInteractions) {
+      if (interaction.actionType == ActionType.selectResponder) {
+        final responderName =
+            allUsers
+                .firstWhere(
+                  (user) => user.id == event.selectedResponderId,
+                  orElse: () => User(id: '', name: '수행자'),
+                )
+                .name;
+        timelineItems.add(
+          _SystemMessage(
+            message: '🤝 $responderName 님과 매칭되었습니다. 지금부터 미션을 시작해주세요!',
+            timestamp: interaction.timestamp,
+          ),
+        );
+      }
+    }
+
+    // 1-2. 모든 사진을 타임라인에 추가합니다.
+    timelineItems.addAll(event.photos);
+
+    // 1-3. 타임스탬프를 기준으로 모든 아이템을 시간순으로 정렬합니다.
+    timelineItems.sort((a, b) {
+      final aTime = a is Photo ? a.timestamp : (a as _SystemMessage).timestamp;
+      final bTime = b is Photo ? b.timestamp : (b as _SystemMessage).timestamp;
+      return aTime.compareTo(bTime);
+    });
+
+    // 2. 타임라인이 비어있다면 '빈 상태 가이드' UI를 표시합니다.
     if (timelineItems.isEmpty) {
-      // 사진 제출 전 '빈 상태 가이드' UI
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 60.0),
@@ -55,50 +91,23 @@ class CommunicationLogSliver extends ConsumerWidget {
       );
     }
 
-    // 타임라인 아이템들을 리스트로 표시합니다.
+    // 3. 정렬된 타임라인 아이템 목록을 기반으로 SliverList를 생성합니다.
     return SliverList.separated(
       itemCount: timelineItems.length,
-      itemBuilder: (context, index) => timelineItems[index],
+      itemBuilder: (context, index) {
+        final item = timelineItems[index];
+
+        if (item is Photo) {
+          // 아이템이 사진이면, 강화된 _PhotoSubmissionCard를 렌더링합니다.
+          return _PhotoSubmissionCard(event: event, photo: item);
+        } else if (item is _SystemMessage) {
+          // 아이템이 시스템 메시지이면 그대로 렌더링합니다.
+          return item;
+        }
+        return const SizedBox.shrink(); // 예외 처리
+      },
       separatorBuilder: (context, index) => const SizedBox(height: 8),
     );
-  }
-
-  /// 이벤트 데이터를 기반으로 타임라인에 표시될 위젯 목록을 생성합니다.
-  List<Widget> _buildTimelineItems(DdipEvent event, WidgetRef ref) {
-    final List<Widget> items = [];
-    final allUsers = ref.watch(mockUsersProvider);
-
-    // 1. 사진과 관련 없는 시스템 상호작용을 필터링하여 시스템 메시지로 추가
-    final systemInteractions = event.interactions.where(
-      (i) => i.relatedPhotoId == null,
-    );
-    for (final interaction in systemInteractions) {
-      if (interaction.actionType == ActionType.selectResponder) {
-        final responderName =
-            allUsers
-                .firstWhere(
-                  (user) => user.id == event.selectedResponderId,
-                  orElse: () => User(id: '', name: '수행자'),
-                )
-                .name;
-        items.add(
-          _SystemMessage(
-            message: '🤝 $responderName 님과 매칭되었습니다. 지금부터 미션을 시작해주세요!',
-            timestamp: interaction.timestamp,
-          ),
-        );
-      }
-    }
-
-    // 2. 각 사진을 '사진 제출 카드' 위젯으로 변환하여 추가
-    for (final photo in event.photos) {
-      items.add(_PhotoSubmissionCard(event: event, photo: photo));
-    }
-
-    // 3. 타임스탬프를 기준으로 모든 아이템을 정렬
-    // items.sort((a, b) => (b.key as ValueKey<DateTime>).value.compareTo((a.key as ValueKey<DateTime>).value));
-
-    return items;
   }
 }
 
@@ -118,6 +127,9 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   // 코멘트 입력창을 보여줄지 여부를 관리하는 내부 상태
   late bool _isEditingComment;
   final _commentController = TextEditingController();
+  _InputMode _inputMode = _InputMode.none;
+  final _inlineInputController = TextEditingController();
+  final _inlineInputFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -133,6 +145,8 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   @override
   void dispose() {
     _commentController.dispose();
+    _inlineInputController.dispose(); // ✨ [추가] 컨트롤러 dispose
+    _inlineInputFocusNode.dispose(); // ✨ [추가] 포커스 노드 dispose
     super.dispose();
   }
 
@@ -155,14 +169,12 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 카드 헤더
+            // --- 카드 헤더, 사진, 코멘트 등은 이전과 동일 ---
             Text(
               '📸 수행자가 $timeString 에 사진을 제출했습니다.',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 12),
-
-            // 사진 썸네일
             GestureDetector(
               onTap:
                   () => context.push(
@@ -173,57 +185,73 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
                 child: Image.file(File(widget.photo.url)),
               ),
             ),
-
-            // 조건에 따라 코멘트 또는 입력창을 표시
             if (_isEditingComment && isMyPhoto)
               _buildCommentEditor()
             else if (widget.photo.responderComment != null &&
                 widget.photo.responderComment!.isNotEmpty)
               _buildCommentDisplay(widget.photo.responderComment!),
 
-            // 요청자에게만 보이는 인라인 액션
-            if (isRequester && widget.photo.status == PhotoStatus.pending) ...[
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildInlineAction(
-                    context,
-                    icon: Icons.question_answer_outlined,
-                    label: '사진 내용 질문',
-                    onTap: () {
-                      // TODO: 3단계 - ViewModel과 연동하여 질문 로직 구현
-                    },
-                  ),
-                  _buildInlineAction(
-                    context,
-                    icon: Icons.sync_problem_outlined,
-                    label: '사진 재요청',
-                    onTap: () {
-                      // TODO: 3단계 - ViewModel과 연동하여 재요청 로직 구현
-                    },
-                  ),
-                ],
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 8.0),
-                child: Text(
-                  "※ 사진 내용이 궁금하면 '질문', 다른 사진이 필요하면 '재요청'을 선택하세요.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ),
-            ],
+            if (widget.photo.requesterQuestion != null)
+              _buildQnAThread(widget.photo),
 
-            // 최종 피드백 상태 표시
+            // ✅ [핵심 변경] _inputMode 상태에 따라 UI를 분기 처리합니다.
+            if (isRequester && widget.photo.status == PhotoStatus.pending)
+              _inputMode == _InputMode.none
+                  // 1. 기본 상태: 액션 링크 표시
+                  ? _buildActionLinks()
+                  // 2. 입력 상태: 인라인 입력창 표시
+                  : _buildInlineInputField(),
+
             if (widget.photo.status != PhotoStatus.pending)
-              Padding(
-                padding: const EdgeInsets.only(top: 12.0),
-                child: _buildFeedbackChip(widget.photo.status),
-              ),
+              _buildFeedbackDisplay(widget.photo),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActionLinks() {
+    return Column(
+      children: [
+        const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildInlineAction(
+              context,
+              icon: Icons.question_answer_outlined,
+              label: '사진 내용 질문',
+              onTap: () {
+                // 버튼을 누르면 setState를 통해 입력 모드로 전환
+                setState(() {
+                  _inputMode = _InputMode.askingQuestion;
+                  _inlineInputFocusNode.requestFocus(); // 입력창에 자동으로 포커스
+                });
+              },
+            ),
+            _buildInlineAction(
+              context,
+              icon: Icons.sync_problem_outlined,
+              label: '사진 재요청',
+              onTap: () {
+                // 버튼을 누르면 setState를 통해 입력 모드로 전환
+                setState(() {
+                  _inputMode = _InputMode.requestingRevision;
+                  _inlineInputFocusNode.requestFocus(); // 입력창에 자동으로 포커스
+                });
+              },
+            ),
+          ],
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 8.0),
+          child: Text(
+            "※ 사진 내용이 궁금하면 '질문', 다른 사진이 필요하면 '재요청'을 선택하세요.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ),
+      ],
     );
   }
 
@@ -315,6 +343,130 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
     );
   }
 
+  // ✨ [신설] 질의응답(Q&A) 스레드를 그리는 위젯
+  Widget _buildQnAThread(Photo photo) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Container(
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- 질문 ---
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Q.',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(photo.requesterQuestion ?? '')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // --- 답변 ---
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A.',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  // 답변이 아직 없다면 안내 문구를 표시합니다.
+                  child: Text(
+                    photo.responderAnswer ?? '수행자의 답변을 기다리고 있습니다...',
+                    style: TextStyle(
+                      color: photo.responderAnswer == null ? Colors.grey : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✨ [신설] 최종 피드백을 상세하게 표시하는 위젯 (기존 _buildFeedbackChip 대체)
+  Widget _buildFeedbackDisplay(Photo photo) {
+    final bool isApproved = photo.status == PhotoStatus.approved;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Center(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12.0),
+          decoration: BoxDecoration(
+            color:
+                isApproved
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isApproved
+                        ? Icons.check_circle_outline
+                        : Icons.cancel_outlined,
+                    color:
+                        isApproved
+                            ? Colors.green.shade700
+                            : Colors.red.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isApproved ? '요청자가 사진을 승인했습니다.' : '요청자가 사진을 반려했습니다.',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color:
+                          isApproved
+                              ? Colors.green.shade800
+                              : Colors.red.shade800,
+                    ),
+                  ),
+                ],
+              ),
+              // 반려되었고, 반려 사유가 있다면 표시합니다.
+              if (!isApproved &&
+                  photo.rejectionReason != null &&
+                  photo.rejectionReason!.isNotEmpty) ...[
+                const Divider(height: 16),
+                Text(
+                  '"${photo.rejectionReason}"',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.red.shade900,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // 최종 피드백 상태를 보여주는 칩
   Widget _buildFeedbackChip(PhotoStatus status) {
     final isApproved = status == PhotoStatus.approved;
@@ -331,6 +483,75 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
           fontWeight: FontWeight.bold,
         ),
         backgroundColor: isApproved ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  // ✨ [신설] 인라인 입력창 UI를 그리는 메소드
+  Widget _buildInlineInputField() {
+    final viewModel = ref.read(
+      eventDetailViewModelProvider(widget.event.id).notifier,
+    );
+    final isAsking = _inputMode == _InputMode.askingQuestion;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _inlineInputController,
+            focusNode: _inlineInputFocusNode,
+            // 포커스 노드 연결
+            decoration: InputDecoration(
+              hintText:
+                  isAsking ? '사진에 대해 궁금한 점을 질문하세요.' : '재요청 사유를 명확하게 작성해주세요.',
+              isDense: true,
+            ),
+            maxLines: 3,
+            minLines: 1,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                child: const Text('취소'),
+                onPressed: () {
+                  setState(() {
+                    _inputMode = _InputMode.none;
+                    _inlineInputController.clear();
+                    FocusScope.of(context).unfocus(); // 키보드 내리기
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                child: const Text('제출'),
+                onPressed: () {
+                  final inputText = _inlineInputController.text;
+                  if (inputText.trim().isEmpty) return; // 빈 내용은 제출 방지
+
+                  if (isAsking) {
+                    viewModel.askQuestion(context, widget.photo.id, inputText);
+                  } else {
+                    viewModel.rejectPhotoWithReason(
+                      context,
+                      widget.photo.id,
+                      inputText,
+                    );
+                  }
+
+                  // 제출 후 입력창 닫기 및 초기화
+                  setState(() {
+                    _inputMode = _InputMode.none;
+                    _inlineInputController.clear();
+                    FocusScope.of(context).unfocus(); // 키보드 내리기
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

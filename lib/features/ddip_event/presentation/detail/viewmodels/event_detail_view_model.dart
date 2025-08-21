@@ -4,10 +4,12 @@ import 'dart:async';
 
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
+import 'package:ddip/features/camera/camera_screen.dart';
+import 'package:ddip/features/camera/photo_preview_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/CommunicationLogSliver.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/communication_log_sliver.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +17,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 part 'event_detail_view_model.freezed.dart';
@@ -259,22 +260,33 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   // 사진 제출과 관련된 전체 흐름을 담당하는 내부 메서드
   Future<void> _processPhotoSubmission(BuildContext context) async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+      // 1. 단순 ImagePicker 대신 우리가 만든 CameraScreen으로 이동하고 결과를 기다립니다.
+      // PhotoPreviewScreen에서 '전송하기'를 누르면 PhotoSubmissionResult가 반환됩니다.
+      final result = await Navigator.of(context).push<PhotoSubmissionResult?>(
+        MaterialPageRoute(
+          builder: (context) => const CameraScreen(), // camera_screen.dart 호출
+        ),
+      );
 
-      if (image == null || !context.mounted) {
+      // 2. 사용자가 사진 제출 없이 뒤로가기 했으면 로딩을 멈추고 함수를 종료합니다.
+      if (result == null || !context.mounted) {
         state = state.copyWith(isProcessing: false);
         return;
       }
 
-      // 코멘트를 묻는 과정 없이, 사진 경로만 가지고 바로 submitPhoto를 호출합니다.
-      await submitPhoto(imagePath: image.path);
+      // 3. PhotoPreviewScreen에서 받아온 결과(이미지 경로 + 선택적 코멘트)를 사용하여
+      //    submitPhoto 메서드를 호출합니다.
+      await submitPhoto(
+        imagePath: result.imagePath,
+        comment: result.comment, // 코멘트가 없다면 null이 전달됩니다.
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('사진을 가져오는 중 오류가 발생했습니다: $e')));
+        ).showSnackBar(SnackBar(content: Text('사진을 처리하는 중 오류가 발생했습니다: $e')));
       }
+      // ViewModel의 상태를 직접 바꾸기보다 rethrow하여 상위에서 처리하도록 유도
       rethrow;
     }
   }
@@ -391,24 +403,28 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   }
 
   /// 사진 제출 비즈니스 로직의 '후반부'를 담당하는 메서드
-  Future<void> submitPhoto({required String imagePath}) async {
+  Future<void> submitPhoto({required String imagePath, String? comment}) async {
     try {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
+      // PhotoPreviewScreen에서 받은 코멘트를 Photo 객체에 담습니다.
       final newPhoto = Photo(
         id: const Uuid().v4(),
         url: imagePath,
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
-        // 코멘트 없이 Photo 객체 생성
+        responderComment: comment, // 여기에 코멘트가 담깁니다.
       );
 
+      // Notifier의 addPhoto는 Photo 객체를 통째로 받으므로 수정 없이 그대로 사용 가능합니다.
       final updatedEvent = await _ref
           .read(ddipEventsNotifierProvider.notifier)
           .addPhoto(_eventId, newPhoto, action: ActionType.submitPhoto);
 
+      // 상태 업데이트
       _updateStateFromEvent(updatedEvent);
     } catch (e) {
       rethrow;
@@ -421,10 +437,27 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
     // 예: await _ref.read(ddipEventsNotifierProvider.notifier).addComment(photoId, comment);
   }
 
-  Future<void> askQuestion(String photoId, String question) async {
-    // TODO: Repository를 호출하여 질문을 서버에 전송하는 로직 구현
-    print('질문 제출: [사진 ID: $photoId] $question');
-    // 로직 처리 후 상태 업데이트를 위해 Notifier를 통해 상태 변경 요청
+  Future<void> askQuestion(
+    BuildContext context,
+    String photoId,
+    String question, // ✅ [수정] 3번째 인자로 질문 텍스트를 직접 받습니다.
+  ) async {
+    // 1. 다이얼로그를 띄우는 로직을 삭제합니다.
+    state = state.copyWith(isProcessing: true);
+    try {
+      // 2. Notifier에게 바로 작업을 위임합니다.
+      await _ref
+          .read(ddipEventsNotifierProvider.notifier)
+          .askQuestionOnPhoto(_eventId, photoId, question);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+        state = state.copyWith(isProcessing: false);
+      }
+    }
+    // 상태 업데이트는 Notifier의 스트림을 통해 자동으로 반영됩니다.
   }
 
   Future<void> requestRevision(String photoId, String reason) async {
@@ -457,23 +490,27 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   Future<void> rejectPhotoWithReason(
     BuildContext context,
     String photoId,
+    String reason, // ✅ [수정] 3번째 인자로 반려 사유를 직접 받습니다.
   ) async {
-    final reason = await _showTextInputDialog(
-      context,
-      title: '사진 반려 사유 입력',
-      hintText: '최초 요청사항과 어떻게 다른지 구체적으로 작성해주세요.',
-      isRequired: true,
-    );
-
-    if (reason != null && reason.trim().isNotEmpty) {
+    // 1. 다이얼로그를 띄우는 로직을 삭제합니다.
+    state = state.copyWith(isProcessing: true);
+    try {
+      // 2. Notifier에게 바로 작업을 위임합니다.
       await _ref
           .read(ddipEventsNotifierProvider.notifier)
           .updatePhotoStatus(
             _eventId,
             photoId,
             PhotoStatus.rejected,
-            comment: reason,
+            comment: reason, // 반려 사유를 comment 파라미터로 전달
           );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+        state = state.copyWith(isProcessing: false);
+      }
     }
   }
 }

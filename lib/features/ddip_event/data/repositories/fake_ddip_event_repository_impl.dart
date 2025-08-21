@@ -279,4 +279,26 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
             .toList();
     }
   }
+
+  @override
+  Future<void> askQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String question,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200)); // API 호출 흉내
+
+    final eventIndex = _ddipEvents.indexWhere((e) => e.id == eventId);
+    if (eventIndex != -1) {
+      final event = _ddipEvents[eventIndex];
+      final photoIndex = event.photos.indexWhere((p) => p.id == photoId);
+      if (photoIndex != -1) {
+        final newPhotos = List<Photo>.from(event.photos);
+        newPhotos[photoIndex] = newPhotos[photoIndex].copyWith(
+          requesterQuestion: question,
+        );
+        _ddipEvents[eventIndex] = event.copyWith(photos: newPhotos);
+      }
+    }
+  }
 }

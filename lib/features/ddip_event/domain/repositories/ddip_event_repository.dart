@@ -55,6 +55,12 @@ abstract class DdipEventRepository {
     String userId,
     UserActivityType type,
   );
+
+  Future<void> askQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String question,
+  );
 }
 
 /*

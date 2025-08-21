@@ -118,6 +118,18 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
     // DataSource로부터 받은 Model(DTO) 리스트를 Domain 계층의 Entity 리스트로 변환하여 반환합니다.
     return eventModels.map((model) => model.toEntity()).toList();
   }
+
+  @override
+  Future<void> askQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String question,
+  ) {
+    // TODO: 실제 서버 API가 준비되면 이 부분을 구현해야 합니다.
+    throw UnimplementedError(
+      'askQuestionOnPhoto is not implemented yet for real repository',
+    );
+  }
 }
 
 /*

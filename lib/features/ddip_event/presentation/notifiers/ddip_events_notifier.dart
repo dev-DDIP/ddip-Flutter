@@ -234,20 +234,27 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
     if (previousState == null) throw Exception("State is not available");
 
     try {
-      final repository = _ref.read(ddipEventRepositoryProvider);
-      await repository.updatePhotoStatus(eventId, photoId, status);
+      // Repository 호출은 그대로 둡니다.
+      await _ref
+          .read(ddipEventRepositoryProvider)
+          .updatePhotoStatus(eventId, photoId, status);
 
       DdipEvent? updatedEvent;
 
       final newEvents =
           previousState.events.map((event) {
             if (event.id == eventId) {
-              // 1. 사진 목록에서 해당 사진을 찾아 상태를 업데이트합니다.
               Photo? targetPhoto;
               final newPhotos =
                   event.photos.map((p) {
                     if (p.id == photoId) {
-                      targetPhoto = p.copyWith(status: status);
+                      // ✅ [핵심 수정] status와 함께 반려 사유(rejectionReason)도 업데이트합니다.
+                      targetPhoto = p.copyWith(
+                        status: status,
+                        // status가 rejected일 때만 comment를 rejectionReason에 저장합니다.
+                        rejectionReason:
+                            status == PhotoStatus.rejected ? comment : null,
+                      );
                       return targetPhoto!;
                     }
                     return p;
@@ -255,16 +262,11 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
 
               if (targetPhoto == null) return event;
 
-              // 2. 미션 전체의 상태를 결정합니다.
               DdipEventStatus newEventStatus = event.status;
               if (status == PhotoStatus.approved) {
-                // '승인'일 경우에만 미션 상태를 '완료'로 변경합니다.
                 newEventStatus = DdipEventStatus.completed;
               }
-              // '반려'인 경우에는 미션 상태를 변경하지 않습니다 (in_progress 유지).
-              // 3번 카운트 로직을 완전히 제거했습니다.
 
-              // 3. 이 피드백 행위를 Interaction 로그로 생성합니다.
               final newInteraction = Interaction(
                 id:
                     'feedback_${photoId}_${DateTime.now().millisecondsSinceEpoch}',
@@ -274,13 +276,12 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
                     status == PhotoStatus.approved
                         ? ActionType.approve
                         : ActionType.requestRevision,
-                // comment: comment, // Interaction 엔티티에 comment 필드 추가 필요
+                comment: comment, // Interaction에는 반려 사유나 승인 코멘트가 모두 기록될 수 있습니다.
                 relatedPhotoId: photoId,
                 timestamp: DateTime.now(),
               );
               final newInteractions = [...event.interactions, newInteraction];
 
-              // 4. 모든 변경사항을 종합하여 최종 이벤트 객체를 생성합니다.
               updatedEvent = event.copyWith(
                 photos: newPhotos,
                 status: newEventStatus,
@@ -341,5 +342,58 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
 
     // 위도/경도 0.0001도 이내, 줌 레벨 0.1 이내의 변화는 무시
     return latDiff < 0.0001 && lonDiff < 0.0001 && zoomDiff < 0.1;
+  }
+
+  Future<void> askQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String question,
+  ) async {
+    final previousState = state.value;
+    if (previousState == null) return;
+
+    try {
+      // 나중에 실제 Repository 호출을 추가할 수 있습니다.
+      // await _ref.read(ddipEventRepositoryProvider).askQuestionOnPhoto(eventId, photoId, question);
+
+      final newEvents =
+          previousState.events.map((event) {
+            if (event.id == eventId) {
+              // 1. 특정 사진을 찾아 requesterQuestion 필드를 업데이트합니다.
+              final newPhotos =
+                  event.photos.map((photo) {
+                    if (photo.id == photoId) {
+                      return photo.copyWith(requesterQuestion: question);
+                    }
+                    return photo;
+                  }).toList();
+
+              // 2. '질문' 행위를 Interaction 로그로 생성합니다.
+              final newInteraction = Interaction(
+                id:
+                    'interaction_question_${photoId}_${DateTime.now().millisecondsSinceEpoch}',
+                actorId: _ref.read(authProvider)!.id,
+                actorRole: ActorRole.requester,
+                actionType: ActionType.askQuestion,
+                comment: question,
+                relatedPhotoId: photoId,
+                timestamp: DateTime.now(),
+              );
+              final newInteractions = [...event.interactions, newInteraction];
+
+              // 3. 업데이트된 사진 목록과 상호작용 목록으로 이벤트를 갱신합니다.
+              return event.copyWith(
+                photos: newPhotos,
+                interactions: newInteractions,
+              );
+            }
+            return event;
+          }).toList();
+
+      // 4. 전체 상태를 업데이트하여 UI에 변경을 알립니다.
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
+    } catch (e) {
+      rethrow;
+    }
   }
 }
