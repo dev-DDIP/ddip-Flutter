@@ -46,6 +46,8 @@ abstract class DdipEventRemoteDataSource {
     String userId,
     UserActivityType type,
   );
+
+  Future<void> completeMission(String eventId);
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -192,6 +194,17 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
           .toList();
     } on DioException catch (e) {
       print('Error getting events by user id: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> completeMission(String eventId) async {
+    try {
+      // TODO: 실제 백엔드 API 엔드포인트(e.g., '/ddips/{eventId}/complete')로 POST 요청
+      await dio.post<dynamic>('/ddips/$eventId/complete');
+    } on DioException catch (e) {
+      print('Error completing mission: $e');
       rethrow;
     }
   }

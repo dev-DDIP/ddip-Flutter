@@ -154,11 +154,13 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(authProvider);
     final isRequester = currentUser?.id == widget.event.requesterId;
-    final isMyPhoto = widget.event.selectedResponderId == currentUser?.id;
     final timeString = DateFormat(
       'a h:mm',
       'ko_KR',
     ).format(widget.photo.timestamp);
+    final hasQuestionBeenAsked =
+        widget.photo.requesterQuestion != null &&
+        widget.photo.requesterQuestion!.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -169,7 +171,7 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 카드 헤더, 사진, 코멘트 등은 이전과 동일 ---
+            // --- 카드 헤더, 사진, 최초 코멘트 ---
             Text(
               '📸 수행자가 $timeString 에 사진을 제출했습니다.',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
@@ -185,23 +187,20 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
                 child: Image.file(File(widget.photo.url)),
               ),
             ),
-            if (_isEditingComment && isMyPhoto)
-              _buildCommentEditor()
-            else if (widget.photo.responderComment != null &&
+            if (widget.photo.responderComment != null &&
                 widget.photo.responderComment!.isNotEmpty)
               _buildCommentDisplay(widget.photo.responderComment!),
 
-            if (widget.photo.requesterQuestion != null)
-              _buildQnAThread(widget.photo),
+            // --- Q&A 스레드 ---
+            if (hasQuestionBeenAsked) _buildQnAThread(widget.photo),
 
-            // ✅ [핵심 변경] _inputMode 상태에 따라 UI를 분기 처리합니다.
+            // --- [핵심 수정] 액션 UI 또는 입력창 ---
+            // 요청자이고 사진이 확인 대기중일 때 항상 액션 영역을 보여줌
             if (isRequester && widget.photo.status == PhotoStatus.pending)
               _inputMode == _InputMode.none
-                  // 1. 기본 상태: 액션 링크 표시
-                  ? _buildActionLinks()
-                  // 2. 입력 상태: 인라인 입력창 표시
-                  : _buildInlineInputField(),
-
+                  ? _buildActionLinks() // 액션 링크 UI
+                  : _buildInlineInputField(), // 인라인 입력창 UI
+            // --- 최종 피드백(승인/반려) 표시 ---
             if (widget.photo.status != PhotoStatus.pending)
               _buildFeedbackDisplay(widget.photo),
           ],
@@ -211,46 +210,90 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   }
 
   Widget _buildActionLinks() {
+    // [핵심 로직 1] 현재 사진에 대한 질문을 이미 했는지 확인
+    final bool hasQuestionBeenAsked =
+        widget.photo.requesterQuestion != null &&
+        widget.photo.requesterQuestion!.isNotEmpty;
+
+    // [핵심 로직 2] 이전에 반려된 사진이 있는지 확인하여 '2차 시도' 여부 판단
+    final bool isSecondAttempt = widget.event.photos.any(
+      (p) => p.status == PhotoStatus.rejected,
+    );
+
     return Column(
       children: [
-        const Divider(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+        const Divider(height: 32, thickness: 1),
+        // [개선 1] Row를 Wrap으로 변경하여 화면 폭에 따라 자동 줄바꿈
+        Wrap(
+          alignment: WrapAlignment.spaceEvenly, // 버튼들을 균등하게 정렬
+          spacing: 12.0, // 버튼 사이의 최소 가로 간격
+          runSpacing: 8.0, // 버튼들이 줄바꿈될 때의 세로 간격
           children: [
-            _buildInlineAction(
-              context,
-              icon: Icons.question_answer_outlined,
-              label: '사진 내용 질문',
-              onTap: () {
-                // 버튼을 누르면 setState를 통해 입력 모드로 전환
-                setState(() {
-                  _inputMode = _InputMode.askingQuestion;
-                  _inlineInputFocusNode.requestFocus(); // 입력창에 자동으로 포커스
-                });
-              },
+            // --- '질문하기' 버튼 ---
+            // [개선 2] 버튼 시인성을 위해 OutlinedButton 사용
+            OutlinedButton.icon(
+              icon: const Icon(Icons.question_answer_outlined),
+              // [개선 3] 간결하고 명확한 텍스트로 변경
+              label: const Text('질문하기'),
+              // [핵심 로직 3] 이미 질문했다면 onPressed를 null로 설정하여 버튼 비활성화
+              onPressed:
+                  hasQuestionBeenAsked
+                      ? null
+                      : () {
+                        setState(() {
+                          _inputMode = _InputMode.askingQuestion;
+                          _inlineInputFocusNode.requestFocus();
+                        });
+                      },
             ),
-            _buildInlineAction(
-              context,
-              icon: Icons.sync_problem_outlined,
-              label: '사진 재요청',
-              onTap: () {
-                // 버튼을 누르면 setState를 통해 입력 모드로 전환
-                setState(() {
-                  _inputMode = _InputMode.requestingRevision;
-                  _inlineInputFocusNode.requestFocus(); // 입력창에 자동으로 포커스
-                });
-              },
-            ),
+
+            // --- '재요청' 또는 '미션 실패' 버튼 ---
+            // [핵심 로직 4] 2차 시도 여부에 따라 다른 버튼을 렌더링
+            if (isSecondAttempt)
+              // (2차 시도) '미션 실패' 버튼: 가장 강렬한 FilledButton 사용
+              FilledButton.icon(
+                icon: const Icon(Icons.cancel),
+                label: const Text('미션 실패'),
+                onPressed: () {
+                  setState(() {
+                    _inputMode = _InputMode.requestingRevision;
+                    _inlineInputFocusNode.requestFocus();
+                  });
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                ),
+              )
+            else
+              // (1차 시도) '재요청' 버튼: 주의를 주는 붉은색 OutlinedButton 사용
+              OutlinedButton.icon(
+                icon: const Icon(Icons.sync_problem_outlined),
+                label: const Text('재요청'),
+                onPressed: () {
+                  setState(() {
+                    _inputMode = _InputMode.requestingRevision;
+                    _inlineInputFocusNode.requestFocus();
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade700),
+                ),
+              ),
           ],
         ),
-        const Padding(
-          padding: EdgeInsets.only(top: 8.0),
-          child: Text(
-            "※ 사진 내용이 궁금하면 '질문', 다른 사진이 필요하면 '재요청'을 선택하세요.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Colors.grey),
+
+        // 안내 문구는 질문이 가능할 때만 표시
+        if (!hasQuestionBeenAsked)
+          const Padding(
+            padding: EdgeInsets.only(top: 12.0),
+            child: Text(
+              "※ 사진 내용 질문은 1회만 가능하며, 이후 수정할 수 없습니다.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -314,37 +357,14 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
     );
   }
 
-  // 사진 카드 하단의 인라인 액션 버튼 UI
-  Widget _buildInlineAction(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: Theme.of(context).primaryColor),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ✨ [신설] 질의응답(Q&A) 스레드를 그리는 위젯
   Widget _buildQnAThread(Photo photo) {
+    // 현재 로그인한 사용자가 이벤트를 수행하는 사람인지 확인합니다.
+    final isMyTask =
+        widget.event.selectedResponderId == ref.read(authProvider)?.id;
+    // 답변이 아직 없는 상태인지 확인합니다.
+    final needsAnswer = photo.responderAnswer == null;
+
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
       child: Container(
@@ -372,6 +392,7 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
               ],
             ),
             const SizedBox(height: 12),
+
             // --- 답변 ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,7 +406,6 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  // 답변이 아직 없다면 안내 문구를 표시합니다.
                   child: Text(
                     photo.responderAnswer ?? '수행자의 답변을 기다리고 있습니다...',
                     style: TextStyle(
@@ -395,6 +415,27 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
                 ),
               ],
             ),
+
+            // --- [신규] 수행자이고, 아직 답변이 없다면 '답변하기' 버튼을 표시 ---
+            if (isMyTask && needsAnswer) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  child: const Text('답변하기'),
+                  onPressed: () {
+                    // 버튼을 누르면 ViewModel의 answerQuestion 메소드를 호출
+                    ref
+                        .read(
+                          eventDetailViewModelProvider(
+                            widget.event.id,
+                          ).notifier,
+                        )
+                        .answerQuestion(context, widget.photo.id);
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),

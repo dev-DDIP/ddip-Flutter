@@ -61,6 +61,15 @@ abstract class DdipEventRepository {
     String photoId,
     String question,
   );
+
+  Future<void> answerQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String answer,
+  );
+
+  /// 요청자가 미션을 최종 성공 처리하는 기능을 요구합니다.
+  Future<void> completeMission(String eventId);
 }
 
 /*

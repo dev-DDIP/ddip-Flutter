@@ -468,20 +468,31 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   /// 수행자가 요청자의 질문에 답변하는 메서드
   Future<void> answerQuestion(BuildContext context, String photoId) async {
+    // 1. 공용 텍스트 입력 다이얼로그를 띄워 답변을 입력받습니다.
     final answer = await _showTextInputDialog(
       context,
-      title: '답변하기',
+      title: '질문에 답변하기',
       hintText: '요청자의 질문에 대해 답변해주세요.',
       isRequired: true,
     );
 
+    // 2. 사용자가 답변을 입력하고 '확인'을 눌렀는지 확인합니다.
     if (answer != null && answer.trim().isNotEmpty) {
+      // 3. 로딩 상태로 변경하고 Notifier에게 실제 데이터 변경 작업을 위임합니다.
       state = state.copyWith(isProcessing: true);
       try {
-        // TODO: Notifier에 answerQuestion 로직 구현 후 호출
-        print('답변 제출: $answer');
-      } finally {
-        if (mounted) state = state.copyWith(isProcessing: false);
+        await _ref
+            .read(ddipEventsNotifierProvider.notifier)
+            .answerQuestionOnPhoto(_eventId, photoId, answer);
+        // 성공 시, 스트림을 통해 자동으로 상태가 갱신되므로 isProcessing을 false로 바꿀 필요가 없습니다.
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('오류: $e')));
+          // 실패 시에는 직접 로딩 상태를 해제해줘야 합니다.
+          state = state.copyWith(isProcessing: false);
+        }
       }
     }
   }
@@ -504,6 +515,24 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
             PhotoStatus.rejected,
             comment: reason, // 반려 사유를 comment 파라미터로 전달
           );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+        state = state.copyWith(isProcessing: false);
+      }
+    }
+  }
+
+  // EventDetailViewModel 클래스 내부에 아래 메소드를 추가
+  Future<void> completeMission(BuildContext context) async {
+    state = state.copyWith(isProcessing: true);
+    try {
+      await _ref
+          .read(ddipEventsNotifierProvider.notifier)
+          .completeMission(_eventId);
+      // 성공 시 스트림을 통해 자동으로 상태가 갱신됨
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

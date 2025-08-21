@@ -130,6 +130,23 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
       'askQuestionOnPhoto is not implemented yet for real repository',
     );
   }
+
+  @override
+  Future<void> answerQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String answer,
+  ) {
+    //ToDO: 실제 서버 API가 준비되면 이 부분을 구현해야 합니다.
+    throw UnimplementedError(
+      'answerQuestionOnPhoto is not implemented yet for real repository',
+    );
+  }
+
+  @override
+  Future<void> completeMission(String eventId) {
+    return remoteDataSource.completeMission(eventId);
+  }
 }
 
 /*

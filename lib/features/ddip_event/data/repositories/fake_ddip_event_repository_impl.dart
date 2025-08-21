@@ -19,10 +19,21 @@ import 'package:uuid/uuid.dart';
 class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final Ref ref; // ✨ 1. 생성자를 통해 Ref를 전달받음
   final WebSocketDataSource webSocketDataSource;
+  final _eventStreamControllers = <String, StreamController<DdipEvent>>{};
 
   FakeDdipEventRepositoryImpl(this.ref, {required this.webSocketDataSource});
 
   final List<DdipEvent> _ddipEvents = List.from(mockDdipEvents);
+
+  void _broadcastUpdate(String eventId) {
+    // 1. 현재 컨트롤러 맵에 해당 이벤트 ID의 방송 채널이 있는지 확인
+    if (_eventStreamControllers.containsKey(eventId)) {
+      // 2. 내부 데이터 목록에서 최신 이벤트 정보를 찾음
+      final updatedEvent = _ddipEvents.firstWhere((e) => e.id == eventId);
+      // 3. 해당 채널을 통해 최신 이벤트 데이터를 방송(emit)함
+      _eventStreamControllers[eventId]!.add(updatedEvent);
+    }
+  }
 
   @override
   Future<void> applyToEvent(String eventId, String userId) async {
@@ -35,6 +46,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         final newApplicants = List<String>.from(event.applicants)..add(userId);
         final updatedEvent = event.copyWith(applicants: newApplicants);
         _ddipEvents[index] = updatedEvent;
+        _broadcastUpdate(eventId);
       }
     } else {
       throw Exception('Event not found');
@@ -54,6 +66,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           status: DdipEventStatus.in_progress,
         );
         _ddipEvents[index] = updatedEvent;
+        _broadcastUpdate(eventId);
       } else {
         throw Exception('Responder not in applicants list');
       }
@@ -100,6 +113,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         interactions: newInteractions,
       );
       _ddipEvents[index] = updatedEvent;
+      _broadcastUpdate(eventId);
     } else {
       throw Exception('Event not found');
     }
@@ -161,6 +175,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           interactions: newInteractions,
         );
         _ddipEvents[eventIndex] = updatedEvent;
+        _broadcastUpdate(eventId);
       } else {
         throw Exception('Photo not found');
       }
@@ -204,32 +219,19 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   }
 
   @override
-  Stream<DdipEvent> getEventStreamById(String id) async* {
-    // 1. 먼저 현재 저장된 최신 버전의 이벤트를 한 번 보내줍니다. (스냅샷)
-    final initialEvent = _ddipEvents.firstWhere((e) => e.id == id);
-    yield initialEvent;
+  Stream<DdipEvent> getEventStreamById(String id) {
+    // 1. 해당 ID의 스트림 컨트롤러(방송 채널)가 없으면 새로 생성
+    _eventStreamControllers.putIfAbsent(
+      id,
+      () => StreamController<DdipEvent>.broadcast(),
+    );
 
-    // 2. 외부 전문가(WebSocketDataSource)로부터 오는 실시간 업데이트를 구독합니다.
-    final interactionStream = webSocketDataSource.getInteractionStream(id);
+    // 2. 구독하는 즉시 현재 최신 데이터를 먼저 한 번 보내줌
+    final currentEvent = _ddipEvents.firstWhere((e) => e.id == id);
+    _eventStreamControllers[id]!.add(currentEvent);
 
-    // 3. 새로운 업데이트(Interaction)가 올 때마다,
-    //    기존 이벤트 데이터에 변경사항을 적용하여 새로운 버전의 DdipEvent를 만들어 UI에 보내줍니다.
-    await for (final interaction in interactionStream) {
-      final targetEvent = _ddipEvents.firstWhere((e) => e.id == id);
-
-      // 실제로는 interaction의 actionType에 따라 분기 처리가 필요하지만,
-      // 지금은 지원자(applicant)가 추가되는 시나리오만 가정합니다.
-      final updatedEvent = targetEvent.copyWith(
-        applicants: [...targetEvent.applicants, interaction.actorId],
-      );
-
-      // 내부 데이터도 최신 상태로 업데이트합니다.
-      final eventIndex = _ddipEvents.indexWhere((e) => e.id == id);
-      _ddipEvents[eventIndex] = updatedEvent;
-
-      // UI에 업데이트된 최신 버전의 이벤트를 흘려보냅니다 (라이브 비디오).
-      yield updatedEvent;
-    }
+    // 3. 생성된 방송 채널의 스트림(라디오 주파수)을 반환
+    return _eventStreamControllers[id]!.stream;
   }
 
   @override
@@ -298,7 +300,81 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           requesterQuestion: question,
         );
         _ddipEvents[eventIndex] = event.copyWith(photos: newPhotos);
+
+        _broadcastUpdate(eventId);
       }
+    }
+  }
+
+  @override
+  Future<void> answerQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String answer,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200)); // API 호출 흉내
+
+    final eventIndex = _ddipEvents.indexWhere((e) => e.id == eventId);
+    if (eventIndex != -1) {
+      final event = _ddipEvents[eventIndex];
+      final photoIndex = event.photos.indexWhere((p) => p.id == photoId);
+      if (photoIndex != -1) {
+        // 1. 사진 목록에서 해당 사진을 찾아 `responderAnswer` 필드를 업데이트
+        final newPhotos = List<Photo>.from(event.photos);
+        newPhotos[photoIndex] = newPhotos[photoIndex].copyWith(
+          responderAnswer: answer,
+        );
+
+        // 2. 답변 행위를 Interaction 로그로 추가
+        final newInteraction = Interaction(
+          id: const Uuid().v4(),
+          actorId: ref.read(authProvider)!.id, // 현재 로그인 유저
+          actorRole: ActorRole.responder,
+          actionType: ActionType.answerQuestion,
+          comment: answer,
+          relatedPhotoId: photoId,
+          timestamp: DateTime.now(),
+        );
+        final newInteractions = [...event.interactions, newInteraction];
+
+        // 3. 변경된 사진 목록과 상호작용 로그로 이벤트 객체를 업데이트
+        _ddipEvents[eventIndex] = event.copyWith(
+          photos: newPhotos,
+          interactions: newInteractions,
+        );
+
+        // 4. 변경 사항을 스트림으로 전파!
+        _broadcastUpdate(eventId);
+      }
+    }
+  }
+
+  // FakeDdipEventRepositoryImpl 클래스 내부에 아래 메소드 구현을 추가
+  @override
+  Future<void> completeMission(String eventId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    final eventIndex = _ddipEvents.indexWhere((e) => e.id == eventId);
+    if (eventIndex != -1) {
+      final event = _ddipEvents[eventIndex];
+      // 가장 마지막에 제출된 pending 사진을 approved로 변경
+      final lastPendingPhotoIndex = event.photos.lastIndexWhere(
+        (p) => p.status == PhotoStatus.pending,
+      );
+
+      List<Photo> newPhotos = List.from(event.photos);
+      if (lastPendingPhotoIndex != -1) {
+        newPhotos[lastPendingPhotoIndex] = newPhotos[lastPendingPhotoIndex]
+            .copyWith(status: PhotoStatus.approved);
+      }
+
+      // 이벤트 상태를 completed로 변경
+      final updatedEvent = event.copyWith(
+        status: DdipEventStatus.completed,
+        photos: newPhotos,
+      );
+      _ddipEvents[eventIndex] = updatedEvent;
+      _broadcastUpdate(eventId);
     }
   }
 }

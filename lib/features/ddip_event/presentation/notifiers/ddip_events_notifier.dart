@@ -276,7 +276,8 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
                     status == PhotoStatus.approved
                         ? ActionType.approve
                         : ActionType.requestRevision,
-                comment: comment, // Interaction에는 반려 사유나 승인 코멘트가 모두 기록될 수 있습니다.
+                comment: comment,
+                // Interaction에는 반려 사유나 승인 코멘트가 모두 기록될 수 있습니다.
                 relatedPhotoId: photoId,
                 timestamp: DateTime.now(),
               );
@@ -349,50 +350,46 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
     String photoId,
     String question,
   ) async {
-    final previousState = state.value;
-    if (previousState == null) return;
-
     try {
-      // 나중에 실제 Repository 호출을 추가할 수 있습니다.
-      // await _ref.read(ddipEventRepositoryProvider).askQuestionOnPhoto(eventId, photoId, question);
+      // 1. 실제 데이터 처리를 담당하는 Repository의 메소드를 호출합니다.
+      final repository = _ref.read(ddipEventRepositoryProvider);
+      await repository.askQuestionOnPhoto(eventId, photoId, question);
 
-      final newEvents =
-          previousState.events.map((event) {
-            if (event.id == eventId) {
-              // 1. 특정 사진을 찾아 requesterQuestion 필드를 업데이트합니다.
-              final newPhotos =
-                  event.photos.map((photo) {
-                    if (photo.id == photoId) {
-                      return photo.copyWith(requesterQuestion: question);
-                    }
-                    return photo;
-                  }).toList();
-
-              // 2. '질문' 행위를 Interaction 로그로 생성합니다.
-              final newInteraction = Interaction(
-                id:
-                    'interaction_question_${photoId}_${DateTime.now().millisecondsSinceEpoch}',
-                actorId: _ref.read(authProvider)!.id,
-                actorRole: ActorRole.requester,
-                actionType: ActionType.askQuestion,
-                comment: question,
-                relatedPhotoId: photoId,
-                timestamp: DateTime.now(),
-              );
-              final newInteractions = [...event.interactions, newInteraction];
-
-              // 3. 업데이트된 사진 목록과 상호작용 목록으로 이벤트를 갱신합니다.
-              return event.copyWith(
-                photos: newPhotos,
-                interactions: newInteractions,
-              );
-            }
-            return event;
-          }).toList();
-
-      // 4. 전체 상태를 업데이트하여 UI에 변경을 알립니다.
-      state = AsyncValue.data(previousState.copyWith(events: newEvents));
+      // 2. Repository가 스트림을 통해 변경사항을 전파할 것이므로,
+      //    여기서는 별도의 상태 업데이트 로직이 필요 없습니다.
     } catch (e) {
+      // 에러가 발생하면 상위로 전파하여 ViewModel에서 처리하도록 합니다.
+      rethrow;
+    }
+  }
+
+  /// 수행자가 사진에 달린 질문에 답변하는 로직
+  Future<void> answerQuestionOnPhoto(
+    String eventId,
+    String photoId,
+    String answer,
+  ) async {
+    try {
+      // 실제 데이터 처리는 Repository에 위임합니다.
+      final repository = _ref.read(ddipEventRepositoryProvider);
+      await repository.answerQuestionOnPhoto(eventId, photoId, answer);
+      // Repository가 스트림을 통해 변경사항을 전파하므로,
+      // 여기서 별도의 상태 업데이트는 필요 없습니다.
+    } catch (e) {
+      rethrow; // 에러는 ViewModel으로 다시 던져서 UI에 피드백을 줍니다.
+    }
+  }
+
+  Future<void> completeMission(String eventId) async {
+    try {
+      // 실제 데이터 처리를 담당하는 Repository를 찾아 completeMission 메소드를 호출합니다.
+      final repository = _ref.read(ddipEventRepositoryProvider);
+      await repository.completeMission(eventId);
+
+      // 성공 시 데이터 업데이트는 Repository의 스트림을 통해 자동으로 전파되므로
+      // 여기서 별도의 상태 변경 코드는 필요 없습니다.
+    } catch (e) {
+      // 에러 발생 시 ViewModel로 에러를 다시 전달하여 UI에 피드백을 줍니다.
       rethrow;
     }
   }
