@@ -20,22 +20,42 @@ class MissionBriefingHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Provider를 통해 요청자 정보를 가져옵니다.
-    final requester = ref
-        .watch(mockUsersProvider)
-        .firstWhere(
-          (user) => user.id == event.requesterId,
-          orElse: () => User(id: event.requesterId, name: '알 수 없는 작성자'),
-        );
-
+    // 1. 역할 및 상태 확인 로직
+    final allUsers = ref.watch(mockUsersProvider);
+    final currentUser = ref.watch(authProvider);
     final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
 
+    final bool isRequester = currentUser?.id == event.requesterId;
+    final bool isResponderSelected = event.selectedResponderId != null;
+
+    // 표시할 유저와 역할 텍스트를 담을 변수
+    User displayUser;
+    String displayRoleText;
+
+    // 2. 조건에 따라 표시할 유저와 텍스트를 결정
+    //    - 내가 요청자이고 수행자가 선택되었다면 "수행자 정보"를 표시
+    //    - 그 외의 모든 경우(내가 수행자, 제3자, 아직 수행자 미선택)는 "요청자 정보"를 표시
+    if (isRequester && isResponderSelected) {
+      displayRoleText = '수행자 정보';
+      displayUser = allUsers.firstWhere(
+        (user) => user.id == event.selectedResponderId,
+        orElse: () => User(id: event.selectedResponderId!, name: '알 수 없는 수행자'),
+      );
+    } else {
+      displayRoleText = '요청자 정보';
+      displayUser = allUsers.firstWhere(
+        (user) => user.id == event.requesterId,
+        orElse: () => User(id: event.requesterId, name: '알 수 없는 요청자'),
+      );
+    }
+
+    // 3. 결정된 정보로 UI를 그립니다.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. 제목 및 상태 뱃지
+          // 제목 및 상태 뱃지 (기존과 동일)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,10 +82,23 @@ class MissionBriefingHeader extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // 2. 요청자 정보
+
+          // ▼▼▼ 4. 역할 텍스트(Section Title)와 유저 정보 카드 수정 ▼▼▼
+          // "요청자 정보" 또는 "수행자 정보" 텍스트 추가
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+            child: Text(
+              displayRoleText,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+            ),
+          ),
+          // 유저 정보 카드
           GestureDetector(
             onTap: () {
-              context.push('/profile/${requester.id}');
+              // 표시된 유저(displayUser)의 프로필로 이동
+              context.push('/profile/${displayUser.id}');
             },
             child: Container(
               padding: const EdgeInsets.all(8.0),
@@ -82,14 +115,14 @@ class MissionBriefingHeader extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          requester.name,
+                          // 표시된 유저(displayUser)의 이름
+                          displayUser.name,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // TODO: 실제 평판 데이터 연동
                         Wrap(
                           spacing: 6.0,
                           runSpacing: 4.0,
@@ -110,7 +143,6 @@ class MissionBriefingHeader extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // 보상 정보
                   Text(
                     '${NumberFormat('#,###').format(event.reward)}원',
                     style: TextStyle(
@@ -123,8 +155,9 @@ class MissionBriefingHeader extends ConsumerWidget {
               ),
             ),
           ),
+
+          // ▲▲▲ 4. 역할 텍스트와 유저 정보 카드 수정 완료 ▲▲▲
           const SizedBox(height: 16),
-          // 3. 미션 진행률 표시줄
           _buildProgressBar(context, event),
 
           if (viewModelState.countdownStream != null &&
@@ -137,7 +170,6 @@ class MissionBriefingHeader extends ConsumerWidget {
             ),
 
           const SizedBox(height: 16),
-          // 4. 헤더와 다음 콘텐츠를 구분하는 선
           const Divider(height: 1),
         ],
       ),

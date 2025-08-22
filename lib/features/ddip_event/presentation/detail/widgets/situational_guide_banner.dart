@@ -48,61 +48,77 @@ class SituationalGuideBanner extends ConsumerWidget {
     Color? color;
 
     final isRequester = event.requesterId == currentUserId;
+    final isSelectedResponder = event.selectedResponderId == currentUserId;
     final hasPendingPhoto = event.photos.any(
       (p) => p.status == PhotoStatus.pending,
     );
+    final hasRejectedPhoto = event.photos.any(
+      (p) => p.status == PhotoStatus.rejected,
+    );
 
-    if (isRequester) {
-      // 요청자 입장
-      if (event.status == DdipEventStatus.in_progress && !hasPendingPhoto) {
-        text = '수행자의 첫 사진을 기다리고 있습니다...';
-        icon = Icons.hourglass_empty_rounded;
-        color = Colors.blue;
+    // 역할과 상태에 따라 텍스트, 아이콘, 색상을 정의합니다. (메시지 간소화)
+    if (isSelectedResponder) {
+      // 내가 수행자일 경우
+      if (hasRejectedPhoto && !hasPendingPhoto) {
+        text = '사진 반려! 다시 제출해주세요.';
+        icon = Icons.sync_problem_outlined;
+        color = Colors.red.shade600;
       } else if (hasPendingPhoto) {
-        text = '사진을 확인하고 피드백을 남겨주세요!';
-        icon = Icons.rate_review_outlined;
-        color = Colors.orange;
-      }
-    } else {
-      // 수행자 입장
-      if (event.selectedResponderId == currentUserId && !hasPendingPhoto) {
-        text = '현장으로 이동하여 사진을 제출해주세요.';
-        icon = Icons.camera_alt_outlined;
-        color = Colors.green;
-      } else if (event.selectedResponderId == currentUserId &&
-          hasPendingPhoto) {
-        text = '요청자의 피드백을 기다리고 있습니다.';
+        text = '⏳ 요청자 확인 중...';
         icon = Icons.hourglass_bottom_rounded;
-        color = Colors.grey;
+        color = Colors.grey.shade600;
+      } else {
+        text = '📸 현장 사진을 제출해주세요.';
+        icon = Icons.camera_alt_outlined;
+        color = Colors.green.shade600;
+      }
+    } else if (isRequester) {
+      // 내가 요청자일 경우
+      if (hasPendingPhoto) {
+        text = '👍 사진 확인 후 피드백을 남겨주세요!';
+        icon = Icons.rate_review_outlined;
+        color = Colors.orange.shade700;
+      } else if (event.status == DdipEventStatus.in_progress) {
+        text = '⏳ 수행자의 사진을 기다리고 있습니다.';
+        icon = Icons.hourglass_empty_rounded;
+        color = Colors.blue.shade600;
       }
     }
 
-    // 표시할 텍스트가 없으면 빈 위젯을 반환하여 배너를 숨깁니다.
     if (text == null) {
       return const SizedBox.shrink(key: ValueKey('empty'));
     }
 
-    // 가이드 문구를 표시할 컨테이너 위젯
+    // 고강조 스타일이 적용된 새로운 Container 위젯
     return Container(
-      key: ValueKey(text), // 애니메이션이 내용을 구분하도록 key를 부여합니다.
+      key: ValueKey(text),
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: color?.withOpacity(0.1),
+        // ✨ [핵심 수정 1] 단색 배경과 그림자 효과
+        color: color, // 옅은 배경 대신 단색을 직접 사용
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color?.withOpacity(0.3) ?? Colors.transparent,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: color?.withOpacity(0.3) ?? Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 20),
+          // ✨ [핵심 수정 2] 아이콘과 텍스트를 모두 흰색으로 변경하여 대비 극대화
+          Icon(icon, color: Colors.white, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white, // 텍스트 색상을 흰색으로 고정
+              ),
             ),
           ),
         ],

@@ -4,7 +4,6 @@ import 'dart:async';
 
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
-import 'package:ddip/features/camera/camera_screen.dart';
 import 'package:ddip/features/camera/photo_preview_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
@@ -17,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 part 'event_detail_view_model.freezed.dart';
@@ -260,33 +260,41 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   // 사진 제출과 관련된 전체 흐름을 담당하는 내부 메서드
   Future<void> _processPhotoSubmission(BuildContext context) async {
     try {
-      // 1. 단순 ImagePicker 대신 우리가 만든 CameraScreen으로 이동하고 결과를 기다립니다.
-      // PhotoPreviewScreen에서 '전송하기'를 누르면 PhotoSubmissionResult가 반환됩니다.
+      // 1. ImagePicker 인스턴스를 생성합니다.
+      final picker = ImagePicker();
+
+      // 2. picker.pickImage를 호출하여 기본 카메라 앱을 실행하고 결과를 기다립니다.
+      final photo = await picker.pickImage(source: ImageSource.camera);
+
+      // 3. 사용자가 사진을 찍지 않고 취소했다면, 로딩을 멈추고 함수를 종료합니다.
+      if (photo == null || !context.mounted) {
+        state = state.copyWith(isProcessing: false);
+        return;
+      }
+
+      // 4. 촬영된 사진(photo)을 가지고, 기존에 사용하던 미리보기 및 코멘트 작성 화면으로 이동합니다.
+      //    이를 통해 코드 재사용성을 높이고 UI 일관성을 유지합니다.
       final result = await Navigator.of(context).push<PhotoSubmissionResult?>(
         MaterialPageRoute(
-          builder: (context) => const CameraScreen(), // camera_screen.dart 호출
+          // XFile 객체를 PhotoPreviewScreen에 넘겨줍니다.
+          builder: (context) => PhotoPreviewScreen(image: photo),
         ),
       );
 
-      // 2. 사용자가 사진 제출 없이 뒤로가기 했으면 로딩을 멈추고 함수를 종료합니다.
+      // 5. 사용자가 미리보기 화면에서 '전송하기'를 누르지 않고 뒤로가기 했다면 함수를 종료합니다.
       if (result == null || !context.mounted) {
         state = state.copyWith(isProcessing: false);
         return;
       }
 
-      // 3. PhotoPreviewScreen에서 받아온 결과(이미지 경로 + 선택적 코멘트)를 사용하여
-      //    submitPhoto 메서드를 호출합니다.
-      await submitPhoto(
-        imagePath: result.imagePath,
-        comment: result.comment, // 코멘트가 없다면 null이 전달됩니다.
-      );
+      // 6. 최종 결과물(이미지 경로 + 코멘트)을 사용하여 서버에 사진을 제출합니다.
+      await submitPhoto(imagePath: result.imagePath, comment: result.comment);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('사진을 처리하는 중 오류가 발생했습니다: $e')));
       }
-      // ViewModel의 상태를 직접 바꾸기보다 rethrow하여 상위에서 처리하도록 유도
       rethrow;
     }
   }

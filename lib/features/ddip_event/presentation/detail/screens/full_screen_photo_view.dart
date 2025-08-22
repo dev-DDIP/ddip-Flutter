@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'dart:ui';
+
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
@@ -27,9 +28,12 @@ class FullScreenPhotoView extends ConsumerStatefulWidget {
 
 class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
   late SystemUiOverlayStyle _originalSystemUiStyle;
+
   // ✨ [핵심 수정] 위치를 제어하고 초기화하기 위해 TransformationController를 다시 사용합니다.
   final TransformationController _transformationController =
       TransformationController();
+
+  bool _isUiVisible = true; // 처음부터 코멘트가 보이도록 true로 시작
 
   @override
   void initState() {
@@ -67,14 +71,15 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
+      SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent,
+        // 기존: Colors.transparent
+        // 수정: 반투명한 검은색으로 변경하여 은은하게 어둡게 만듭니다.
+        systemNavigationBarColor: Colors.black.withOpacity(0.1),
         systemNavigationBarIconBrightness: Brightness.light,
       ),
     );
-
     final event = ref.watch(eventDetailProvider(widget.eventId));
 
     if (event == null) {
@@ -100,18 +105,10 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       extendBody: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
-      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 블러 배경 이미지는 동일
+          // 1. 블러 처리된 배경 이미지
           Image.file(
             File(photo.url),
             fit: BoxFit.cover,
@@ -126,23 +123,97 @@ class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
           ),
 
           InteractiveViewer(
-            transformationController: _transformationController, // 컨트롤러 연결
-            onInteractionEnd: _onInteractionEnd, // ✨ [핵심 수정] 인터랙션 종료 콜백 연결
+            transformationController: _transformationController,
+            onInteractionEnd: _onInteractionEnd,
             panEnabled: true,
             minScale: 1.0,
             maxScale: 4.0,
-            boundaryMargin: EdgeInsets.only(
-              top:
-                  AppBar().preferredSize.height +
-                  MediaQuery.of(context).padding.top,
-              bottom: MediaQuery.of(context).padding.bottom,
+            boundaryMargin: EdgeInsets.zero,
+            // boundaryMargin은 사진 전체를 볼 수 있도록 zero로 설정
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isUiVisible = !_isUiVisible;
+                });
+              },
+              child: Center(
+                // 이미지를 중앙에 배치하기 위해 Center 위젯 사용
+                child: Image.file(File(photo.url), fit: BoxFit.contain),
+              ),
             ),
-            child: Image.file(File(photo.url), fit: BoxFit.contain),
           ),
+
+          // 3. AppBar (닫기 버튼) - 이전 단계에서 수정한 구조 유지
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            // UI가 보이지 않을 때( !_isUiVisible ) 터치 이벤트를 무시(ignoring: true)합니다.
+            child: IgnorePointer(
+              ignoring: !_isUiVisible,
+              child: AnimatedOpacity(
+                opacity: _isUiVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => context.pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 4. 코멘트 오버레이 (코멘트가 있을 때만 위젯을 빌드합니다)
+          if (photo.responderComment != null &&
+              photo.responderComment!.isNotEmpty)
+            _buildCommentOverlay(photo.responderComment!),
         ],
       ),
     );
   }
-}
 
-// ▲▲▲ [수정 종료] ▲▲▲
+  Widget _buildCommentOverlay(String comment) {
+    return IgnorePointer(
+      ignoring: !_isUiVisible,
+      child: AnimatedOpacity(
+        opacity: _isUiVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 200),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(context).padding.bottom + 20,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.black.withOpacity(0.0),
+                ],
+              ),
+            ),
+            child: Text(
+              comment,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ▲▲▲ 4. 코멘트를 화면 하단에 표시하는 새로운 메서드를 추가합니다. ▲▲▲
+}
