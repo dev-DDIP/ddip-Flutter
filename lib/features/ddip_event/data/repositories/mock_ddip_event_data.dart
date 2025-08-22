@@ -87,7 +87,21 @@ List<DdipEvent> _generateMockEvents() {
       // 이수행, 박지원 지원
       selectedResponderId: 'responder_1',
       // 이수행 선택됨
-      interactions: [],
+      interactions: [
+        Interaction(
+          id: const Uuid().v4(),
+          actorId: 'requester_1',
+          // 요청자가
+          actorRole: ActorRole.requester,
+          actionType: ActionType.selectResponder,
+          // 수행자를 선택했다는 기록
+          comment: 'responder_1',
+          // responder_1을 선택
+          timestamp: DateTime.now().subtract(
+            const Duration(seconds: 10),
+          ), // 10초 전에 선택됨
+        ),
+      ],
     ),
   );
 
@@ -146,27 +160,44 @@ DdipEvent _createRandomEvent({
   required double jitterAmount,
   DdipEventStatus status = DdipEventStatus.open,
 }) {
+  final requesterId = _requesterIds[_random.nextInt(_requesterIds.length)];
+  final isInProgress = status == DdipEventStatus.in_progress;
+
+  // ✨ [핵심 추가] '진행중' 상태일 때만 수행자 선택 기록(Interaction)을 생성합니다.
+  final interactions =
+      isInProgress
+          ? [
+            Interaction(
+              id: _uuid.v4(),
+              actorId: requesterId,
+              // 요청자가
+              actorRole: ActorRole.requester,
+              actionType: ActionType.selectResponder,
+              // 수행자를 선택했다는 기록
+              comment: 'responder_1',
+              // '이수행'을 선택했다고 가정
+              timestamp: DateTime.now().subtract(
+                const Duration(seconds: 5),
+              ), // 30초 전에 선택
+            ),
+          ]
+          : <Interaction>[];
+
   return DdipEvent(
     id: _uuid.v4(),
     title: _sampleTitles[_random.nextInt(_sampleTitles.length)],
     content: _sampleContents[_random.nextInt(_sampleContents.length)],
-    requesterId: _requesterIds[_random.nextInt(_requesterIds.length)],
+    requesterId: requesterId,
     reward: (_random.nextInt(30) + 5) * 100,
-    // 500 ~ 3400원
-    // ✨ [수정] 이제 상위에서 타입을 명시해주었기 때문에, 불필요한 'as double' 캐스팅을 제거하여 코드를 더 깔끔하게 만듭니다.
     latitude: _jitter(center['lat']!, jitterAmount),
     longitude: _jitter(center['lon']!, jitterAmount),
-
     status: status,
     createdAt: DateTime.now().subtract(
       Duration(minutes: _random.nextInt(24 * 60)),
     ),
-    // 최근 24시간 내
-    applicants:
-        status == DdipEventStatus.in_progress
-            ? ['responder_1', 'responder_2']
-            : [],
-    selectedResponderId:
-        status == DdipEventStatus.in_progress ? 'responder_1' : null,
+    applicants: isInProgress ? ['responder_1', 'responder_2'] : [],
+    selectedResponderId: isInProgress ? 'responder_1' : null,
+    // ✨ [핵심 추가] 위에서 생성한 interactions 리스트를 DdipEvent에 포함시킵니다.
+    interactions: interactions,
   );
 }

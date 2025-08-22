@@ -2,11 +2,13 @@
 
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/camera/photo_preview_screen.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
+import 'package:ddip/features/ddip_event/domain/entities/mission_stage.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/communication_log_sliver.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
@@ -31,7 +33,7 @@ class EventDetailState with _$EventDetailState {
     String? buttonText,
     @Default(false) bool buttonIsEnabled,
     Color? buttonColor,
-    Stream<Duration>? countdownStream,
+    required MissionStage missionStage,
   }) = _EventDetailState;
 }
 
@@ -42,12 +44,9 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   // Stream의 구독을 관리하기 위한 변수
   StreamSubscription<DdipEvent>? _eventSubscription;
 
-  Timer? _countdownTimer;
-  StreamController<Duration>? _countdownController;
-
   EventDetailViewModel(this._ref, this._eventId)
-    : super(const EventDetailState()) {
-    // ViewModel이 생성되자마자 데이터 로딩 및 실시간 업데이트 수신을 시작합니다.
+    // ✨ [수정] super()를 호출할 때 missionStage를 직접 초기화해줍니다.
+    : super(EventDetailState(missionStage: MissionStage.inactive())) {
     _initialize();
   }
 
@@ -79,90 +78,59 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   void _updateStateFromEvent(DdipEvent event) {
     final currentUser = _ref.read(authProvider);
-    if (currentUser == null) {
-      state = state.copyWith(
-        event: AsyncValue.data(event),
-        buttonIsEnabled: false,
-        buttonText: '로그인이 필요합니다.',
-      );
-      return;
-    }
 
-    // --- 버튼 상태 결정 로직 (기존과 동일) ---
+    // --- 버튼 상태 결정 로직 (이전과 동일) ---
     String? text;
     bool isEnabled = false;
     Color? color;
-    final bool isRequester = event.requesterId == currentUser.id;
-    final bool isSelectedResponder =
-        event.selectedResponderId == currentUser.id;
-    final bool hasApplied = event.applicants.contains(currentUser.id);
-    final bool hasPendingPhoto = event.photos.any(
-      (p) => p.status == PhotoStatus.pending,
-    );
-
-    switch (event.status) {
-      case DdipEventStatus.open:
-        if (!isRequester && !hasApplied) {
-          text = '지원하기';
-          isEnabled = true;
-        }
-        break;
-      case DdipEventStatus.in_progress:
-        if (isSelectedResponder && !hasPendingPhoto) {
-          text = '사진 찍고 제출하기';
-          isEnabled = true;
-          color = Colors.green;
-        }
-        break;
-      case DdipEventStatus.completed:
-        text = '완료된 요청';
-        break;
-      case DdipEventStatus.failed:
-        text = '실패한 요청';
-        color = Colors.red[700];
-        break;
-    }
-
-    // --- 타이머 로직 ---
-    Stream<Duration>? newCountdownStream = state.countdownStream;
-    if (event.status == DdipEventStatus.in_progress &&
-        _countdownTimer == null) {
-      final matchedInteraction = event.interactions.lastWhere(
-        (i) => i.actionType == ActionType.selectResponder,
-        orElse:
-            () => Interaction(
-              id: '',
-              actorId: '',
-              actorRole: ActorRole.system,
-              actionType: ActionType.create,
-              timestamp: DateTime.now(),
-            ),
+    if (currentUser != null) {
+      final bool isRequester = event.requesterId == currentUser.id;
+      final bool isSelectedResponder =
+          event.selectedResponderId == currentUser.id;
+      final bool hasApplied = event.applicants.contains(currentUser.id);
+      final bool hasPendingPhoto = event.photos.any(
+        (p) => p.status == PhotoStatus.pending,
       );
-      final matchedTime = matchedInteraction.timestamp;
-      final endTime = matchedTime.add(const Duration(minutes: 3));
 
-      _countdownController = StreamController<Duration>.broadcast();
-      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        final remaining = endTime.difference(DateTime.now());
-        if (remaining.isNegative) {
-          _countdownController?.add(Duration.zero);
-          timer.cancel();
-        } else {
-          _countdownController?.add(remaining);
-        }
-      });
-      newCountdownStream = _countdownController?.stream;
+      switch (event.status) {
+        case DdipEventStatus.open:
+          if (!isRequester && !hasApplied) {
+            text = '지원하기';
+            isEnabled = true;
+          }
+          break;
+        case DdipEventStatus.in_progress:
+          if (isSelectedResponder && !hasPendingPhoto) {
+            text = '사진 찍고 제출하기';
+            isEnabled = true;
+            color = Colors.green;
+          }
+          break;
+        case DdipEventStatus.completed:
+          text = '완료된 요청';
+          break;
+        case DdipEventStatus.failed:
+          text = '실패한 요청';
+          color = Colors.red[700];
+          break;
+      }
+    } else {
+      isEnabled = false;
+      text = '로그인이 필요합니다.';
     }
+
+    // ✨ 새로운 헬퍼 메서드를 호출하여 현재 미션 단계를 결정합니다.
+    final missionStage = _determineMissionStage(event, currentUser?.id);
 
     // --- 최종 상태 업데이트 ---
-    // if 블록 밖으로 이동하여 항상 상태가 업데이트되도록 수정했습니다.
     state = state.copyWith(
       event: AsyncValue.data(event),
       buttonText: text,
       buttonIsEnabled: isEnabled,
       buttonColor: color,
+      missionStage: missionStage,
+      // 결정된 미션 단계를 상태에 업데이트
       isProcessing: false,
-      countdownStream: newCountdownStream, // 타이머 스트림도 함께 업데이트
     );
   }
 
@@ -170,9 +138,154 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   void dispose() {
     // ViewModel이 파괴될 때, Stream 구독을 반드시 취소하여 메모리 누수를 방지합니다.
     _eventSubscription?.cancel();
-    _countdownTimer?.cancel();
-    _countdownController?.close();
     super.dispose();
+  }
+
+  MissionStage _determineMissionStage(DdipEvent event, String? currentUserId) {
+    if (currentUserId == null ||
+        event.status == DdipEventStatus.completed ||
+        event.status == DdipEventStatus.failed) {
+      return MissionStage.inactive();
+    }
+
+    final isRequester = event.requesterId == currentUserId;
+    final photos = List.from(event.photos);
+    final lastPhoto = photos.isNotEmpty ? photos.lastOrNull : null;
+
+    // --- 1단계: 매칭 후 첫 사진 제출 대기 ---
+    if (event.status == DdipEventStatus.in_progress && photos.isEmpty) {
+      final Interaction? matchInteraction = event.interactions.firstWhereOrNull(
+        (i) => i.actionType == ActionType.selectResponder,
+      );
+      if (matchInteraction == null) return MissionStage.inactive();
+      final matchTime = matchInteraction.timestamp;
+
+      return MissionStage(
+        isActive: true,
+        totalDuration: const Duration(minutes: 3),
+        endTime: matchTime.add(const Duration(minutes: 3)),
+        guideText:
+            isRequester ? '⏳ 수행자의 첫 사진을 기다리고 있습니다.' : '📸 3분 내에 현장 사진을 제출해주세요!',
+        guideIcon:
+            isRequester
+                ? Icons.hourglass_empty_rounded
+                : Icons.camera_alt_outlined,
+        guideColor: isRequester ? Colors.blue.shade600 : Colors.green.shade600,
+      );
+    }
+
+    // --- 사진이 제출된 이후의 복잡한 분기 처리 ---
+    if (lastPhoto != null) {
+      // 마지막 사진이 '반려' 상태일 때 -> 다음 사진 제출 대기
+      if (lastPhoto.status == PhotoStatus.rejected) {
+        final rejectInteraction = event.interactions.lastWhereOrNull(
+          (i) =>
+              i.actionType == ActionType.requestRevision &&
+              i.relatedPhotoId == lastPhoto.id,
+        );
+        if (rejectInteraction == null) return MissionStage.inactive();
+
+        return MissionStage(
+          isActive: true,
+          totalDuration: const Duration(minutes: 3),
+          endTime: rejectInteraction.timestamp.add(const Duration(minutes: 3)),
+          guideText:
+              isRequester
+                  ? '⏳ 수행자의 다음 사진을 기다리고 있습니다.'
+                  : '⚠️ 사진이 반려되었습니다. 3분 내에 다시 제출해주세요.',
+          guideIcon:
+              isRequester
+                  ? Icons.hourglass_empty_rounded
+                  : Icons.sync_problem_outlined,
+          guideColor: isRequester ? Colors.blue.shade600 : Colors.red.shade600,
+        );
+      }
+
+      // 마지막 사진이 '제출 대기' 상태일 때 -> Q&A 또는 의사결정 단계
+      if (lastPhoto.status == PhotoStatus.pending) {
+        // 마지막 사진이 제출된 시점을 찾습니다.
+        final submitInteraction = event.interactions.lastWhereOrNull(
+          (i) =>
+              i.actionType == ActionType.submitPhoto &&
+              i.relatedPhotoId == lastPhoto.id,
+        );
+        if (submitInteraction == null) return MissionStage.inactive();
+
+        // 사진 제출 이후에 발생한 활동들만 필터링합니다.
+        final interactionsAfterPhoto =
+            event.interactions
+                .where((i) => i.timestamp.isAfter(submitInteraction.timestamp))
+                .toList();
+
+        final lastActionAfterPhoto =
+            interactionsAfterPhoto.isNotEmpty
+                ? interactionsAfterPhoto.last
+                : null;
+
+        // 시나리오 1: 사진 제출 후 아무 활동도 없었음 -> 요청자의 1차 의사결정
+        if (lastActionAfterPhoto == null) {
+          return MissionStage(
+            isActive: true,
+            totalDuration: const Duration(minutes: 1, seconds: 30),
+            endTime: submitInteraction.timestamp.add(
+              const Duration(minutes: 1, seconds: 30),
+            ),
+            guideText:
+                isRequester
+                    ? '👍 1분 30초 내에 사진을 확인하고 질문 또는 반려해주세요!'
+                    : '⏳ 요청자 확인 중...',
+            guideIcon:
+                isRequester
+                    ? Icons.rate_review_outlined
+                    : Icons.hourglass_top_rounded,
+            guideColor:
+                isRequester ? Colors.orange.shade700 : Colors.grey.shade600,
+          );
+        }
+
+        // 시나리오 2: 사진 제출 후 마지막 활동이 '질문하기'였음 -> 수행자의 답변 시간
+        if (lastActionAfterPhoto.actionType == ActionType.askQuestion) {
+          return MissionStage(
+            isActive: true,
+            totalDuration: const Duration(minutes: 1, seconds: 30),
+            endTime: lastActionAfterPhoto.timestamp.add(
+              const Duration(minutes: 1, seconds: 30),
+            ),
+            guideText:
+                isRequester
+                    ? '⏳ 수행자의 답변을 기다리고 있습니다.'
+                    : '💬 1분 30초 내에 질문에 답변해주세요.',
+            guideIcon:
+                isRequester
+                    ? Icons.hourglass_bottom_rounded
+                    : Icons.question_answer,
+            guideColor:
+                isRequester ? Colors.grey.shade600 : Colors.purple.shade600,
+          );
+        }
+
+        // 시나리오 3: 사진 제출 후 마지막 활동이 '답변하기'였음 -> 요청자의 최종 의사결정
+        if (lastActionAfterPhoto.actionType == ActionType.answerQuestion) {
+          return MissionStage(
+            isActive: true,
+            totalDuration: const Duration(minutes: 1, seconds: 30),
+            endTime: lastActionAfterPhoto.timestamp.add(
+              const Duration(minutes: 1, seconds: 30),
+            ),
+            guideText:
+                isRequester
+                    ? '👍 답변을 확인했습니다. 1분 30초 내에 최종 승인 또는 반려해주세요.'
+                    : '⏳ 요청자의 최종 결정을 기다리고 있습니다.',
+            guideIcon:
+                isRequester ? Icons.gavel_rounded : Icons.hourglass_top_rounded,
+            guideColor:
+                isRequester ? Colors.orange.shade700 : Colors.grey.shade600,
+          );
+        }
+      }
+    }
+
+    return MissionStage.inactive();
   }
 
   // 버튼 클릭을 처리하는 유일한 진입점 메서드

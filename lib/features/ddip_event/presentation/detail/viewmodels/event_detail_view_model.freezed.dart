@@ -24,7 +24,7 @@ mixin _$EventDetailState {
   String? get buttonText => throw _privateConstructorUsedError;
   bool get buttonIsEnabled => throw _privateConstructorUsedError;
   Color? get buttonColor => throw _privateConstructorUsedError;
-  Stream<Duration>? get countdownStream => throw _privateConstructorUsedError;
+  MissionStage get missionStage => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
@@ -46,7 +46,7 @@ abstract class $EventDetailStateCopyWith<$Res> {
     String? buttonText,
     bool buttonIsEnabled,
     Color? buttonColor,
-    Stream<Duration>? countdownStream,
+    MissionStage missionStage,
   });
 }
 
@@ -70,7 +70,7 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
     Object? buttonText = freezed,
     Object? buttonIsEnabled = null,
     Object? buttonColor = freezed,
-    Object? countdownStream = freezed,
+    Object? missionStage = null,
   }) {
     return _then(
       _value.copyWith(
@@ -99,11 +99,11 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
                     ? _value.buttonColor
                     : buttonColor // ignore: cast_nullable_to_non_nullable
                         as Color?,
-            countdownStream:
-                freezed == countdownStream
-                    ? _value.countdownStream
-                    : countdownStream // ignore: cast_nullable_to_non_nullable
-                        as Stream<Duration>?,
+            missionStage:
+                null == missionStage
+                    ? _value.missionStage
+                    : missionStage // ignore: cast_nullable_to_non_nullable
+                        as MissionStage,
           )
           as $Val,
     );
@@ -125,7 +125,7 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
     String? buttonText,
     bool buttonIsEnabled,
     Color? buttonColor,
-    Stream<Duration>? countdownStream,
+    MissionStage missionStage,
   });
 }
 
@@ -148,7 +148,7 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
     Object? buttonText = freezed,
     Object? buttonIsEnabled = null,
     Object? buttonColor = freezed,
-    Object? countdownStream = freezed,
+    Object? missionStage = null,
   }) {
     return _then(
       _$EventDetailStateImpl(
@@ -177,11 +177,11 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
                 ? _value.buttonColor
                 : buttonColor // ignore: cast_nullable_to_non_nullable
                     as Color?,
-        countdownStream:
-            freezed == countdownStream
-                ? _value.countdownStream
-                : countdownStream // ignore: cast_nullable_to_non_nullable
-                    as Stream<Duration>?,
+        missionStage:
+            null == missionStage
+                ? _value.missionStage
+                : missionStage // ignore: cast_nullable_to_non_nullable
+                    as MissionStage,
       ),
     );
   }
@@ -196,7 +196,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     this.buttonText,
     this.buttonIsEnabled = false,
     this.buttonColor,
-    this.countdownStream,
+    required this.missionStage,
   });
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -215,11 +215,11 @@ class _$EventDetailStateImpl implements _EventDetailState {
   @override
   final Color? buttonColor;
   @override
-  final Stream<Duration>? countdownStream;
+  final MissionStage missionStage;
 
   @override
   String toString() {
-    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, countdownStream: $countdownStream)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage)';
   }
 
   @override
@@ -236,8 +236,8 @@ class _$EventDetailStateImpl implements _EventDetailState {
                 other.buttonIsEnabled == buttonIsEnabled) &&
             (identical(other.buttonColor, buttonColor) ||
                 other.buttonColor == buttonColor) &&
-            (identical(other.countdownStream, countdownStream) ||
-                other.countdownStream == countdownStream));
+            (identical(other.missionStage, missionStage) ||
+                other.missionStage == missionStage));
   }
 
   @override
@@ -248,7 +248,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     buttonText,
     buttonIsEnabled,
     buttonColor,
-    countdownStream,
+    missionStage,
   );
 
   /// Create a copy of EventDetailState
@@ -270,7 +270,7 @@ abstract class _EventDetailState implements EventDetailState {
     final String? buttonText,
     final bool buttonIsEnabled,
     final Color? buttonColor,
-    final Stream<Duration>? countdownStream,
+    required final MissionStage missionStage,
   }) = _$EventDetailStateImpl;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -285,7 +285,7 @@ abstract class _EventDetailState implements EventDetailState {
   @override
   Color? get buttonColor;
   @override
-  Stream<Duration>? get countdownStream;
+  MissionStage get missionStage;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.

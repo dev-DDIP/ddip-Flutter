@@ -61,9 +61,21 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     if (index != -1) {
       final event = _ddipEvents[index];
       if (event.applicants.contains(responderId)) {
+        // ✨ [핵심 추가] '수행자 선택' 행위를 Interaction 객체로 생성합니다.
+        final newInteraction = Interaction(
+          id: const Uuid().v4(),
+          actorId: event.requesterId,
+          // 요청자가 선택했으므로 actor는 요청자
+          actorRole: ActorRole.requester,
+          actionType: ActionType.selectResponder,
+          timestamp: DateTime.now(), // 지금 이 순간을 기록
+        );
+
         final updatedEvent = event.copyWith(
           selectedResponderId: responderId,
           status: DdipEventStatus.in_progress,
+          // ✨ [핵심 추가] 기존 interactions 목록에 새로운 기록을 추가합니다.
+          interactions: [...event.interactions, newInteraction],
         );
         _ddipEvents[index] = updatedEvent;
         _broadcastUpdate(eventId);
@@ -288,18 +300,35 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     String photoId,
     String question,
   ) async {
-    await Future.delayed(const Duration(milliseconds: 200)); // API 호출 흉내
+    await Future.delayed(const Duration(milliseconds: 200));
 
     final eventIndex = _ddipEvents.indexWhere((e) => e.id == eventId);
     if (eventIndex != -1) {
       final event = _ddipEvents[eventIndex];
       final photoIndex = event.photos.indexWhere((p) => p.id == photoId);
       if (photoIndex != -1) {
+        // 1. 사진에 질문 내용을 업데이트합니다. (기존 로직)
         final newPhotos = List<Photo>.from(event.photos);
         newPhotos[photoIndex] = newPhotos[photoIndex].copyWith(
           requesterQuestion: question,
         );
-        _ddipEvents[eventIndex] = event.copyWith(photos: newPhotos);
+
+        // ✨ [핵심 수정] '질문하기' 행동을 Interaction 객체로 생성합니다.
+        final newInteraction = Interaction(
+          id: const Uuid().v4(),
+          actorId: ref.read(authProvider)!.id, // 현재 로그인한 요청자
+          actorRole: ActorRole.requester,
+          actionType: ActionType.askQuestion, // 액션 타입을 '질문'으로 명시
+          comment: question, // 질문 내용을 코멘트로도 기록
+          relatedPhotoId: photoId,
+          timestamp: DateTime.now(),
+        );
+
+        // 2. 사진과 함께 새로운 Interaction 기록도 이벤트에 반영합니다.
+        _ddipEvents[eventIndex] = event.copyWith(
+          photos: newPhotos,
+          interactions: [...event.interactions, newInteraction], // 대화록에 추가
+        );
 
         _broadcastUpdate(eventId);
       }

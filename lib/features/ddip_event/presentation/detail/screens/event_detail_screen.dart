@@ -4,6 +4,7 @@ import 'package:ddip/features/ddip_event/presentation/detail/widgets/CommandBar.
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/communication_log_sliver.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_control_header.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_location_map.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/situational_guide_banner.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
@@ -97,7 +98,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                     child: MissionBriefingHeader(event: event),
                   ),
                   SliverToBoxAdapter(
-                    child: SituationalGuideBanner(event: event),
+                    child: MissionControlHeader(
+                      stage: viewModelState.missionStage,
+                    ),
                   ),
                   SliverToBoxAdapter(
                     child: Column(

@@ -160,15 +160,6 @@ class MissionBriefingHeader extends ConsumerWidget {
           const SizedBox(height: 16),
           _buildProgressBar(context, event),
 
-          if (viewModelState.countdownStream != null &&
-              event.status == DdipEventStatus.in_progress)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: _TimerDisplay(
-                countdownStream: viewModelState.countdownStream!,
-              ),
-            ),
-
           const SizedBox(height: 16),
           const Divider(height: 1),
         ],
@@ -336,6 +327,7 @@ class MissionBriefingHeader extends ConsumerWidget {
 
 class _TimerDisplay extends StatelessWidget {
   final Stream<Duration> countdownStream;
+
   const _TimerDisplay({required this.countdownStream});
 
   @override
