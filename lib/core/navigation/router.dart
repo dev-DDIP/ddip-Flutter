@@ -1,10 +1,12 @@
 // lib/core/navigation/router.dart
 
 import 'package:ddip/features/activity/presentation/screens/activity_screen.dart';
+import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/screens/event_detail_screen.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart';
 import 'package:ddip/features/ddip_event/presentation/feed/screens/ddip_feed_screen.dart';
+import 'package:ddip/features/evaluation/presentation/screens/evaluation_screen.dart';
 import 'package:ddip/features/profile/presentation/screens/profile_screen.dart';
 import 'package:ddip/features/shell/main_shell.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +15,15 @@ import 'package:go_router/go_router.dart';
 final GoRouter router = GoRouter(
   initialLocation: '/feed',
   routes: <RouteBase>[
-    // ShellRoute가 모든 메인 화면을 감쌉니다.
+    GoRoute(
+      // 부모 경로가 없으므로 고유한 경로로 새로 정의합니다.
+      path: '/photo-view/:eventId/:photoId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId'] ?? '0';
+        final photoId = state.pathParameters['photoId'] ?? '0';
+        return FullScreenPhotoView(eventId: eventId, photoId: photoId);
+      },
+    ),
     ShellRoute(
       builder: (BuildContext context, GoRouterState state, Widget child) {
         return MainShell(child: child);
@@ -36,14 +46,11 @@ final GoRouter router = GoRouter(
               },
               routes: [
                 GoRoute(
-                  path: 'photo/:photoId',
+                  path: 'evaluate',
                   builder: (context, state) {
-                    final eventId = state.pathParameters['eventId'] ?? '0';
-                    final photoId = state.pathParameters['photoId'] ?? '0';
-                    return FullScreenPhotoView(
-                      eventId: eventId,
-                      photoId: photoId,
-                    );
+                    // 이전 화면(EventDetailScreen)에서 DdipEvent 객체를 extra로 전달받습니다.
+                    final event = state.extra as DdipEvent;
+                    return EvaluationScreen(event: event);
                   },
                 ),
               ],

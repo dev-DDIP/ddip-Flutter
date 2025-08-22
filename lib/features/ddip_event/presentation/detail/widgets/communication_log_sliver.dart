@@ -14,7 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 // ✨ [신설] 카드 내부의 입력 모드를 관리하기 위한 Enum
-enum _InputMode { none, askingQuestion, requestingRevision }
+enum _InputMode { none, askingQuestion, answeringQuestion, requestingRevision }
 
 /// '띱' 이벤트의 모든 상호작용을 서사적 타임라인 형태로 보여주는 Sliver 위젯입니다.
 class CommunicationLogSliver extends ConsumerWidget {
@@ -134,6 +134,8 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   @override
   void initState() {
     super.initState();
+    _inlineInputFocusNode.addListener(_handleFocusChange);
+
     // 사진에 코멘트가 없으면 편집 모드로 시작
     _isEditingComment = widget.photo.responderComment == null;
     // 만약 코멘트가 이미 있다면, 컨트롤러의 초기 텍스트로 설정
@@ -145,10 +147,37 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   @override
   void dispose() {
     _commentController.dispose();
+    _inlineInputFocusNode.removeListener(_handleFocusChange); // 리스너 제거
+
     _inlineInputController.dispose(); // ✨ [추가] 컨트롤러 dispose
     _inlineInputFocusNode.dispose(); // ✨ [추가] 포커스 노드 dispose
     super.dispose();
   }
+
+  // ▼▼▼ [신규 추가] 포커스 변경을 감지하는 핸들러 ▼▼▼
+  void _handleFocusChange() {
+    final isVisible = !_inlineInputFocusNode.hasFocus;
+    ref.read(commandBarVisibilityProvider.notifier).state = isVisible;
+  }
+
+  // ▲▲▲ [신규 추가] ▲▲▲
+
+  // ▼▼▼ [신규 추가] 입력창을 켜고 끄는 헬퍼 메소드 ▼▼▼
+  void _setInputMode(_InputMode mode) {
+    setState(() {
+      _inputMode = mode;
+      if (mode != _InputMode.none) {
+        // 입력창이 켜질 때 키보드를 올리고 커맨드 바를 숨김
+        _inlineInputFocusNode.requestFocus();
+      } else {
+        // 입력창이 꺼질 때 키보드를 내리고 커맨드 바를 표시
+        _inlineInputController.clear();
+        _inlineInputFocusNode.unfocus();
+      }
+    });
+  }
+
+  // ▲▲▲ [신규 추가] ▲▲▲
 
   @override
   Widget build(BuildContext context) {
@@ -171,36 +200,69 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 카드 헤더, 사진, 최초 코멘트 ---
-            Text(
-              '📸 수행자가 $timeString 에 사진을 제출했습니다.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
+            // --- 사진 UI ---
             GestureDetector(
               onTap:
                   () => context.push(
-                    '/feed/${widget.event.id}/photo/${widget.photo.id}',
+                    '/photo-view/${widget.event.id}/${widget.photo.id}',
                   ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(widget.photo.url)),
+              // ✨ [핵심 수정 1] 4:5 비율 적용 및 중앙 크롭
+              child: Stack(
+                // ✨ [핵심 수정 1] Stack 위젯으로 이미지를 감쌉니다.
+                children: [
+                  // 기존 이미지 표시 위젯 (배경 역할)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: AspectRatio(
+                      aspectRatio: 1 / 1,
+                      child: Image.file(
+                        File(widget.photo.url),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  // ✨ [핵심 수정 2] 이미지 위에 올릴 아이콘
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6), // 반투명 검은색 배경
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.fullscreen, // 확대 아이콘
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+
+            // ✨ [핵심 수정 2] 타임스탬프 위치를 사진 아래로 이동
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0, bottom: 4.0),
+              child: Text(
+                timeString,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
+            ),
+
+            // --- 이하 로직은 기존과 동일 ---
             if (widget.photo.responderComment != null &&
                 widget.photo.responderComment!.isNotEmpty)
               _buildCommentDisplay(widget.photo.responderComment!),
 
-            // --- Q&A 스레드 ---
             if (hasQuestionBeenAsked) _buildQnAThread(widget.photo),
 
-            // --- [핵심 수정] 액션 UI 또는 입력창 ---
-            // 요청자이고 사진이 확인 대기중일 때 항상 액션 영역을 보여줌
-            if (isRequester && widget.photo.status == PhotoStatus.pending)
-              _inputMode == _InputMode.none
-                  ? _buildActionLinks() // 액션 링크 UI
-                  : _buildInlineInputField(), // 인라인 입력창 UI
-            // --- 최종 피드백(승인/반려) 표시 ---
+            if (_inputMode != _InputMode.none)
+              _buildInlineInputField()
+            else if (isRequester && widget.photo.status == PhotoStatus.pending)
+              _buildActionLinks(),
+
             if (widget.photo.status != PhotoStatus.pending)
               _buildFeedbackDisplay(widget.photo),
           ],
@@ -210,12 +272,12 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
   }
 
   Widget _buildActionLinks() {
-    // [핵심 로직 1] 현재 사진에 대한 질문을 이미 했는지 확인
+    // 현재 사진에 대한 질문을 이미 했는지 확인
     final bool hasQuestionBeenAsked =
         widget.photo.requesterQuestion != null &&
         widget.photo.requesterQuestion!.isNotEmpty;
 
-    // [핵심 로직 2] 이전에 반려된 사진이 있는지 확인하여 '2차 시도' 여부 판단
+    // 이전에 반려된 사진이 있는지 확인하여 '2차 시도' 여부 판단
     final bool isSecondAttempt = widget.event.photos.any(
       (p) => p.status == PhotoStatus.rejected,
     );
@@ -223,59 +285,41 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
     return Column(
       children: [
         const Divider(height: 32, thickness: 1),
-        // [개선 1] Row를 Wrap으로 변경하여 화면 폭에 따라 자동 줄바꿈
         Wrap(
           alignment: WrapAlignment.spaceEvenly, // 버튼들을 균등하게 정렬
           spacing: 12.0, // 버튼 사이의 최소 가로 간격
           runSpacing: 8.0, // 버튼들이 줄바꿈될 때의 세로 간격
           children: [
             // --- '질문하기' 버튼 ---
-            // [개선 2] 버튼 시인성을 위해 OutlinedButton 사용
             OutlinedButton.icon(
               icon: const Icon(Icons.question_answer_outlined),
-              // [개선 3] 간결하고 명확한 텍스트로 변경
               label: const Text('질문하기'),
-              // [핵심 로직 3] 이미 질문했다면 onPressed를 null로 설정하여 버튼 비활성화
+              // 이미 질문했다면 onPressed를 null로 설정하여 버튼 비활성화
               onPressed:
                   hasQuestionBeenAsked
                       ? null
-                      : () {
-                        setState(() {
-                          _inputMode = _InputMode.askingQuestion;
-                          _inlineInputFocusNode.requestFocus();
-                        });
-                      },
+                      : () => _setInputMode(_InputMode.askingQuestion),
             ),
 
             // --- '재요청' 또는 '미션 실패' 버튼 ---
-            // [핵심 로직 4] 2차 시도 여부에 따라 다른 버튼을 렌더링
+            // 2차 시도 여부에 따라 다른 버튼을 렌더링
             if (isSecondAttempt)
-              // (2차 시도) '미션 실패' 버튼: 가장 강렬한 FilledButton 사용
+              // (2차 시도) '미션 실패' 버튼
               FilledButton.icon(
                 icon: const Icon(Icons.cancel),
                 label: const Text('미션 실패'),
-                onPressed: () {
-                  setState(() {
-                    _inputMode = _InputMode.requestingRevision;
-                    _inlineInputFocusNode.requestFocus();
-                  });
-                },
+                onPressed: () => _setInputMode(_InputMode.requestingRevision),
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
                   foregroundColor: Colors.white,
                 ),
               )
             else
-              // (1차 시도) '재요청' 버튼: 주의를 주는 붉은색 OutlinedButton 사용
+              // (1차 시도) '재요청' 버튼
               OutlinedButton.icon(
                 icon: const Icon(Icons.sync_problem_outlined),
                 label: const Text('재요청'),
-                onPressed: () {
-                  setState(() {
-                    _inputMode = _InputMode.requestingRevision;
-                    _inlineInputFocusNode.requestFocus();
-                  });
-                },
+                onPressed: () => _setInputMode(_InputMode.requestingRevision),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red.shade700,
                   side: BorderSide(color: Colors.red.shade700),
@@ -283,7 +327,6 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
               ),
           ],
         ),
-
         // 안내 문구는 질문이 가능할 때만 표시
         if (!hasQuestionBeenAsked)
           const Padding(
@@ -424,14 +467,7 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
                 child: TextButton(
                   child: const Text('답변하기'),
                   onPressed: () {
-                    // 버튼을 누르면 ViewModel의 answerQuestion 메소드를 호출
-                    ref
-                        .read(
-                          eventDetailViewModelProvider(
-                            widget.event.id,
-                          ).notifier,
-                        )
-                        .answerQuestion(context, widget.photo.id);
+                    _setInputMode(_InputMode.answeringQuestion);
                   },
                 ),
               ),
@@ -528,12 +564,46 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
     );
   }
 
-  // ✨ [신설] 인라인 입력창 UI를 그리는 메소드
   Widget _buildInlineInputField() {
     final viewModel = ref.read(
       eventDetailViewModelProvider(widget.event.id).notifier,
     );
-    final isAsking = _inputMode == _InputMode.askingQuestion;
+
+    // 현재 모드에 따라 힌트 텍스트와 제출 로직을 결정
+    String hintText;
+    VoidCallback onSubmit;
+
+    switch (_inputMode) {
+      case _InputMode.askingQuestion:
+        hintText = '사진에 대해 궁금한 점을 질문하세요.';
+        onSubmit =
+            () => viewModel.askQuestion(
+              context,
+              widget.photo.id,
+              _inlineInputController.text,
+            );
+        break;
+      case _InputMode.answeringQuestion:
+        hintText = '요청자의 질문에 대해 답변해주세요.';
+        onSubmit =
+            () => viewModel.answerQuestion(
+              context,
+              widget.photo.id,
+              _inlineInputController.text,
+            );
+        break;
+      case _InputMode.requestingRevision:
+        hintText = '재요청 사유를 명확하게 작성해주세요.';
+        onSubmit =
+            () => viewModel.rejectPhotoWithReason(
+              context,
+              widget.photo.id,
+              _inlineInputController.text,
+            );
+        break;
+      case _InputMode.none:
+        return const SizedBox.shrink(); // 아무것도 표시하지 않음
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
@@ -542,10 +612,8 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
           TextField(
             controller: _inlineInputController,
             focusNode: _inlineInputFocusNode,
-            // 포커스 노드 연결
             decoration: InputDecoration(
-              hintText:
-                  isAsking ? '사진에 대해 궁금한 점을 질문하세요.' : '재요청 사유를 명확하게 작성해주세요.',
+              hintText: hintText, // 동적으로 변경된 힌트 텍스트
               isDense: true,
             ),
             maxLines: 3,
@@ -557,37 +625,18 @@ class _PhotoSubmissionCardState extends ConsumerState<_PhotoSubmissionCard> {
             children: [
               TextButton(
                 child: const Text('취소'),
-                onPressed: () {
-                  setState(() {
-                    _inputMode = _InputMode.none;
-                    _inlineInputController.clear();
-                    FocusScope.of(context).unfocus(); // 키보드 내리기
-                  });
-                },
+                onPressed: () => _setInputMode(_InputMode.none), // 입력 모드 해제
               ),
               const SizedBox(width: 8),
               FilledButton(
                 child: const Text('제출'),
                 onPressed: () {
-                  final inputText = _inlineInputController.text;
-                  if (inputText.trim().isEmpty) return; // 빈 내용은 제출 방지
+                  // 빈 내용은 제출 방지
+                  if (_inlineInputController.text.trim().isEmpty) return;
 
-                  if (isAsking) {
-                    viewModel.askQuestion(context, widget.photo.id, inputText);
-                  } else {
-                    viewModel.rejectPhotoWithReason(
-                      context,
-                      widget.photo.id,
-                      inputText,
-                    );
-                  }
+                  onSubmit(); // 동적으로 결정된 제출 로직 호출
 
-                  // 제출 후 입력창 닫기 및 초기화
-                  setState(() {
-                    _inputMode = _InputMode.none;
-                    _inlineInputController.clear();
-                    FocusScope.of(context).unfocus(); // 키보드 내리기
-                  });
+                  _setInputMode(_InputMode.none); // 입력 모드 해제
                 },
               ),
             ],

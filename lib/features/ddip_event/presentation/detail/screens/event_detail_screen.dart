@@ -58,6 +58,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       eventDetailViewModelProvider(widget.eventId),
     );
 
+    final isCommandBarVisible = ref.watch(commandBarVisibilityProvider);
+
     return viewModelState.event.when(
       loading:
           () => Scaffold(
@@ -115,7 +117,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 left: 0,
                 right: 0,
                 // CommandBar에 GlobalKey를 할당하여 위젯을 특정하고 크기를 측정할 수 있도록 합니다.
-                child: CommandBar(key: _commandBarKey, event: event),
+                child:
+                    isCommandBarVisible
+                        ? CommandBar(key: _commandBarKey, event: event)
+                        : const SizedBox.shrink(), // 보이지 않을 때는 빈 위젯 렌더링
               ),
             ],
           ),

@@ -234,10 +234,9 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
     if (previousState == null) throw Exception("State is not available");
 
     try {
-      // Repository 호출은 그대로 둡니다.
       await _ref
           .read(ddipEventRepositoryProvider)
-          .updatePhotoStatus(eventId, photoId, status);
+          .updatePhotoStatus(eventId, photoId, status, comment: comment);
 
       DdipEvent? updatedEvent;
 

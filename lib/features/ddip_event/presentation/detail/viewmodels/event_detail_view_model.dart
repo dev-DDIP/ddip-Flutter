@@ -467,34 +467,27 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   }
 
   /// 수행자가 요청자의 질문에 답변하는 메서드
-  Future<void> answerQuestion(BuildContext context, String photoId) async {
-    // 1. 공용 텍스트 입력 다이얼로그를 띄워 답변을 입력받습니다.
-    final answer = await _showTextInputDialog(
-      context,
-      title: '질문에 답변하기',
-      hintText: '요청자의 질문에 대해 답변해주세요.',
-      isRequired: true,
-    );
-
-    // 2. 사용자가 답변을 입력하고 '확인'을 눌렀는지 확인합니다.
-    if (answer != null && answer.trim().isNotEmpty) {
-      // 3. 로딩 상태로 변경하고 Notifier에게 실제 데이터 변경 작업을 위임합니다.
-      state = state.copyWith(isProcessing: true);
-      try {
-        await _ref
-            .read(ddipEventsNotifierProvider.notifier)
-            .answerQuestionOnPhoto(_eventId, photoId, answer);
-        // 성공 시, 스트림을 통해 자동으로 상태가 갱신되므로 isProcessing을 false로 바꿀 필요가 없습니다.
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('오류: $e')));
-          // 실패 시에는 직접 로딩 상태를 해제해줘야 합니다.
-          state = state.copyWith(isProcessing: false);
-        }
+  Future<void> answerQuestion(
+    BuildContext context,
+    String photoId,
+    String answer, // ✨ [핵심 수정] 이제 답변 텍스트를 파라미터로 직접 받습니다.
+  ) async {
+    // 1. 다이얼로그를 띄우는 로직을 삭제합니다.
+    state = state.copyWith(isProcessing: true);
+    try {
+      // 2. Notifier에게 바로 작업을 위임합니다.
+      await _ref
+          .read(ddipEventsNotifierProvider.notifier)
+          .answerQuestionOnPhoto(_eventId, photoId, answer);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+        state = state.copyWith(isProcessing: false);
       }
     }
+    // 성공 시 상태 업데이트는 스트림을 통해 자동으로 반영됩니다.
   }
 
   /// 요청자가 사진을 반려하는 메서드

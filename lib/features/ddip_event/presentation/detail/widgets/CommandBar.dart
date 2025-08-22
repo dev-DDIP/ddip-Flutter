@@ -6,6 +6,7 @@ import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 // ▼▼▼ [수정] 위젯 전체를 아래 코드로 교체합니다. ▼▼▼
 class CommandBar extends ConsumerWidget {
@@ -16,9 +17,43 @@ class CommandBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authProvider);
-    final isRequester = event.requesterId == currentUser?.id;
+    if (currentUser == null)
+      return const SizedBox.shrink(); // 로그인 안했으면 아무것도 안보여줌
 
-    // [핵심] 요청자와 수행자(그 외)의 UI를 완전히 분리하여 렌더링
+    final isRequester = event.requesterId == currentUser.id;
+    final isSelectedResponder = event.selectedResponderId == currentUser.id;
+
+    // ✨ [핵심 로직 추가] 미션이 종료되었는지 (완료 또는 실패) 확인합니다.
+    final bool isMissionFinished =
+        event.status == DdipEventStatus.completed ||
+        event.status == DdipEventStatus.failed;
+
+    // 1. 미션이 종료된 상태일 경우
+    if (isMissionFinished) {
+      if (isRequester) {
+        // 요청자는 '수행자 평가하기' 버튼을 봅니다.
+        return _buildEvaluationBar(
+          context: context,
+          text: '수행자 평가하기',
+          icon: Icons.rate_review_outlined,
+          onPressed: () {
+            context.push('/feed/${event.id}/evaluate', extra: event);
+          },
+        );
+      } else if (isSelectedResponder) {
+        // 선택된 수행자는 '요청자 평가하기' 버튼을 봅니다.
+        return _buildEvaluationBar(
+          context: context,
+          text: '요청자 평가하기',
+          icon: Icons.rate_review_outlined,
+          onPressed: () {
+            context.push('/feed/${event.id}/evaluate', extra: event);
+          },
+        );
+      }
+    }
+
+    // 2. 미션이 진행 중인 상태일 경우 (기존 로직)
     return isRequester
         ? _buildForRequester(context, ref)
         : _buildForResponder(context, ref);
@@ -173,6 +208,35 @@ class CommandBar extends ConsumerWidget {
               child: Text(text),
             );
     return SizedBox(width: double.infinity, child: buttonContent);
+  }
+
+  // ▼▼▼ [신규 추가] 평가하기 버튼 UI를 위한 헬퍼 메소드 ▼▼▼
+  Widget _buildEvaluationBar({
+    required BuildContext context,
+    required String text,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      color: Colors.transparent,
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          icon: Icon(icon),
+          label: Text(text),
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+            backgroundColor: Theme.of(context).primaryColor,
+          ),
+        ),
+      ),
+    );
   }
 }
 

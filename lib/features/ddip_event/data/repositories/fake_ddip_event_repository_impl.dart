@@ -148,7 +148,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
           newEventStatus = DdipEventStatus.completed;
         } else if (status == PhotoStatus.rejected &&
             newPhotos.where((p) => p.status == PhotoStatus.rejected).length >=
-                3) {
+                2) {
           newEventStatus = DdipEventStatus.failed;
         }
 
@@ -328,7 +328,8 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         // 2. 답변 행위를 Interaction 로그로 추가
         final newInteraction = Interaction(
           id: const Uuid().v4(),
-          actorId: ref.read(authProvider)!.id, // 현재 로그인 유저
+          actorId: ref.read(authProvider)!.id,
+          // 현재 로그인 유저
           actorRole: ActorRole.responder,
           actionType: ActionType.answerQuestion,
           comment: answer,

@@ -1,15 +1,16 @@
 // lib/features/ddip_event/presentation/detail/screens/full_screen_photo_view.dart
 
 import 'dart:io';
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart'; // [수정] 3번 에러 해결을 위한 import 추가
 
-// ▼▼▼ [수정] 위젯 전체를 아래 코드로 교체합니다. ▼▼▼
-class FullScreenPhotoView extends ConsumerWidget {
+// ▼▼▼ [수정 시작] 이 클래스 전체를 아래 코드로 교체해주세요. ▼▼▼
+class FullScreenPhotoView extends ConsumerStatefulWidget {
   final String eventId;
   final String photoId;
 
@@ -20,11 +21,62 @@ class FullScreenPhotoView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // [수정] .when을 사용하지 않고 직접 event 객체를 가져옵니다. (2, 5번 에러 해결)
-    final event = ref.watch(eventDetailProvider(eventId));
+  ConsumerState<FullScreenPhotoView> createState() =>
+      _FullScreenPhotoViewState();
+}
 
-    // 로딩 및 에러 처리: event가 아직 로드되지 않았다면 로딩 인디케이터 표시
+class _FullScreenPhotoViewState extends ConsumerState<FullScreenPhotoView> {
+  late SystemUiOverlayStyle _originalSystemUiStyle;
+  // ✨ [핵심 수정] 위치를 제어하고 초기화하기 위해 TransformationController를 다시 사용합니다.
+  final TransformationController _transformationController =
+      TransformationController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _originalSystemUiStyle = SystemUiOverlayStyle(
+        statusBarColor: Theme.of(context).appBarTheme.backgroundColor,
+        systemNavigationBarColor: Colors.black,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(_originalSystemUiStyle);
+    _transformationController.dispose(); // 컨트롤러 정리
+    super.dispose();
+  }
+
+  // ✨ [핵심 로직] 사용자가 화면에서 손을 뗄 때 호출되는 함수
+  void _onInteractionEnd(ScaleEndDetails details) {
+    // 현재 변환 상태(매트릭스)를 가져옵니다.
+    final matrix = _transformationController.value;
+    // 매트릭스에서 현재 줌 배율을 추출합니다.
+    final currentScale = matrix.getMaxScaleOnAxis();
+
+    // 사용자가 줌 아웃하여 배율이 1.0 이하가 되면,
+    if (currentScale <= 1.0) {
+      // 컨트롤러의 값을 기본값(Matrix4.identity())으로 리셋합니다.
+      // 이것이 이미지를 중앙으로 '스냅' 시키는 역할을 합니다.
+      _transformationController.value = Matrix4.identity();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+
+    final event = ref.watch(eventDetailProvider(widget.eventId));
+
     if (event == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -32,24 +84,22 @@ class FullScreenPhotoView extends ConsumerWidget {
       );
     }
 
-    final photo = event.photos.firstWhereOrNull((p) => p.id == photoId);
+    final photo = event.photos.firstWhereOrNull((p) => p.id == widget.photoId);
 
     if (photo == null) {
       return Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(backgroundColor: Colors.transparent),
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
         body: const Center(
           child: Text('사진을 찾을 수 없습니다.', style: TextStyle(color: Colors.white)),
         ),
       );
     }
 
-    // [수정] 6번 에러 해결: && 연산자의 피연산자가 명확한 bool 타입이 되도록 수정
-    final bool hasComment =
-        photo.responderComment != null && photo.responderComment!.isNotEmpty;
-
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -58,61 +108,41 @@ class FullScreenPhotoView extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: InteractiveViewer(
-                panEnabled: true,
-                minScale: 1.0,
-                maxScale: 4.0,
-                child: Image.file(File(photo.url)),
-              ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 블러 배경 이미지는 동일
+          Image.file(
+            File(photo.url),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+              child: Container(color: Colors.black.withOpacity(0.2)),
             ),
-            if (hasComment)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.8),
-                        Colors.black.withOpacity(0.0),
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '"${photo.responderComment!}"',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '수행자가 ${DateFormat('a h:mm', 'ko_KR').format(photo.timestamp)}에 남김',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+          ),
+
+          InteractiveViewer(
+            transformationController: _transformationController, // 컨트롤러 연결
+            onInteractionEnd: _onInteractionEnd, // ✨ [핵심 수정] 인터랙션 종료 콜백 연결
+            panEnabled: true,
+            minScale: 1.0,
+            maxScale: 4.0,
+            boundaryMargin: EdgeInsets.only(
+              top:
+                  AppBar().preferredSize.height +
+                  MediaQuery.of(context).padding.top,
+              bottom: MediaQuery.of(context).padding.bottom,
+            ),
+            child: Image.file(File(photo.url), fit: BoxFit.contain),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ▲▲▲ [수정] 위젯 전체를 아래 코드로 교체합니다. ▲▲▲
+// ▲▲▲ [수정 종료] ▲▲▲

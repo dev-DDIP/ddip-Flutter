@@ -138,3 +138,8 @@ final userActivityProvider = FutureProvider.autoDispose
       final repository = ref.watch(ddipEventRepositoryProvider);
       return repository.getEventsByUserId(params.userId, params.type);
     });
+
+/// 상세 화면의 커맨드 바 가시성(visibility)을 관리하는 프로바이더
+final commandBarVisibilityProvider = StateProvider.autoDispose<bool>(
+  (ref) => true,
+);
