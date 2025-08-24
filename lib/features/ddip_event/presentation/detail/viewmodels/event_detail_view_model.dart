@@ -656,4 +656,25 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       }
     }
   }
+
+  /// UI에서 미션 중단(강제 종료)을 요청할 때 호출되는 메서드
+  Future<void> cancelMission(BuildContext context) async {
+    if (state.isProcessing) return;
+    state = state.copyWith(isProcessing: true);
+
+    try {
+      // Notifier에게 실제 로직 처리를 위임
+      await _ref
+          .read(ddipEventsNotifierProvider.notifier)
+          .cancelMission(_eventId);
+      // 성공 시에는 스트림을 통해 상태가 자동으로 갱신되므로 isProcessing을 false로 바꿀 필요 없음
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(isProcessing: false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+      }
+    }
+  }
 }

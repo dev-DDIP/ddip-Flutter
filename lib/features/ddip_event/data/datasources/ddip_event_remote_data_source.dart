@@ -48,6 +48,9 @@ abstract class DdipEventRemoteDataSource {
   );
 
   Future<void> completeMission(String eventId);
+
+  /// 서버에 미션 취소(강제 종료)를 요청합니다.
+  Future<void> cancelMission(String eventId, String userId);
 }
 
 // 위 인터페이스의 실제 구현체입니다.
@@ -205,6 +208,21 @@ class DdipEventRemoteDataSourceImpl implements DdipEventRemoteDataSource {
       await dio.post<dynamic>('/ddips/$eventId/complete');
     } on DioException catch (e) {
       print('Error completing mission: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> cancelMission(String eventId, String userId) async {
+    try {
+      // TODO: 실제 백엔드 API 엔드포인트(e.g., '/ddips/{eventId}/cancel')로 POST 요청
+      // userId를 body에 담아 누가 취소했는지 서버에 알립니다.
+      await dio.post<dynamic>(
+        '/ddips/$eventId/cancel',
+        data: {'userId': userId},
+      );
+    } on DioException catch (e) {
+      print('Error canceling mission: $e');
       rethrow;
     }
   }

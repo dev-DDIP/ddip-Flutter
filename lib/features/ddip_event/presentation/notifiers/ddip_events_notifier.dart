@@ -392,4 +392,34 @@ class DdipEventsNotifier extends StateNotifier<AsyncValue<DdipFeedState>> {
       rethrow;
     }
   }
+
+  Future<void> cancelMission(String eventId) async {
+    final currentUser = _ref.read(authProvider);
+    if (currentUser == null) throw Exception("로그인이 필요합니다.");
+
+    final previousState = state.value;
+    if (previousState == null) return;
+
+    try {
+      final repository = _ref.read(ddipEventRepositoryProvider);
+      // 데이터 계층에 만들어둔 cancelMission 메서드 호출
+      await repository.cancelMission(eventId, currentUser.id);
+
+      // --- 로직 성공 시, UI 상태를 즉시 업데이트 ---
+      // (서버 응답을 기다리지 않고 바로 UI를 변경하여 사용자 경험을 향상시킵니다)
+      final newEvents =
+          previousState.events.map((event) {
+            if (event.id == eventId) {
+              // 이벤트의 상태를 'failed'로 변경
+              return event.copyWith(status: DdipEventStatus.failed);
+            }
+            return event;
+          }).toList();
+
+      state = AsyncValue.data(previousState.copyWith(events: newEvents));
+    } catch (e) {
+      // 에러가 발생하면 상위로 전파하여 ViewModel에서 처리하도록 함
+      rethrow;
+    }
+  }
 }

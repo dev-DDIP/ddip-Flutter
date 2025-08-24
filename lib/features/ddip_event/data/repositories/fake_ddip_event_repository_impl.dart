@@ -407,4 +407,43 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
       _broadcastUpdate(eventId);
     }
   }
+
+  @override
+  Future<void> cancelMission(String eventId, String userId) async {
+    // API 호출을 흉내 내기 위한 가짜 지연
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    final eventIndex = _ddipEvents.indexWhere((e) => e.id == eventId);
+    if (eventIndex == -1) {
+      throw Exception('Event not found');
+    }
+
+    final event = _ddipEvents[eventIndex];
+    final isRequester = event.requesterId == userId;
+
+    // 누가 취소했는지에 따라 다른 행동 타입(ActionType)을 기록
+    final actionType =
+        isRequester
+            ? ActionType.cancelByRequester
+            : ActionType.giveUpByResponder;
+
+    // 미션 중단에 대한 Interaction 기록 생성
+    final newInteraction = Interaction(
+      id: const Uuid().v4(),
+      actorId: userId,
+      actorRole: isRequester ? ActorRole.requester : ActorRole.responder,
+      actionType: actionType,
+      timestamp: DateTime.now(),
+      comment: isRequester ? '요청자에 의해 미션이 중단되었습니다.' : '수행자에 의해 미션이 중단되었습니다.',
+    );
+
+    // 이벤트 상태를 'failed'로 변경하고, 중단 기록을 추가
+    final updatedEvent = event.copyWith(
+      status: DdipEventStatus.failed,
+      interactions: [...event.interactions, newInteraction],
+    );
+
+    _ddipEvents[eventIndex] = updatedEvent;
+    _broadcastUpdate(eventId); // 변경 사항을 실시간으로 UI에 전파
+  }
 }

@@ -147,6 +147,12 @@ class DdipEventRepositoryImpl implements DdipEventRepository {
   Future<void> completeMission(String eventId) {
     return remoteDataSource.completeMission(eventId);
   }
+
+  @override
+  Future<void> cancelMission(String eventId, String userId) {
+    // 실제 네트워크 통신은 remoteDataSource에 위임합니다.
+    return remoteDataSource.cancelMission(eventId, userId);
+  }
 }
 
 /*

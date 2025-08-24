@@ -70,6 +70,9 @@ abstract class DdipEventRepository {
 
   /// 요청자가 미션을 최종 성공 처리하는 기능을 요구합니다.
   Future<void> completeMission(String eventId);
+
+  /// 요청자 또는 수행자가 미션을 취소(강제 종료)하는 기능을 요구합니다.
+  Future<void> cancelMission(String eventId, String userId);
 }
 
 /*
