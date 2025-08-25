@@ -27,7 +27,8 @@ mixin _$EventDetailState {
   MissionStage get missionStage => throw _privateConstructorUsedError;
   List<ProgressStep> get progressSteps =>
       throw _privateConstructorUsedError; // [수정] required로 변경
-  double get stickyHeaderHeight => throw _privateConstructorUsedError;
+  bool get showProgressBar => throw _privateConstructorUsedError;
+  bool get showMissionControl => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
@@ -51,7 +52,8 @@ abstract class $EventDetailStateCopyWith<$Res> {
     Color? buttonColor,
     MissionStage missionStage,
     List<ProgressStep> progressSteps,
-    double stickyHeaderHeight,
+    bool showProgressBar,
+    bool showMissionControl,
   });
 }
 
@@ -77,7 +79,8 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
     Object? buttonColor = freezed,
     Object? missionStage = null,
     Object? progressSteps = null,
-    Object? stickyHeaderHeight = null,
+    Object? showProgressBar = null,
+    Object? showMissionControl = null,
   }) {
     return _then(
       _value.copyWith(
@@ -116,11 +119,16 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
                     ? _value.progressSteps
                     : progressSteps // ignore: cast_nullable_to_non_nullable
                         as List<ProgressStep>,
-            stickyHeaderHeight:
-                null == stickyHeaderHeight
-                    ? _value.stickyHeaderHeight
-                    : stickyHeaderHeight // ignore: cast_nullable_to_non_nullable
-                        as double,
+            showProgressBar:
+                null == showProgressBar
+                    ? _value.showProgressBar
+                    : showProgressBar // ignore: cast_nullable_to_non_nullable
+                        as bool,
+            showMissionControl:
+                null == showMissionControl
+                    ? _value.showMissionControl
+                    : showMissionControl // ignore: cast_nullable_to_non_nullable
+                        as bool,
           )
           as $Val,
     );
@@ -144,7 +152,8 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
     Color? buttonColor,
     MissionStage missionStage,
     List<ProgressStep> progressSteps,
-    double stickyHeaderHeight,
+    bool showProgressBar,
+    bool showMissionControl,
   });
 }
 
@@ -169,7 +178,8 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
     Object? buttonColor = freezed,
     Object? missionStage = null,
     Object? progressSteps = null,
-    Object? stickyHeaderHeight = null,
+    Object? showProgressBar = null,
+    Object? showMissionControl = null,
   }) {
     return _then(
       _$EventDetailStateImpl(
@@ -208,11 +218,16 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
                 ? _value._progressSteps
                 : progressSteps // ignore: cast_nullable_to_non_nullable
                     as List<ProgressStep>,
-        stickyHeaderHeight:
-            null == stickyHeaderHeight
-                ? _value.stickyHeaderHeight
-                : stickyHeaderHeight // ignore: cast_nullable_to_non_nullable
-                    as double,
+        showProgressBar:
+            null == showProgressBar
+                ? _value.showProgressBar
+                : showProgressBar // ignore: cast_nullable_to_non_nullable
+                    as bool,
+        showMissionControl:
+            null == showMissionControl
+                ? _value.showMissionControl
+                : showMissionControl // ignore: cast_nullable_to_non_nullable
+                    as bool,
       ),
     );
   }
@@ -229,7 +244,8 @@ class _$EventDetailStateImpl implements _EventDetailState {
     this.buttonColor,
     required this.missionStage,
     required final List<ProgressStep> progressSteps,
-    required this.stickyHeaderHeight,
+    this.showProgressBar = true,
+    this.showMissionControl = false,
   }) : _progressSteps = progressSteps;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -259,11 +275,15 @@ class _$EventDetailStateImpl implements _EventDetailState {
 
   // [수정] required로 변경
   @override
-  final double stickyHeaderHeight;
+  @JsonKey()
+  final bool showProgressBar;
+  @override
+  @JsonKey()
+  final bool showMissionControl;
 
   @override
   String toString() {
-    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps, stickyHeaderHeight: $stickyHeaderHeight)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps, showProgressBar: $showProgressBar, showMissionControl: $showMissionControl)';
   }
 
   @override
@@ -286,8 +306,10 @@ class _$EventDetailStateImpl implements _EventDetailState {
               other._progressSteps,
               _progressSteps,
             ) &&
-            (identical(other.stickyHeaderHeight, stickyHeaderHeight) ||
-                other.stickyHeaderHeight == stickyHeaderHeight));
+            (identical(other.showProgressBar, showProgressBar) ||
+                other.showProgressBar == showProgressBar) &&
+            (identical(other.showMissionControl, showMissionControl) ||
+                other.showMissionControl == showMissionControl));
   }
 
   @override
@@ -300,7 +322,8 @@ class _$EventDetailStateImpl implements _EventDetailState {
     buttonColor,
     missionStage,
     const DeepCollectionEquality().hash(_progressSteps),
-    stickyHeaderHeight,
+    showProgressBar,
+    showMissionControl,
   );
 
   /// Create a copy of EventDetailState
@@ -324,7 +347,8 @@ abstract class _EventDetailState implements EventDetailState {
     final Color? buttonColor,
     required final MissionStage missionStage,
     required final List<ProgressStep> progressSteps,
-    required final double stickyHeaderHeight,
+    final bool showProgressBar,
+    final bool showMissionControl,
   }) = _$EventDetailStateImpl;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -343,7 +367,9 @@ abstract class _EventDetailState implements EventDetailState {
   @override
   List<ProgressStep> get progressSteps; // [수정] required로 변경
   @override
-  double get stickyHeaderHeight;
+  bool get showProgressBar;
+  @override
+  bool get showMissionControl;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.

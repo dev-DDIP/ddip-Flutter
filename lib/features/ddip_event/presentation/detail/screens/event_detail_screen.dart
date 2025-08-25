@@ -7,7 +7,6 @@ import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_bri
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_control_header.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/mission_location_map.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/predictive_progress_bar.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/sliver_sticky_header_delegate.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +25,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   final GlobalKey _commandBarKey = GlobalKey();
   double _commandBarHeight = 120.0;
 
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerHeight = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +41,36 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           });
         }
       }
+      _measureHeader();
     });
+  }
+
+  void _measureHeader() {
+    if (!mounted) return;
+    final context = _headerKey.currentContext;
+    if (context != null) {
+      final newHeight = context.size?.height ?? 0;
+      if (_headerHeight != newHeight) {
+        setState(() {
+          _headerHeight = newHeight;
+        });
+      }
+    }
+  }
+
+  Widget _buildHeaderContent() {
+    final viewModelState = ref.watch(
+      eventDetailViewModelProvider(widget.eventId),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (viewModelState.showProgressBar)
+          PredictiveProgressBar(steps: viewModelState.progressSteps),
+        if (viewModelState.showMissionControl)
+          MissionControlHeader(stage: viewModelState.missionStage),
+      ],
+    );
   }
 
   void _showCancelConfirmationDialog(
@@ -113,6 +144,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       eventDetailViewModelProvider(widget.eventId),
     );
 
+    ref.listen(eventDetailViewModelProvider(widget.eventId), (_, __) {
+      // 상태 변경 후 다음 프레임에서 측정하도록 예약
+      WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeader());
+    });
+
     final isCommandBarVisible = ref.watch(commandBarVisibilityProvider);
 
     return viewModelState.event.when(
@@ -149,7 +185,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             }
           }
         }
-        final bool showStickyHeader = viewModelState.stickyHeaderHeight > 0;
 
         return Scaffold(
           body: Stack(
@@ -199,25 +234,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                     child: MissionBriefingHeader(event: event),
                   ),
 
-                  if (showStickyHeader)
-                    // ▼▼▼ [수정] SliverPersistentHeader 메서드 전체 코드 ▼▼▼
+                  SliverToBoxAdapter(
+                    child: Offstage(
+                      child: Container(
+                        key: _headerKey,
+                        child: _buildHeaderContent(),
+                      ),
+                    ),
+                  ),
+                  if (_headerHeight > 0)
                     SliverPersistentHeader(
                       pinned: true,
-                      delegate: SliverStickyHeaderDelegate(
-                        // ▼▼▼ [수정] ViewModel의 상태 값을 직접 사용합니다.
-                        height: viewModelState.stickyHeaderHeight,
-                        // ▲▲▲ [수정]
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            PredictiveProgressBar(
-                              steps: viewModelState.progressSteps,
-                            ),
-                            MissionControlHeader(
-                              stage: viewModelState.missionStage,
-                            ),
-                          ],
-                        ),
+                      delegate: _SimpleDelegate(
+                        height: _headerHeight,
+                        child: _buildHeaderContent(),
                       ),
                     ),
 
@@ -248,5 +278,35 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         );
       },
     );
+  }
+}
+
+class _SimpleDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  _SimpleDelegate({required this.child, required this.height});
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: child,
+    );
+  }
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  bool shouldRebuild(covariant _SimpleDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
