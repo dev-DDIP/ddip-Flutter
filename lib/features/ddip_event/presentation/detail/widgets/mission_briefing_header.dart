@@ -5,6 +5,7 @@ import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/widgets/predictive_progress_bar.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,21 +21,17 @@ class MissionBriefingHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. 역할 및 상태 확인 로직
     final allUsers = ref.watch(mockUsersProvider);
     final currentUser = ref.watch(authProvider);
+    // ✨ ViewModel의 전체 상태를 watch합니다.
     final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
 
     final bool isRequester = currentUser?.id == event.requesterId;
     final bool isResponderSelected = event.selectedResponderId != null;
 
-    // 표시할 유저와 역할 텍스트를 담을 변수
     User displayUser;
     String displayRoleText;
 
-    // 2. 조건에 따라 표시할 유저와 텍스트를 결정
-    //    - 내가 요청자이고 수행자가 선택되었다면 "수행자 정보"를 표시
-    //    - 그 외의 모든 경우(내가 수행자, 제3자, 아직 수행자 미선택)는 "요청자 정보"를 표시
     if (isRequester && isResponderSelected) {
       displayRoleText = '수행자 정보';
       displayUser = allUsers.firstWhere(
@@ -49,13 +46,11 @@ class MissionBriefingHeader extends ConsumerWidget {
       );
     }
 
-    // 3. 결정된 정보로 UI를 그립니다.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 제목 및 상태 뱃지 (기존과 동일)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,9 +77,6 @@ class MissionBriefingHeader extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-
-          // ▼▼▼ 4. 역할 텍스트(Section Title)와 유저 정보 카드 수정 ▼▼▼
-          // "요청자 정보" 또는 "수행자 정보" 텍스트 추가
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
             child: Text(
@@ -94,10 +86,8 @@ class MissionBriefingHeader extends ConsumerWidget {
               ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
             ),
           ),
-          // 유저 정보 카드
           GestureDetector(
             onTap: () {
-              // 표시된 유저(displayUser)의 프로필로 이동
               context.push('/profile/${displayUser.id}');
             },
             child: Container(
@@ -115,7 +105,6 @@ class MissionBriefingHeader extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          // 표시된 유저(displayUser)의 이름
                           displayUser.name,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
@@ -156,9 +145,8 @@ class MissionBriefingHeader extends ConsumerWidget {
             ),
           ),
 
-          // ▲▲▲ 4. 역할 텍스트와 유저 정보 카드 수정 완료 ▲▲▲
-          const SizedBox(height: 16),
-          _buildProgressBar(context, event),
+          // ✨ 기존 _buildProgressBar(context, event) 호출을 아래 코드로 교체합니다.
+          PredictiveProgressBar(steps: viewModelState.progressSteps),
 
           const SizedBox(height: 16),
           const Divider(height: 1),
@@ -213,114 +201,6 @@ class MissionBriefingHeader extends ConsumerWidget {
       backgroundColor: chipColor,
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-    );
-  }
-
-  // 미션 진행 상태를 시각적으로 보여주는 스테퍼 위젯
-  Widget _buildProgressBar(BuildContext context, DdipEvent event) {
-    final steps = ['모집', '진행', '확인', '완료/실패'];
-    int currentStep;
-    bool isFailed = false;
-
-    switch (event.status) {
-      case DdipEventStatus.open:
-        currentStep = 0;
-        break;
-      case DdipEventStatus.in_progress:
-        currentStep = 1;
-        if (event.photos.any((p) => p.status == PhotoStatus.pending)) {
-          currentStep = 2;
-        }
-        break;
-      case DdipEventStatus.completed:
-        currentStep = 3;
-        break;
-      case DdipEventStatus.failed:
-        currentStep = 3;
-        isFailed = true;
-        break;
-    }
-
-    return Row(
-      children: List.generate(steps.length, (index) {
-        final bool isActive = index <= currentStep;
-        final bool isCurrent = index == currentStep;
-        final Color color =
-            isFailed && isCurrent
-                ? Colors.red
-                : (isActive
-                    ? Theme.of(context).primaryColor
-                    : Colors.grey.shade300);
-
-        Widget icon;
-        if (isFailed && isCurrent) {
-          icon = const Icon(Icons.close, color: Colors.white, size: 16);
-        } else if (isActive) {
-          icon = const Icon(Icons.check, color: Colors.white, size: 16);
-        } else {
-          icon = Text(
-            '${index + 1}',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          );
-        }
-
-        return Expanded(
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child:
-                        index == 0
-                            ? Container()
-                            : Container(
-                              height: 2,
-                              color:
-                                  isActive || index == currentStep
-                                      ? color
-                                      : Colors.grey.shade300,
-                            ),
-                  ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: color,
-                    ),
-                    child: Center(child: icon),
-                  ),
-                  Expanded(
-                    child:
-                        index == steps.length - 1
-                            ? Container()
-                            : Container(
-                              height: 2,
-                              color:
-                                  isActive && !isCurrent
-                                      ? color
-                                      : Colors.grey.shade300,
-                            ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                steps[index],
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isActive ? Colors.black : Colors.grey,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
     );
   }
 }

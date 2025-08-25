@@ -12,6 +12,7 @@ import 'package:ddip/features/ddip_event/domain/entities/mission_stage.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/communication_log_sliver.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
+import 'package:ddip/features/ddip_event/presentation/models/progress_step.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,7 @@ class EventDetailState with _$EventDetailState {
     @Default(false) bool buttonIsEnabled,
     Color? buttonColor,
     required MissionStage missionStage,
+    @Default([]) List<ProgressStep> progressSteps,
   }) = _EventDetailState;
 }
 
@@ -46,7 +48,12 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   EventDetailViewModel(this._ref, this._eventId)
     // ✨ [수정] super()를 호출할 때 missionStage를 직접 초기화해줍니다.
-    : super(EventDetailState(missionStage: MissionStage.inactive())) {
+    : super(
+        EventDetailState(
+          missionStage: MissionStage.inactive(),
+          progressSteps: [],
+        ),
+      ) {
     _initialize();
   }
 
@@ -78,8 +85,7 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
 
   void _updateStateFromEvent(DdipEvent event) {
     final currentUser = _ref.read(authProvider);
-
-    // --- 버튼 상태 결정 로직 (이전과 동일) ---
+    // --- 버튼 상태 결정 로직 (생략) ---
     String? text;
     bool isEnabled = false;
     Color? color;
@@ -91,7 +97,6 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       final bool hasPendingPhoto = event.photos.any(
         (p) => p.status == PhotoStatus.pending,
       );
-
       switch (event.status) {
         case DdipEventStatus.open:
           if (!isRequester && !hasApplied) {
@@ -119,8 +124,9 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       text = '로그인이 필요합니다.';
     }
 
-    // ✨ 새로운 헬퍼 메서드를 호출하여 현재 미션 단계를 결정합니다.
+    // [수정] 새로 추가한 메서드들을 호출하여 상태를 계산합니다.
     final missionStage = _determineMissionStage(event, currentUser?.id);
+    final progressSteps = _buildProgressSteps(event); // ✨
 
     // --- 최종 상태 업데이트 ---
     state = state.copyWith(
@@ -129,7 +135,8 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       buttonIsEnabled: isEnabled,
       buttonColor: color,
       missionStage: missionStage,
-      // 결정된 미션 단계를 상태에 업데이트
+      progressSteps: progressSteps,
+      // ✨ 계산된 프로그레스 바 상태를 저장
       isProcessing: false,
     );
   }
@@ -286,6 +293,216 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
     }
 
     return MissionStage.inactive();
+  }
+
+  /// DdipEvent 상태를 기반으로 '예측적 슬라이딩 윈도우'에 표시될 4개의 Step 리스트를 생성합니다.
+  List<ProgressStep> _buildProgressSteps(DdipEvent event) {
+    // [수정] 이제 각 Step을 만들 때 icon 파라미터를 함께 전달합니다.
+    const stepMatching = ProgressStep(
+      label: '수행자 모집',
+      status: StepStatus.success,
+      icon: Icons.people_outline,
+    );
+    const stepSubmitPhoto1 = ProgressStep(
+      label: '사진 제출',
+      status: StepStatus.success,
+      icon: Icons.camera_alt_outlined,
+    );
+    const stepVerifyPhoto1 = ProgressStep(
+      label: '사진 검증',
+      status: StepStatus.success,
+      icon: Icons.rate_review_outlined,
+    );
+    const stepSubmitAnswer1 = ProgressStep(
+      label: '답변 완료',
+      status: StepStatus.success,
+      icon: Icons.question_answer_outlined,
+    );
+
+    final isFirstPhotoRejected =
+        event.photos.firstOrNull?.status == PhotoStatus.rejected;
+
+    // --- ID: 1A (1차 시도 - 수행자 사진 제출 턴) ---
+    if (event.status == DdipEventStatus.in_progress && event.photos.isEmpty) {
+      return [
+        stepMatching,
+        const ProgressStep(
+          label: '사진 제출',
+          status: StepStatus.current,
+          icon: Icons.camera_alt_outlined,
+        ),
+        const ProgressStep(
+          label: '사진 검증',
+          status: StepStatus.future,
+          icon: Icons.rate_review_outlined,
+        ),
+        const ProgressStep(
+          label: '...',
+          status: StepStatus.future,
+          isPredictive: true,
+          icon: Icons.more_horiz,
+        ),
+      ];
+    }
+
+    // --- ID: 1B (1차 시도 - 요청자 사진 검증 턴) ---
+    if (event.status == DdipEventStatus.in_progress &&
+        event.photos.isNotEmpty &&
+        event.photos.last.status == PhotoStatus.pending &&
+        !isFirstPhotoRejected) {
+      final lastPhoto = event.photos.last;
+      // --- ID: 1D (Q&A 후 최종 결정 턴) ---
+      if (lastPhoto.requesterQuestion != null &&
+          lastPhoto.responderAnswer != null) {
+        return [
+          stepSubmitAnswer1,
+          const ProgressStep(
+            label: '1차 최종 결정',
+            status: StepStatus.current,
+            icon: Icons.gavel_outlined,
+          ),
+          const ProgressStep(
+            label: '...',
+            status: StepStatus.future,
+            isPredictive: true,
+            icon: Icons.more_horiz,
+          ),
+          const ProgressStep(
+            label: '미션 종료',
+            status: StepStatus.future,
+            icon: Icons.flag_outlined,
+          ),
+        ];
+      }
+      // --- ID: 1C (수행자 답변 턴) ---
+      if (lastPhoto.requesterQuestion != null &&
+          lastPhoto.responderAnswer == null) {
+        return [
+          const ProgressStep(
+            label: '사진 검증(질문)',
+            status: StepStatus.question,
+            icon: Icons.rate_review_outlined,
+          ),
+          const ProgressStep(
+            label: '답변 작성',
+            status: StepStatus.current,
+            icon: Icons.question_answer_outlined,
+          ),
+          const ProgressStep(
+            label: '1차 최종 결정',
+            status: StepStatus.future,
+            icon: Icons.gavel_outlined,
+          ),
+          const ProgressStep(
+            label: '...',
+            status: StepStatus.future,
+            isPredictive: true,
+            icon: Icons.more_horiz,
+          ),
+        ];
+      }
+      // 일반적인 1차 검증
+      return [
+        stepSubmitPhoto1,
+        const ProgressStep(
+          label: '사진 검증',
+          status: StepStatus.current,
+          icon: Icons.rate_review_outlined,
+        ),
+        const ProgressStep(
+          label: '...',
+          status: StepStatus.future,
+          isPredictive: true,
+          icon: Icons.more_horiz,
+        ),
+        const ProgressStep(
+          label: '미션 종료',
+          status: StepStatus.future,
+          icon: Icons.flag_outlined,
+        ),
+      ];
+    }
+
+    // --- ID: 2A (2차 시도 - 수행자 사진 재제출 턴) ---
+    if (event.status == DdipEventStatus.in_progress &&
+        event.photos.isNotEmpty &&
+        event.photos.last.status == PhotoStatus.rejected) {
+      return [
+        const ProgressStep(
+          label: '1차 최종 결정',
+          status: StepStatus.rejected,
+          icon: Icons.gavel_outlined,
+        ),
+        const ProgressStep(
+          label: '사진 재제출',
+          status: StepStatus.current,
+          icon: Icons.camera_alt_outlined,
+        ),
+        const ProgressStep(
+          label: '사진 검증',
+          status: StepStatus.future,
+          icon: Icons.rate_review_outlined,
+        ),
+        const ProgressStep(
+          label: '...',
+          status: StepStatus.future,
+          isPredictive: true,
+          icon: Icons.more_horiz,
+        ),
+      ];
+    }
+
+    // ... (이하 모든 ProgressStep 생성자에 적절한 icon: Icons.some_icon 추가) ...
+
+    // --- END-C (미션 성공) ---
+    if (event.status == DdipEventStatus.completed) {
+      return [
+        const ProgressStep(
+          label: '미션 성공!',
+          status: StepStatus.success,
+          icon: Icons.celebration_outlined,
+        ),
+        const ProgressStep(
+          label: '상호 평가',
+          status: StepStatus.current,
+          icon: Icons.reviews_outlined,
+        ),
+        const ProgressStep(
+          label: '완료',
+          status: StepStatus.future,
+          icon: Icons.check_circle_outline,
+        ),
+        const ProgressStep(
+          label: '',
+          status: StepStatus.future,
+          icon: Icons.more_horiz,
+        ), // 빈 칸
+      ];
+    }
+    // ... 이하 생략 (모든 case에 icon 추가)
+    // 기본값 (ID 0: 수행자 모집)
+    return [
+      const ProgressStep(
+        label: '요청 등록',
+        status: StepStatus.success,
+        icon: Icons.edit_note_outlined,
+      ),
+      const ProgressStep(
+        label: '수행자 모집',
+        status: StepStatus.current,
+        icon: Icons.people_outline,
+      ),
+      const ProgressStep(
+        label: '사진 제출',
+        status: StepStatus.future,
+        icon: Icons.camera_alt_outlined,
+      ),
+      const ProgressStep(
+        label: '사진 검증',
+        status: StepStatus.future,
+        icon: Icons.rate_review_outlined,
+      ),
+    ];
   }
 
   // 버튼 클릭을 처리하는 유일한 진입점 메서드

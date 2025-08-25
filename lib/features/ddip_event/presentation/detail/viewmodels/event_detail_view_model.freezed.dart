@@ -25,6 +25,7 @@ mixin _$EventDetailState {
   bool get buttonIsEnabled => throw _privateConstructorUsedError;
   Color? get buttonColor => throw _privateConstructorUsedError;
   MissionStage get missionStage => throw _privateConstructorUsedError;
+  List<ProgressStep> get progressSteps => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
@@ -47,6 +48,7 @@ abstract class $EventDetailStateCopyWith<$Res> {
     bool buttonIsEnabled,
     Color? buttonColor,
     MissionStage missionStage,
+    List<ProgressStep> progressSteps,
   });
 }
 
@@ -71,6 +73,7 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
     Object? buttonIsEnabled = null,
     Object? buttonColor = freezed,
     Object? missionStage = null,
+    Object? progressSteps = null,
   }) {
     return _then(
       _value.copyWith(
@@ -104,6 +107,11 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
                     ? _value.missionStage
                     : missionStage // ignore: cast_nullable_to_non_nullable
                         as MissionStage,
+            progressSteps:
+                null == progressSteps
+                    ? _value.progressSteps
+                    : progressSteps // ignore: cast_nullable_to_non_nullable
+                        as List<ProgressStep>,
           )
           as $Val,
     );
@@ -126,6 +134,7 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
     bool buttonIsEnabled,
     Color? buttonColor,
     MissionStage missionStage,
+    List<ProgressStep> progressSteps,
   });
 }
 
@@ -149,6 +158,7 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
     Object? buttonIsEnabled = null,
     Object? buttonColor = freezed,
     Object? missionStage = null,
+    Object? progressSteps = null,
   }) {
     return _then(
       _$EventDetailStateImpl(
@@ -182,6 +192,11 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
                 ? _value.missionStage
                 : missionStage // ignore: cast_nullable_to_non_nullable
                     as MissionStage,
+        progressSteps:
+            null == progressSteps
+                ? _value._progressSteps
+                : progressSteps // ignore: cast_nullable_to_non_nullable
+                    as List<ProgressStep>,
       ),
     );
   }
@@ -197,7 +212,8 @@ class _$EventDetailStateImpl implements _EventDetailState {
     this.buttonIsEnabled = false,
     this.buttonColor,
     required this.missionStage,
-  });
+    final List<ProgressStep> progressSteps = const [],
+  }) : _progressSteps = progressSteps;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
   @override
@@ -216,10 +232,18 @@ class _$EventDetailStateImpl implements _EventDetailState {
   final Color? buttonColor;
   @override
   final MissionStage missionStage;
+  final List<ProgressStep> _progressSteps;
+  @override
+  @JsonKey()
+  List<ProgressStep> get progressSteps {
+    if (_progressSteps is EqualUnmodifiableListView) return _progressSteps;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_progressSteps);
+  }
 
   @override
   String toString() {
-    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps)';
   }
 
   @override
@@ -237,7 +261,11 @@ class _$EventDetailStateImpl implements _EventDetailState {
             (identical(other.buttonColor, buttonColor) ||
                 other.buttonColor == buttonColor) &&
             (identical(other.missionStage, missionStage) ||
-                other.missionStage == missionStage));
+                other.missionStage == missionStage) &&
+            const DeepCollectionEquality().equals(
+              other._progressSteps,
+              _progressSteps,
+            ));
   }
 
   @override
@@ -249,6 +277,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     buttonIsEnabled,
     buttonColor,
     missionStage,
+    const DeepCollectionEquality().hash(_progressSteps),
   );
 
   /// Create a copy of EventDetailState
@@ -271,6 +300,7 @@ abstract class _EventDetailState implements EventDetailState {
     final bool buttonIsEnabled,
     final Color? buttonColor,
     required final MissionStage missionStage,
+    final List<ProgressStep> progressSteps,
   }) = _$EventDetailStateImpl;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -286,6 +316,8 @@ abstract class _EventDetailState implements EventDetailState {
   Color? get buttonColor;
   @override
   MissionStage get missionStage;
+  @override
+  List<ProgressStep> get progressSteps;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
