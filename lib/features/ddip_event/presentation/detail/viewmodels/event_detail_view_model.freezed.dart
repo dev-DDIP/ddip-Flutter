@@ -25,7 +25,9 @@ mixin _$EventDetailState {
   bool get buttonIsEnabled => throw _privateConstructorUsedError;
   Color? get buttonColor => throw _privateConstructorUsedError;
   MissionStage get missionStage => throw _privateConstructorUsedError;
-  List<ProgressStep> get progressSteps => throw _privateConstructorUsedError;
+  List<ProgressStep> get progressSteps =>
+      throw _privateConstructorUsedError; // [수정] required로 변경
+  double get stickyHeaderHeight => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
@@ -49,6 +51,7 @@ abstract class $EventDetailStateCopyWith<$Res> {
     Color? buttonColor,
     MissionStage missionStage,
     List<ProgressStep> progressSteps,
+    double stickyHeaderHeight,
   });
 }
 
@@ -74,6 +77,7 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
     Object? buttonColor = freezed,
     Object? missionStage = null,
     Object? progressSteps = null,
+    Object? stickyHeaderHeight = null,
   }) {
     return _then(
       _value.copyWith(
@@ -112,6 +116,11 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
                     ? _value.progressSteps
                     : progressSteps // ignore: cast_nullable_to_non_nullable
                         as List<ProgressStep>,
+            stickyHeaderHeight:
+                null == stickyHeaderHeight
+                    ? _value.stickyHeaderHeight
+                    : stickyHeaderHeight // ignore: cast_nullable_to_non_nullable
+                        as double,
           )
           as $Val,
     );
@@ -135,6 +144,7 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
     Color? buttonColor,
     MissionStage missionStage,
     List<ProgressStep> progressSteps,
+    double stickyHeaderHeight,
   });
 }
 
@@ -159,6 +169,7 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
     Object? buttonColor = freezed,
     Object? missionStage = null,
     Object? progressSteps = null,
+    Object? stickyHeaderHeight = null,
   }) {
     return _then(
       _$EventDetailStateImpl(
@@ -197,6 +208,11 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
                 ? _value._progressSteps
                 : progressSteps // ignore: cast_nullable_to_non_nullable
                     as List<ProgressStep>,
+        stickyHeaderHeight:
+            null == stickyHeaderHeight
+                ? _value.stickyHeaderHeight
+                : stickyHeaderHeight // ignore: cast_nullable_to_non_nullable
+                    as double,
       ),
     );
   }
@@ -212,7 +228,8 @@ class _$EventDetailStateImpl implements _EventDetailState {
     this.buttonIsEnabled = false,
     this.buttonColor,
     required this.missionStage,
-    final List<ProgressStep> progressSteps = const [],
+    required final List<ProgressStep> progressSteps,
+    required this.stickyHeaderHeight,
   }) : _progressSteps = progressSteps;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -234,16 +251,19 @@ class _$EventDetailStateImpl implements _EventDetailState {
   final MissionStage missionStage;
   final List<ProgressStep> _progressSteps;
   @override
-  @JsonKey()
   List<ProgressStep> get progressSteps {
     if (_progressSteps is EqualUnmodifiableListView) return _progressSteps;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_progressSteps);
   }
 
+  // [수정] required로 변경
+  @override
+  final double stickyHeaderHeight;
+
   @override
   String toString() {
-    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps, stickyHeaderHeight: $stickyHeaderHeight)';
   }
 
   @override
@@ -265,7 +285,9 @@ class _$EventDetailStateImpl implements _EventDetailState {
             const DeepCollectionEquality().equals(
               other._progressSteps,
               _progressSteps,
-            ));
+            ) &&
+            (identical(other.stickyHeaderHeight, stickyHeaderHeight) ||
+                other.stickyHeaderHeight == stickyHeaderHeight));
   }
 
   @override
@@ -278,6 +300,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     buttonColor,
     missionStage,
     const DeepCollectionEquality().hash(_progressSteps),
+    stickyHeaderHeight,
   );
 
   /// Create a copy of EventDetailState
@@ -300,7 +323,8 @@ abstract class _EventDetailState implements EventDetailState {
     final bool buttonIsEnabled,
     final Color? buttonColor,
     required final MissionStage missionStage,
-    final List<ProgressStep> progressSteps,
+    required final List<ProgressStep> progressSteps,
+    required final double stickyHeaderHeight,
   }) = _$EventDetailStateImpl;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -317,7 +341,9 @@ abstract class _EventDetailState implements EventDetailState {
   @override
   MissionStage get missionStage;
   @override
-  List<ProgressStep> get progressSteps;
+  List<ProgressStep> get progressSteps; // [수정] required로 변경
+  @override
+  double get stickyHeaderHeight;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.

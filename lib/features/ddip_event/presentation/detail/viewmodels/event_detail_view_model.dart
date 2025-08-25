@@ -24,6 +24,9 @@ import 'package:uuid/uuid.dart';
 
 part 'event_detail_view_model.freezed.dart';
 
+const double _progressBarHeight = 80.0;
+const double _missionControlHeaderHeight = 110.0;
+
 // 이제 버튼 상태 뿐만 아닌, 상세 페이지에 필요한 핵심 데이터 'DdipEvent'의 상태를 관리합니다.
 @freezed
 class EventDetailState with _$EventDetailState {
@@ -35,7 +38,8 @@ class EventDetailState with _$EventDetailState {
     @Default(false) bool buttonIsEnabled,
     Color? buttonColor,
     required MissionStage missionStage,
-    @Default([]) List<ProgressStep> progressSteps,
+    required List<ProgressStep> progressSteps, // [수정] required로 변경
+    required double stickyHeaderHeight,
   }) = _EventDetailState;
 }
 
@@ -47,11 +51,33 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   StreamSubscription<DdipEvent>? _eventSubscription;
 
   EventDetailViewModel(this._ref, this._eventId)
-    // ✨ [수정] super()를 호출할 때 missionStage를 직접 초기화해줍니다.
     : super(
         EventDetailState(
           missionStage: MissionStage.inactive(),
-          progressSteps: [],
+          progressSteps: [
+            const ProgressStep(
+              label: '요청 등록',
+              status: StepStatus.success,
+              icon: Icons.edit_note_outlined,
+            ),
+            const ProgressStep(
+              label: '수행자 모집',
+              status: StepStatus.current,
+              icon: Icons.people_outline,
+            ),
+            const ProgressStep(
+              label: '사진 제출',
+              status: StepStatus.future,
+              icon: Icons.camera_alt_outlined,
+            ),
+            const ProgressStep(
+              label: '사진 검증',
+              status: StepStatus.future,
+              icon: Icons.rate_review_outlined,
+            ),
+          ],
+          // [핵심 수정] 누락되었던 stickyHeaderHeight 필드를 super 생성자에 전달합니다.
+          stickyHeaderHeight: _progressBarHeight,
         ),
       ) {
     _initialize();
@@ -124,9 +150,16 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       text = '로그인이 필요합니다.';
     }
 
-    // [수정] 새로 추가한 메서드들을 호출하여 상태를 계산합니다.
     final missionStage = _determineMissionStage(event, currentUser?.id);
-    final progressSteps = _buildProgressSteps(event); // ✨
+    final progressSteps = _buildProgressSteps(event);
+
+    double newStickyHeaderHeight = 0;
+    if (progressSteps.isNotEmpty) {
+      newStickyHeaderHeight += _progressBarHeight;
+    }
+    if (missionStage.isActive) {
+      newStickyHeaderHeight += _missionControlHeaderHeight;
+    }
 
     // --- 최종 상태 업데이트 ---
     state = state.copyWith(
@@ -136,7 +169,9 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       buttonColor: color,
       missionStage: missionStage,
       progressSteps: progressSteps,
-      // ✨ 계산된 프로그레스 바 상태를 저장
+      stickyHeaderHeight: newStickyHeaderHeight,
+
+      // 계산된 높이 저장
       isProcessing: false,
     );
   }

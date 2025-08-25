@@ -1,65 +1,60 @@
-// lib/features/ddip_event/presentation/detail/widgets/mission_control_header.dart
+// ▼▼▼ lib/features/ddip_event/presentation/detail/widgets/mission_control_header.dart (전체 코드 수정) ▼▼▼
 import 'dart:async';
+
 import 'package:ddip/features/ddip_event/domain/entities/mission_stage.dart';
 import 'package:flutter/material.dart';
 
-// ▼▼▼ 새로운 파일을 생성하고 아래 코드를 추가해주세요. ▼▼▼
 /// 상황별 가이드 배너와 타이머를 함께 묶어 표시하는 통합 위젯
 class MissionControlHeader extends StatelessWidget {
   final MissionStage stage;
+
   const MissionControlHeader({super.key, required this.stage});
 
   @override
   Widget build(BuildContext context) {
-    // 타이머가 비활성 상태이면 아무것도 그리지 않습니다.
     if (!stage.isActive) {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      children: [
-        // 1. 상황별 가이드 배너 (고강조 스타일 적용)
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          decoration: BoxDecoration(
-            color: stage.guideColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: stage.guideColor.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(stage.guideIcon, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  stage.guideText,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+    return Card(
+      // ▼▼▼ [수정] 외부 margin을 제거하고, 대신 위쪽에만 패딩을 줍니다.
+      margin: const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
+      // ▲▲▲ [수정]
+      elevation: 0,
+      color: stage.guideColor.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: stage.guideColor.withOpacity(0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(stage.guideIcon, color: stage.guideColor, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    stage.guideText,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: stage.guideColor,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _TimerDisplay(
+              key: ValueKey(stage.endTime),
+              endTime: stage.endTime,
+              totalDuration: stage.totalDuration,
+            ),
+          ],
         ),
-        // 2. 타이머 디스플레이
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: _TimerDisplay(
-            key: ValueKey(stage.endTime), // endTime이 바뀌면 타이머를 새로 그리도록 key 설정
-            endTime: stage.endTime,
-            totalDuration: stage.totalDuration,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -118,7 +113,6 @@ class _TimerDisplayState extends State<_TimerDisplay> {
         totalSeconds > 0
             ? (remainingSeconds / totalSeconds).clamp(0.0, 1.0)
             : 0.0;
-
     final minutes = _remaining.inMinutes
         .remainder(60)
         .toString()
@@ -140,7 +134,7 @@ class _TimerDisplayState extends State<_TimerDisplay> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 12,
+              minHeight: 10,
               backgroundColor: Colors.grey.shade300,
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
             ),
@@ -156,4 +150,4 @@ class _TimerDisplayState extends State<_TimerDisplay> {
   }
 }
 
-// ▲▲▲ 새로운 파일을 생성하고 위 코드를 추가해주세요. ▲▲▲
+// ▲▲▲ lib/features/ddip_event/presentation/detail/widgets/mission_control_header.dart (전체 코드 수정) ▲▲▲

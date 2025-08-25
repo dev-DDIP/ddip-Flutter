@@ -1,31 +1,21 @@
-// lib/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart
-
+// ▼▼▼ lib/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart (전체 코드) ▼▼▼
 import 'package:ddip/common/utils/time_utils.dart';
 import 'package:ddip/features/auth/domain/entities/user.dart';
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
-import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
-import 'package:ddip/features/ddip_event/presentation/detail/widgets/predictive_progress_bar.dart';
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-/// 상세 화면의 모든 헤더 정보를 표시하는 책임을 가지는 독립된 위젯입니다.
-/// DdipEvent 객체 하나만 받아서 '미션 브리핑' 섹션 전체를 그립니다.
 class MissionBriefingHeader extends ConsumerWidget {
   final DdipEvent event;
-
   const MissionBriefingHeader({super.key, required this.event});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allUsers = ref.watch(mockUsersProvider);
     final currentUser = ref.watch(authProvider);
-    // ✨ ViewModel의 전체 상태를 watch합니다.
-    final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
-
     final bool isRequester = currentUser?.id == event.requesterId;
     final bool isResponderSelected = event.selectedResponderId != null;
 
@@ -144,10 +134,6 @@ class MissionBriefingHeader extends ConsumerWidget {
               ),
             ),
           ),
-
-          // ✨ 기존 _buildProgressBar(context, event) 호출을 아래 코드로 교체합니다.
-          PredictiveProgressBar(steps: viewModelState.progressSteps),
-
           const SizedBox(height: 16),
           const Divider(height: 1),
         ],
@@ -155,7 +141,6 @@ class MissionBriefingHeader extends ConsumerWidget {
     );
   }
 
-  // 평판 정보를 보여주는 작은 칩 위젯
   Widget _buildReputationChip(IconData icon, String label, Color color) {
     return Chip(
       avatar: Icon(icon, color: color, size: 14),
@@ -168,7 +153,6 @@ class MissionBriefingHeader extends ConsumerWidget {
     );
   }
 
-  // 이벤트 상태에 따라 다른 색상과 텍스트의 뱃지를 생성
   Widget _buildStatusChip(DdipEventStatus status) {
     Color chipColor;
     String label;
@@ -205,61 +189,4 @@ class MissionBriefingHeader extends ConsumerWidget {
   }
 }
 
-class _TimerDisplay extends StatelessWidget {
-  final Stream<Duration> countdownStream;
-
-  const _TimerDisplay({required this.countdownStream});
-
-  @override
-  Widget build(BuildContext context) {
-    const totalSeconds = 180; // 3분
-
-    return StreamBuilder<Duration>(
-      stream: countdownStream,
-      builder: (context, snapshot) {
-        final remaining =
-            snapshot.data ?? const Duration(seconds: totalSeconds);
-        final remainingSeconds = remaining.inSeconds;
-        final progress = (remainingSeconds / totalSeconds).clamp(0.0, 1.0);
-
-        final minutes = remaining.inMinutes
-            .remainder(60)
-            .toString()
-            .padLeft(2, '0');
-        final seconds = remaining.inSeconds
-            .remainder(60)
-            .toString()
-            .padLeft(2, '0');
-        final timeString = '$minutes:$seconds';
-
-        final barColor =
-            progress < 0.2
-                ? Colors.red
-                : (progress < 0.5 ? Colors.orange : Colors.blue);
-
-        return Row(
-          children: [
-            Icon(Icons.timer_outlined, color: Colors.grey.shade600, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 12,
-                  backgroundColor: Colors.grey.shade300,
-                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              timeString,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
+// ▲▲▲ lib/features/ddip_event/presentation/detail/widgets/mission_briefing_header.dart (전체 코드) ▲▲▲
