@@ -2,21 +2,24 @@
 
 import 'package:ddip/features/evaluation/domain/entities/evaluation.dart';
 import 'package:ddip/features/evaluation/domain/repositories/evaluation_repository.dart';
+import 'package:ddip/features/profile/domain/repositories/profile_repository.dart';
 
 class FakeEvaluationRepositoryImpl implements EvaluationRepository {
-  // ▼▼▼ 제출된 평가를 저장할 가상 데이터베이스를 추가합니다. ▼▼▼
+  // 1. [핵심] ProfileRepository에 대한 참조를 저장할 변수
+  final ProfileRepository _profileRepository;
+
   final List<Evaluation> _submittedEvaluations = [];
-  // ▲▲▲ 제출된 평가를 저장할 가상 데이터베이스를 추가합니다. ▲▲▲
+
+  // 2. 생성자를 통해 ProfileRepository 인스턴스를 주입받음
+  FakeEvaluationRepositoryImpl(this._profileRepository);
 
   @override
   Future<void> submitEvaluation(Evaluation evaluation) async {
-    await Future.delayed(const Duration(seconds: 1));
-
-    // ▼▼▼ 콘솔에 출력하는 대신, 가상 데이터베이스에 평가 기록을 저장합니다. ▼▼▼
+    await Future.delayed(const Duration(milliseconds: 500));
     _submittedEvaluations.add(evaluation);
-    print('--- [Fake Repository] 평가 제출 완료 및 저장 ---');
-    print('미션 ID: ${evaluation.missionId}, 평가자: ${evaluation.evaluatorId}');
-    // ▲▲▲ 콘솔에 출력하는 대신, 가상 데이터베이스에 평가 기록을 저장합니다. ▲▲▲
+
+    // 3. [핵심] 주입받은 ProfileRepository의 업데이트 메서드를 호출!
+    await _profileRepository.updateProfileWithEvaluation(evaluation);
   }
 
   // ▼▼▼ 새로 추가된 메소드를 구현합니다. ▼▼▼

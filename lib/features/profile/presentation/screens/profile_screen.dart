@@ -1,9 +1,4 @@
-// ▼▼▼ lib/features/profile/presentation/screens/profile_screen.dart ▼▼▼
-import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
-import 'package:ddip/features/ddip_event/presentation/feed/widgets/ddip_list_item.dart';
-import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
-import 'package:ddip/features/profile/domain/entities/profile.dart'
-    as profile_entity;
+import 'package:ddip/features/evaluation/domain/entities/evaluation.dart';
 import 'package:ddip/features/profile/domain/entities/profile.dart';
 import 'package:ddip/features/profile/providers/profile_providers.dart';
 import 'package:flutter/material.dart';
@@ -16,45 +11,32 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. userId를 사용하여 profileProvider를 watch합니다.
-    // Provider가 비동기 데이터를 가져오는 동안 로딩/에러 상태를 자동으로 관리합니다.
     final profileAsync = ref.watch(profileProvider(userId));
 
     return Scaffold(
-      // 2. AsyncValue.when을 사용하여 상태별로 다른 UI를 보여줍니다.
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('프로필을 불러올 수 없습니다: $err')),
         data:
             (profile) => CustomScrollView(
               slivers: [
-                // 3. 프로필 헤더 (SliverAppBar로 구현)
+                // 1. 프로필 헤더
                 _ProfileHeader(profile: profile),
-                // 4. 나머지 콘텐츠 (SliverList로 구현)
+
+                // 2. 나머지 콘텐츠 (인증 및 평판 섹션)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (profile.certificationMark != null)
-                          _CertificationMarkCard(
-                            mark: profile.certificationMark!,
+                        if (profile.certifiedSchoolName != null) ...[
+                          _CertificationCard(
+                            schoolName: profile.certifiedSchoolName!,
                           ),
-                        const SizedBox(height: 24),
-                        _ReputationCard(profile: profile),
-                        const SizedBox(height: 24),
-                        _SectionTitle(
-                          title: '획득 뱃지 (${profile.badges.length}개)',
-                        ),
-                        _BadgeCarousel(badges: profile.badges),
-                        const SizedBox(height: 24),
-                        _SectionTitle(title: '최근 활동 태그'),
-                        _TagCloud(tags: profile.tags),
-
-                        _SectionTitle(title: '나의 활동 기록'),
-                        _ActivityHistoryCard(userId: userId),
-                        // TODO: 활동 기록, 활동 시간대 등 추가 컴포넌트 배치
+                          const SizedBox(height: 24),
+                        ],
+                        _ReputationSection(profile: profile),
                       ],
                     ),
                   ),
@@ -66,164 +48,347 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+// =============================================================================
 // MARK: - UI Components
+// =============================================================================
 
-/// 프로필 상단 영역을 담당하는 SliverAppBar 기반 헤더 위젯
+/// 프로필 상단 영역을 담당하는 SliverAppBar
 class _ProfileHeader extends StatelessWidget {
   final Profile profile;
-
   const _ProfileHeader({required this.profile});
 
   @override
   Widget build(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 250.0,
+      // [오류 수정] 콘텐츠를 충분히 담을 수 있도록 높이 확장
+      expandedHeight: 240.0,
       floating: false,
       pinned: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 1,
       surfaceTintColor: Theme.of(context).scaffoldBackgroundColor,
       flexibleSpace: FlexibleSpaceBar(
-        centerTitle: true,
-        titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        title: Text(
-          profile.nickname,
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-        ),
-        background: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 40), // Status bar height
-            CircleAvatar(
-              radius: 45,
-              backgroundImage: NetworkImage(profile.profileImageUrl),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              profile.oneLineIntro,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '요청 ${profile.totalRequestCount}회 | 수행 ${profile.totalExecutionCount}회',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 40), // For title spacing
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 학기별 인증 마크를 표시하는 카드 위젯
-class _CertificationMarkCard extends StatelessWidget {
-  final CertificationMark mark;
-
-  const _CertificationMarkCard({required this.mark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade300),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.verified, color: Colors.amber.shade800),
-          const SizedBox(width: 12),
-          Column(
-            children: [
-              Text(
-                mark.title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber.shade900,
-                ),
-              ),
-              Text(
-                mark.semester,
-                style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 요청자/수행자 평판을 탭으로 보여주는 위젯
-class _ReputationCard extends StatelessWidget {
-  final Profile profile;
-
-  const _ReputationCard({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          const TabBar(tabs: [Tab(text: '수행자 평판'), Tab(text: '요청자 평판')]),
-          SizedBox(
-            height: 90,
-            child: TabBarView(
+        background: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 72, 20, 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildReputationGrid(
-                  context,
-                  metrics: {
-                    '사진 승인율':
-                        '${profile.responderReputation.photoApprovalRate}%',
-                    '평균 응답 시간':
-                        '${profile.responderReputation.avgResponseTimeMinutes}분',
-                    '미션 포기율': '${profile.responderReputation.abandonmentRate}%',
-                  },
+                // 1. 프로필 사진, 이름, 한 줄 소개 (가로 배치)
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundImage: NetworkImage(profile.profileImageUrl),
+                      backgroundColor: Colors.grey.shade200,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.nickname,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            profile.oneLineIntro,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey.shade700),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                _buildReputationGrid(
-                  context,
-                  metrics: {
-                    '사진 승인율':
-                        '${profile.requesterReputation.photoApprovalRate}%',
-                    '평균 선택 시간':
-                        '${profile.requesterReputation.avgSelectionTimeMinutes}분',
-                    '수행자 만족도':
-                        '★ ${profile.requesterReputation.responderSatisfaction.toStringAsFixed(1)}',
-                  },
+                const Spacer(),
+                // 2. 요청, 수행 횟수
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildCountItem(context, '요청', profile.totalRequestCount),
+                    SizedBox(
+                      height: 24,
+                      child: VerticalDivider(color: Colors.grey.shade300),
+                    ),
+                    _buildCountItem(context, '수행', profile.totalExecutionCount),
+                  ],
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildReputationGrid(
-    BuildContext context, {
-    required Map<String, String> metrics,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0),
+  // [단순화] _ActivityInfoRow 위젯 대신 작은 빌드 메서드로 통합
+  Widget _buildCountItem(BuildContext context, String label, int count) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
+/// 학교 인증 정보를 보여주는 카드
+class _CertificationCard extends StatelessWidget {
+  final String schoolName;
+  const _CertificationCard({required this.schoolName});
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryColor.withOpacity(0.3)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children:
-            metrics.entries.map((entry) {
-              return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.verified_user_rounded, color: primaryColor),
+          const SizedBox(width: 12),
+          Text(
+            '$schoolName 인증 완료',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 요청자/수행자 평판을 탭으로 보여주는 섹션 (StatefulWidget 유지)
+class _ReputationSection extends StatefulWidget {
+  final Profile profile;
+  const _ReputationSection({required this.profile});
+
+  @override
+  State<_ReputationSection> createState() => _ReputationSectionState();
+}
+
+class _ReputationSectionState extends State<_ReputationSection>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const responderTags = {
+      PraiseTag.photoClarity: '사진이 선명해요 📸',
+      PraiseTag.goodComprehension: '요청을 정확히 이해했어요 👍',
+      PraiseTag.kindAndPolite: '친절하고 매너가 좋아요 😊',
+      PraiseTag.sensibleExtraInfo: '센스있는 추가 정보 ✨',
+    };
+    const requesterTags = {
+      PraiseTag.clearRequest: '요청사항이 명확했어요 🎯',
+      PraiseTag.fastFeedback: '빠른 확인과 피드백 ✅',
+      PraiseTag.politeAndKind: '매너있고 친절해요 🙏',
+      PraiseTag.reasonableRequest: '합리적인 요구사항 🤝',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title: '사용자 평판'),
+        TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: '수행자로서'), Tab(text: '요청자로서')],
+        ),
+        const SizedBox(height: 16),
+        // [단순화] _ReputationDetails 위젯을 제거하고 TabBarView 내부에 직접 UI 구현
+        SizedBox(
+          height: 220,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // 수행자 평판 탭
+              Column(
                 children: [
-                  Text(
-                    entry.value,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  _buildRatingDisplay(
+                    rating: widget.profile.responderAverageRating,
+                    count: widget.profile.totalExecutionCount,
                   ),
-                  const SizedBox(height: 4),
-                  Text(entry.key, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  _PraiseTagGraph(
+                    availableTags: responderTags,
+                    tagCounts: widget.profile.responderPraiseTags,
+                  ),
                 ],
+              ),
+              // 요청자 평판 탭
+              Column(
+                children: [
+                  _buildRatingDisplay(
+                    rating: widget.profile.requesterAverageRating,
+                    count: widget.profile.totalRequestCount,
+                  ),
+                  const SizedBox(height: 16),
+                  _PraiseTagGraph(
+                    availableTags: requesterTags,
+                    tagCounts: widget.profile.requesterPraiseTags,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // [단순화] _RatingDisplay 위젯 대신 작은 빌드 메서드로 통합
+  Widget _buildRatingDisplay({required double? rating, required int count}) {
+    final hasRating = rating != null && rating > 0;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Icon(
+          Icons.star_rounded,
+          color: hasRating ? Colors.amber : Colors.grey.shade300,
+          size: 40,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          hasRating ? rating!.toStringAsFixed(1) : 'N/A',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: hasRating ? Colors.black87 : Colors.grey.shade400,
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (hasRating)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Text(
+              '($count명)',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 칭찬 태그 그래프 위젯 (복잡도가 있으므로 유지)
+class _PraiseTagGraph extends StatelessWidget {
+  final Map<PraiseTag, String> availableTags;
+  final Map<PraiseTag, int> tagCounts;
+
+  const _PraiseTagGraph({required this.availableTags, required this.tagCounts});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tagCounts.isEmpty) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.tag_faces_outlined,
+                size: 32,
+                color: Colors.grey.shade300,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "받은 칭찬 태그가 없어요.",
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final maxCount = tagCounts.values.fold(0, (prev, e) => e > prev ? e : prev);
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return Expanded(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children:
+            availableTags.entries.map((entry) {
+              final tag = entry.key;
+              final label = entry.value;
+              final count = tagCounts[tag] ?? 0;
+              final ratio = maxCount > 0 ? count / maxCount : 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 6.0,
+                  horizontal: 8.0,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: Text(label, style: const TextStyle(fontSize: 13)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: ratio,
+                          minHeight: 12,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            primaryColor.withOpacity(0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 35,
+                      child: Text(
+                        ' $count',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
       ),
@@ -231,84 +396,9 @@ class _ReputationCard extends StatelessWidget {
   }
 }
 
-/// 뱃지 목록을 가로로 스크롤하여 보여주는 위젯
-class _BadgeCarousel extends StatelessWidget {
-  final List<profile_entity.Badge> badges;
-
-  const _BadgeCarousel({required this.badges});
-
-  @override
-  Widget build(BuildContext context) {
-    if (badges.isEmpty) {
-      return const SizedBox(
-        height: 80,
-        child: Center(child: Text("아직 획득한 뱃지가 없어요.")),
-      );
-    }
-    return SizedBox(
-      height: 110,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: badges.length,
-        itemBuilder: (context, index) {
-          final badge = badges[index];
-          return SizedBox(
-            width: 80,
-            child: Column(
-              children: [
-                Image.network(badge.imageUrl, height: 50, width: 50),
-                const SizedBox(height: 8),
-                Text(
-                  badge.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        separatorBuilder: (context, index) => const SizedBox(width: 16),
-      ),
-    );
-  }
-}
-
-/// 활동 태그를 유동적으로 보여주는 Wrap 위젯
-class _TagCloud extends StatelessWidget {
-  final List<profile_entity.Tag> tags;
-
-  const _TagCloud({required this.tags});
-
-  @override
-  Widget build(BuildContext context) {
-    if (tags.isEmpty) {
-      return const Center(child: Text("아직 활동 태그가 없어요."));
-    }
-    return Wrap(
-      spacing: 8.0,
-      runSpacing: 4.0,
-      children:
-          tags.map((tag) {
-            return Chip(
-              label: Text('${tag.name} (${tag.count})'),
-              backgroundColor: Colors.grey.shade100,
-              side: BorderSide(color: Colors.grey.shade300),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            );
-          }).toList(),
-    );
-  }
-}
-
-/// 각 섹션의 제목을 표시하는 간단한 위젯
+/// 섹션 제목 위젯
 class _SectionTitle extends StatelessWidget {
   final String title;
-
   const _SectionTitle({required this.title});
 
   @override
@@ -324,114 +414,3 @@ class _SectionTitle extends StatelessWidget {
     );
   }
 }
-
-/// 탭(TabBar)과 탭에 해당하는 콘텐츠(TabBarView)를 포함하는 카드 위젯
-/// StatefulWidget으로 만들어 TabController를 관리합니다.
-class _ActivityHistoryCard extends ConsumerStatefulWidget {
-  final String userId;
-
-  const _ActivityHistoryCard({required this.userId});
-
-  @override
-  ConsumerState<_ActivityHistoryCard> createState() =>
-      _ActivityHistoryCardState();
-}
-
-class _ActivityHistoryCardState extends ConsumerState<_ActivityHistoryCard>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '진행중'),
-            Tab(text: '나의 요청'),
-            Tab(text: '나의 수행'),
-          ],
-        ),
-        SizedBox(
-          // TabBarView의 높이를 고정하여 UI가 깨지는 것을 방지합니다.
-          // 내용이 많아지면 내부에서 스크롤됩니다.
-          height: 300,
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _ActivityList(
-                userId: widget.userId,
-                type: UserActivityType.ongoing,
-              ),
-              _ActivityList(
-                userId: widget.userId,
-                type: UserActivityType.requested,
-              ),
-              _ActivityList(
-                userId: widget.userId,
-                type: UserActivityType.responded,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 특정 타입의 활동 목록을 비동기적으로 불러와 표시하는 위젯
-class _ActivityList extends ConsumerWidget {
-  final String userId;
-  final UserActivityType type;
-
-  const _ActivityList({required this.userId, required this.type});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // ▼▼▼ 3단계에서 만든 Provider를 사용하여 데이터를 가져오는 로직을 완성합니다. ▼▼▼
-    // Provider에 userId와 type을 담은 record를 파라미터로 전달합니다.
-    final activityAsync = ref.watch(
-      userActivityProvider((userId: userId, type: type)),
-    );
-
-    // AsyncValue.when을 사용하여 로딩, 에러, 데이터 상태를 처리합니다.
-    return activityAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('목록을 불러올 수 없습니다: $err')),
-      data: (events) {
-        if (events.isEmpty) {
-          return const Center(
-            child: Text(
-              '해당 활동 기록이 없습니다.',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-        // 피드 화면에서 사용했던 DdipListItem을 재사용하여 목록을 만듭니다.
-        return ListView.separated(
-          itemCount: events.length,
-          itemBuilder: (context, index) {
-            return DdipListItem(event: events[index]);
-          },
-          separatorBuilder: (context, index) => const Divider(height: 1),
-        );
-      },
-    );
-    // ▲▲▲ 3단계에서 만든 Provider를 사용하여 데이터를 가져오는 로직을 완성합니다. ▲▲▲
-  }
-}
-
-// ▲▲▲ lib/features/profile/presentation/screens/profile_screen.dart ▲▲▲
