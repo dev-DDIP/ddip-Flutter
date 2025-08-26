@@ -8,6 +8,7 @@ import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/interaction.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/evaluation/domain/repositories/evaluation_repository.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -19,9 +20,15 @@ import 'package:uuid/uuid.dart';
 class FakeDdipEventRepositoryImpl implements DdipEventRepository {
   final Ref ref; // ✨ 1. 생성자를 통해 Ref를 전달받음
   final WebSocketDataSource webSocketDataSource;
+  final EvaluationRepository evaluationRepository;
+
   final _eventStreamControllers = <String, StreamController<DdipEvent>>{};
 
-  FakeDdipEventRepositoryImpl(this.ref, {required this.webSocketDataSource});
+  FakeDdipEventRepositoryImpl(
+    this.ref, {
+    required this.webSocketDataSource,
+    required this.evaluationRepository,
+  });
 
   final List<DdipEvent> _ddipEvents = List.from(mockDdipEvents);
 
@@ -259,7 +266,6 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
     });
   }
 
-  // ▼▼▼ 새로 추가된 getEventsByUserId 메소드를 구현합니다. ▼▼▼
   @override
   Future<List<DdipEvent>> getEventsByUserId(
     String userId,
@@ -273,6 +279,7 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
             .where((event) => event.requesterId == userId)
             .toList();
       case UserActivityType.responded:
+        // '나의 수행' 목록은 기존 로직을 유지합니다 (평가 여부와 상관없이 모든 완료/실패 건 표시).
         return _ddipEvents
             .where(
               (event) =>
@@ -282,15 +289,33 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
             )
             .toList();
       case UserActivityType.ongoing:
-        return _ddipEvents
-            .where(
-              (event) =>
-                  (event.requesterId == userId ||
-                      event.selectedResponderId == userId) &&
-                  (event.status == DdipEventStatus.open ||
-                      event.status == DdipEventStatus.in_progress),
-            )
-            .toList();
+        final ongoingEvents = <DdipEvent>[];
+
+        // 1. 내가 요청했거나, 내가 수행자로 선택된 모든 이벤트를 순회합니다.
+        for (final event in _ddipEvents.where(
+          (e) => e.requesterId == userId || e.selectedResponderId == userId,
+        )) {
+          // 2. 미션 상태가 'open' 또는 'in_progress'이면 무조건 목록에 포함합니다.
+          if (event.status == DdipEventStatus.open ||
+              event.status == DdipEventStatus.in_progress) {
+            ongoingEvents.add(event);
+            continue;
+          }
+
+          // 3. 미션 상태가 'completed' 또는 'failed'인 경우, 평가 여부를 확인합니다.
+          if (event.status == DdipEventStatus.completed ||
+              event.status == DdipEventStatus.failed) {
+            // 4. '평가 저장소'에게 "이 유저가 이 미션을 평가했나요?" 라고 물어봅니다.
+            final hasEvaluated = await evaluationRepository
+                .hasUserEvaluatedMission(userId: userId, missionId: event.id);
+
+            // 5. 평가하지 않았을 경우에만 '진행중' 목록에 포함시킵니다.
+            if (!hasEvaluated) {
+              ongoingEvents.add(event);
+            }
+          }
+        }
+        return ongoingEvents;
     }
   }
 
@@ -316,10 +341,13 @@ class FakeDdipEventRepositoryImpl implements DdipEventRepository {
         // ✨ [핵심 수정] '질문하기' 행동을 Interaction 객체로 생성합니다.
         final newInteraction = Interaction(
           id: const Uuid().v4(),
-          actorId: ref.read(authProvider)!.id, // 현재 로그인한 요청자
+          actorId: ref.read(authProvider)!.id,
+          // 현재 로그인한 요청자
           actorRole: ActorRole.requester,
-          actionType: ActionType.askQuestion, // 액션 타입을 '질문'으로 명시
-          comment: question, // 질문 내용을 코멘트로도 기록
+          actionType: ActionType.askQuestion,
+          // 액션 타입을 '질문'으로 명시
+          comment: question,
+          // 질문 내용을 코멘트로도 기록
           relatedPhotoId: photoId,
           timestamp: DateTime.now(),
         );

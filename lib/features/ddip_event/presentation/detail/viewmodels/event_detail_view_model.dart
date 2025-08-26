@@ -14,6 +14,7 @@ import 'package:ddip/features/ddip_event/presentation/detail/widgets/communicati
 import 'package:ddip/features/ddip_event/presentation/detail/widgets/detailed_request_card.dart';
 import 'package:ddip/features/ddip_event/presentation/models/progress_step.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/evaluation/providers/evaluation_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -38,6 +39,7 @@ class EventDetailState with _$EventDetailState {
     required List<ProgressStep> progressSteps, // [수정] required로 변경
     @Default(true) bool showProgressBar,
     @Default(false) bool showMissionControl,
+    @Default(false) bool hasCurrentUserEvaluated,
   }) = _EventDetailState;
 }
 
@@ -85,8 +87,21 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
     }
   }
 
-  void _updateStateFromEvent(DdipEvent event) {
+  void _updateStateFromEvent(DdipEvent event) async {
     final currentUser = _ref.read(authProvider);
+
+    bool hasEvaluated = false;
+    // 미션이 종료되었고, 사용자가 로그인한 상태일 때만 평가 여부를 확인합니다.
+    if (currentUser != null &&
+        (event.status == DdipEventStatus.completed ||
+            event.status == DdipEventStatus.failed)) {
+      final evaluationRepository = _ref.read(evaluationRepositoryProvider);
+      hasEvaluated = await evaluationRepository.hasUserEvaluatedMission(
+        userId: currentUser.id,
+        missionId: event.id,
+      );
+    }
+
     // --- 버튼 상태 결정 로직 (생략) ---
     String? text;
     bool isEnabled = false;
@@ -126,9 +141,9 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       text = '로그인이 필요합니다.';
     }
 
-    // 3. 높이를 계산하는 대신, 상태에 따라 bool 값만 결정합니다.
+    // [핵심 수정] buildProgressSteps에 평가 완료 여부를 전달합니다.
+    final progressSteps = _buildProgressSteps(event, hasEvaluated);
     final missionStage = _determineMissionStage(event, currentUser?.id);
-    final progressSteps = _buildProgressSteps(event);
 
     final bool shouldShowProgressBar = progressSteps.isNotEmpty;
     final bool shouldShowMissionControl = missionStage.isActive;
@@ -143,6 +158,8 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
       progressSteps: progressSteps,
       showProgressBar: shouldShowProgressBar,
       showMissionControl: shouldShowMissionControl,
+      hasCurrentUserEvaluated: hasEvaluated,
+
       // 계산된 높이 저장
       isProcessing: false,
     );
@@ -303,39 +320,118 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
   }
 
   /// DdipEvent 상태를 기반으로 '예측적 슬라이딩 윈도우'에 표시될 4개의 Step 리스트를 생성합니다.
-  List<ProgressStep> _buildProgressSteps(DdipEvent event) {
-    // [수정] 이제 각 Step을 만들 때 icon 파라미터를 함께 전달합니다.
-    const stepMatching = ProgressStep(
+  List<ProgressStep> _buildProgressSteps(
+    DdipEvent event,
+    bool hasCurrentUserEvaluated,
+  ) {
+    // 미션 성공/실패 시
+    if (event.status == DdipEventStatus.completed ||
+        event.status == DdipEventStatus.failed) {
+      final isSuccess = event.status == DdipEventStatus.completed;
+
+      // 평가를 아직 안했다면 '상호 평가'가 현재 단계 (기존 로직 유지)
+      if (!hasCurrentUserEvaluated) {
+        return [
+          ProgressStep(
+            label: isSuccess ? '미션 성공!' : '미션 실패',
+            status: isSuccess ? StepStatus.success : StepStatus.stopped,
+            icon:
+                isSuccess ? Icons.celebration_outlined : Icons.cancel_outlined,
+          ),
+          const ProgressStep(
+            label: '상호 평가',
+            status: StepStatus.current,
+            icon: Icons.reviews_outlined,
+          ),
+          const ProgressStep(
+            label: '완료',
+            status: StepStatus.future,
+            icon: Icons.check_circle_outline,
+          ),
+          const ProgressStep(
+            label: '',
+            status: StepStatus.future,
+            icon: Icons.more_horiz,
+          ),
+        ];
+      }
+      // ★★★ [핵심 수정] 평가를 완료했다면, '상호 평가'는 완료되고 '완료'가 현재 단계가 됩니다. ★★★
+      else {
+        return [
+          // '미션 성공/실패' 단계는 왼쪽으로 사라지고, '상호 평가'가 첫 번째 칸으로 옵니다.
+          const ProgressStep(
+            label: '상호 평가',
+            status: StepStatus.success, // 완료된 상태로 변경
+            icon: Icons.reviews_outlined,
+          ),
+          const ProgressStep(
+            label: '완료',
+            status: StepStatus.current, // 현재 단계로 변경
+            icon: Icons.check_circle_outline,
+          ),
+          // 뒤따라오는 미래 단계들은 빈 공간으로 채웁니다.
+          const ProgressStep(
+            label: '',
+            status: StepStatus.future,
+            icon: Icons.more_horiz,
+          ),
+          const ProgressStep(
+            label: '',
+            status: StepStatus.future,
+            icon: Icons.more_horiz,
+          ),
+        ];
+      }
+    }
+
+    // 공통 사용될 Step 정의 (코드 가독성 향상)
+    const stepMatchingSuccess = ProgressStep(
       label: '수행자 모집',
       status: StepStatus.success,
       icon: Icons.people_outline,
     );
-    const stepSubmitPhoto1 = ProgressStep(
+    const stepSubmitSuccess = ProgressStep(
       label: '사진 제출',
       status: StepStatus.success,
       icon: Icons.camera_alt_outlined,
     );
-    const stepVerifyPhoto1 = ProgressStep(
-      label: '사진 검증',
-      status: StepStatus.success,
-      icon: Icons.rate_review_outlined,
-    );
-    const stepSubmitAnswer1 = ProgressStep(
+    const stepAnswerSuccess = ProgressStep(
       label: '답변 완료',
       status: StepStatus.success,
       icon: Icons.question_answer_outlined,
     );
+    const stepFutureEllipsis = ProgressStep(
+      label: '...',
+      status: StepStatus.future,
+      isPredictive: true,
+      icon: Icons.more_horiz,
+    );
+    const stepFutureMissionEnd = ProgressStep(
+      label: '미션 종료',
+      status: StepStatus.future,
+      icon: Icons.flag_outlined,
+    );
 
-    final isFirstPhotoRejected =
-        event.photos.firstOrNull?.status == PhotoStatus.rejected;
+    final bool isAnyPhotoRejected = event.photos.any(
+      (p) => p.status == PhotoStatus.rejected,
+    );
 
-    // --- ID: 1A (1차 시도 - 수행자 사진 제출 턴) ---
-    if (event.status == DdipEventStatus.in_progress && event.photos.isEmpty) {
+    // ID 0: 수행자 모집
+    if (event.status == DdipEventStatus.open) {
       return [
-        stepMatching,
+        const ProgressStep(
+          label: '요청 등록',
+          status: StepStatus.success,
+          icon: Icons.edit_note_outlined,
+        ),
+        const ProgressStep(
+          label: '수행자 모집',
+          status: StepStatus.current,
+          icon: Icons.people_outline,
+        ),
         const ProgressStep(
           label: '사진 제출',
-          status: StepStatus.current,
+          status: StepStatus.future,
           icon: Icons.camera_alt_outlined,
         ),
         const ProgressStep(
@@ -343,125 +439,160 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
           status: StepStatus.future,
           icon: Icons.rate_review_outlined,
         ),
-        const ProgressStep(
-          label: '...',
-          status: StepStatus.future,
-          isPredictive: true,
-          icon: Icons.more_horiz,
-        ),
       ];
     }
 
-    // --- ID: 1B (1차 시도 - 요청자 사진 검증 턴) ---
-    if (event.status == DdipEventStatus.in_progress &&
-        event.photos.isNotEmpty &&
-        event.photos.last.status == PhotoStatus.pending &&
-        !isFirstPhotoRejected) {
-      final lastPhoto = event.photos.last;
-      // --- ID: 1D (Q&A 후 최종 결정 턴) ---
-      if (lastPhoto.requesterQuestion != null &&
-          lastPhoto.responderAnswer != null) {
+    // 미션 진행 중 상태 (in_progress)
+    if (event.status == DdipEventStatus.in_progress) {
+      final lastPhoto = event.photos.lastOrNull;
+
+      // ID 1A: 1차 사진 제출
+      if (lastPhoto == null) {
         return [
-          stepSubmitAnswer1,
+          stepMatchingSuccess,
           const ProgressStep(
-            label: '1차 최종 결정',
+            label: '사진 제출',
             status: StepStatus.current,
-            icon: Icons.gavel_outlined,
+            icon: Icons.camera_alt_outlined,
           ),
           const ProgressStep(
-            label: '...',
+            label: '사진 검증',
             status: StepStatus.future,
-            isPredictive: true,
-            icon: Icons.more_horiz,
-          ),
-          const ProgressStep(
-            label: '미션 종료',
-            status: StepStatus.future,
-            icon: Icons.flag_outlined,
-          ),
-        ];
-      }
-      // --- ID: 1C (수행자 답변 턴) ---
-      if (lastPhoto.requesterQuestion != null &&
-          lastPhoto.responderAnswer == null) {
-        return [
-          const ProgressStep(
-            label: '사진 검증(질문)',
-            status: StepStatus.question,
             icon: Icons.rate_review_outlined,
           ),
-          const ProgressStep(
-            label: '답변 작성',
-            status: StepStatus.current,
-            icon: Icons.question_answer_outlined,
-          ),
+          stepFutureEllipsis,
+        ];
+      }
+
+      // 1차 또는 2차 시도의 검증 단계
+      if (lastPhoto.status == PhotoStatus.pending) {
+        // ID 1B, 1C, 1D: 1차 시도 검증 루프
+        if (!isAnyPhotoRejected) {
+          if (lastPhoto.requesterQuestion != null &&
+              lastPhoto.responderAnswer != null) {
+            // 1D
+            return [
+              stepAnswerSuccess,
+              const ProgressStep(
+                label: '1차 최종 결정',
+                status: StepStatus.current,
+                icon: Icons.gavel_outlined,
+              ),
+              stepFutureEllipsis,
+              stepFutureMissionEnd,
+            ];
+          }
+          if (lastPhoto.requesterQuestion != null) {
+            // 1C
+            return [
+              const ProgressStep(
+                label: '사진 검증(질문)',
+                status: StepStatus.question,
+                icon: Icons.rate_review_outlined,
+              ),
+              const ProgressStep(
+                label: '답변 작성',
+                status: StepStatus.current,
+                icon: Icons.question_answer_outlined,
+              ),
+              const ProgressStep(
+                label: '1차 최종 결정',
+                status: StepStatus.future,
+                icon: Icons.gavel_outlined,
+              ),
+              stepFutureEllipsis,
+            ];
+          }
+          return [
+            stepSubmitSuccess,
+            const ProgressStep(
+              label: '사진 검증',
+              status: StepStatus.current,
+              icon: Icons.rate_review_outlined,
+            ),
+            stepFutureEllipsis,
+            stepFutureMissionEnd,
+          ]; // 1B
+        }
+        // ★★★ [버그 수정] ID 2B, 2C, 2D: 2차 시도 검증 루프 ★★★
+        else {
+          const stepResubmitSuccess = ProgressStep(
+            label: '사진 재제출',
+            status: StepStatus.success,
+            icon: Icons.camera_alt_outlined,
+          );
+          if (lastPhoto.requesterQuestion != null &&
+              lastPhoto.responderAnswer != null) {
+            // 2D
+            return [
+              stepAnswerSuccess,
+              const ProgressStep(
+                label: '2차 최종 결정',
+                status: StepStatus.current,
+                icon: Icons.gavel_outlined,
+              ),
+              stepFutureEllipsis,
+              stepFutureMissionEnd,
+            ];
+          }
+          if (lastPhoto.requesterQuestion != null) {
+            // 2C
+            return [
+              const ProgressStep(
+                label: '사진 검증(질문)',
+                status: StepStatus.question,
+                icon: Icons.rate_review_outlined,
+              ),
+              const ProgressStep(
+                label: '답변 작성',
+                status: StepStatus.current,
+                icon: Icons.question_answer_outlined,
+              ),
+              const ProgressStep(
+                label: '2차 최종 결정',
+                status: StepStatus.future,
+                icon: Icons.gavel_outlined,
+              ),
+              stepFutureEllipsis,
+            ];
+          }
+          return [
+            stepResubmitSuccess,
+            const ProgressStep(
+              label: '2차 사진 검증',
+              status: StepStatus.current,
+              icon: Icons.rate_review_outlined,
+            ),
+            stepFutureEllipsis,
+            stepFutureMissionEnd,
+          ]; // 2B
+        }
+      }
+
+      // ID 2A: 2차 사진 제출 (1차 반려 직후)
+      if (lastPhoto.status == PhotoStatus.rejected) {
+        return [
           const ProgressStep(
             label: '1차 최종 결정',
-            status: StepStatus.future,
+            status: StepStatus.rejected,
             icon: Icons.gavel_outlined,
           ),
           const ProgressStep(
-            label: '...',
-            status: StepStatus.future,
-            isPredictive: true,
-            icon: Icons.more_horiz,
+            label: '사진 재제출',
+            status: StepStatus.current,
+            icon: Icons.camera_alt_outlined,
           ),
+          const ProgressStep(
+            label: '사진 검증',
+            status: StepStatus.future,
+            icon: Icons.rate_review_outlined,
+          ),
+          stepFutureEllipsis,
         ];
       }
-      // 일반적인 1차 검증
-      return [
-        stepSubmitPhoto1,
-        const ProgressStep(
-          label: '사진 검증',
-          status: StepStatus.current,
-          icon: Icons.rate_review_outlined,
-        ),
-        const ProgressStep(
-          label: '...',
-          status: StepStatus.future,
-          isPredictive: true,
-          icon: Icons.more_horiz,
-        ),
-        const ProgressStep(
-          label: '미션 종료',
-          status: StepStatus.future,
-          icon: Icons.flag_outlined,
-        ),
-      ];
     }
 
-    // --- ID: 2A (2차 시도 - 수행자 사진 재제출 턴) ---
-    if (event.status == DdipEventStatus.in_progress &&
-        event.photos.isNotEmpty &&
-        event.photos.last.status == PhotoStatus.rejected) {
-      return [
-        const ProgressStep(
-          label: '1차 최종 결정',
-          status: StepStatus.rejected,
-          icon: Icons.gavel_outlined,
-        ),
-        const ProgressStep(
-          label: '사진 재제출',
-          status: StepStatus.current,
-          icon: Icons.camera_alt_outlined,
-        ),
-        const ProgressStep(
-          label: '사진 검증',
-          status: StepStatus.future,
-          icon: Icons.rate_review_outlined,
-        ),
-        const ProgressStep(
-          label: '...',
-          status: StepStatus.future,
-          isPredictive: true,
-          icon: Icons.more_horiz,
-        ),
-      ];
-    }
-
-    // ... (이하 모든 ProgressStep 생성자에 적절한 icon: Icons.some_icon 추가) ...
-
-    // --- END-C (미션 성공) ---
+    // END-C: 미션 성공
     if (event.status == DdipEventStatus.completed) {
       return [
         const ProgressStep(
@@ -483,11 +614,37 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
           label: '',
           status: StepStatus.future,
           icon: Icons.more_horiz,
-        ), // 빈 칸
+        ),
       ];
     }
-    // ... 이하 생략 (모든 case에 icon 추가)
-    // 기본값 (ID 0: 수행자 모집)
+
+    // ★★★ [버그 수정] END-I: 미션 실패 ★★★
+    if (event.status == DdipEventStatus.failed) {
+      return [
+        const ProgressStep(
+          label: '미션 실패',
+          status: StepStatus.stopped,
+          icon: Icons.cancel_outlined,
+        ),
+        const ProgressStep(
+          label: '상호 평가',
+          status: StepStatus.current,
+          icon: Icons.reviews_outlined,
+        ),
+        const ProgressStep(
+          label: '완료',
+          status: StepStatus.future,
+          icon: Icons.check_circle_outline,
+        ),
+        const ProgressStep(
+          label: '',
+          status: StepStatus.future,
+          icon: Icons.more_horiz,
+        ),
+      ];
+    }
+
+    // 어떤 조건에도 해당하지 않을 경우의 기본값 (ID 0과 동일)
     return [
       const ProgressStep(
         label: '요청 등록',
@@ -899,6 +1056,30 @@ class EventDetailViewModel extends StateNotifier<EventDetailState> {
           context,
         ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
       }
+    }
+  }
+
+  /// 평가 화면으로 이동하고, 돌아온 후 상태를 갱신합니다.
+  void navigateToEvaluation(BuildContext context) async {
+    // async 키워드 추가
+    // 1. 로딩 상태를 true로 설정합니다.
+    state = state.copyWith(isProcessing: true);
+
+    final event = state.event.value;
+    if (event == null) {
+      state = state.copyWith(isProcessing: false); // 이벤트 없으면 로딩 해제
+      return;
+    }
+
+    // 2. 평가 화면으로 이동하고, 해당 화면이 닫힐 때까지 'await'로 기다립니다.
+    await context.push('/feed/${event.id}/evaluate', extra: event);
+
+    // 3. [핵심 수정] 평가 화면에서 돌아온 직후, ViewModel의 상태를 강제로 새로고침합니다.
+    //    _updateStateFromEvent 메소드를 다시 호출하여 평가 완료 여부를 재확인하고,
+    //    isProcessing 상태를 false로 되돌립니다.
+    if (mounted) {
+      // 위젯이 여전히 화면에 있는지 확인
+      _updateStateFromEvent(event);
     }
   }
 }

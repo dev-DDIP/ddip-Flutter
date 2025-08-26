@@ -6,6 +6,7 @@ import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_s
 import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/evaluation/providers/evaluation_providers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -84,18 +85,21 @@ void main() async {
     // 이 부분이 main.dart와 유일하게 다른 부분입니다.
     // 실제 서버 대신 가짜(Fake) 데이터 소스와 레포지토리를 주입합니다.
     final overrides = [
-      // WebSocketDataSource가 필요한 곳에는 FakeWebSocketDataSource를 주입합니다.
       webSocketDataSourceProvider.overrideWithValue(FakeWebSocketDataSource()),
 
       // DdipEventRepository가 필요한 곳에는 FakeDdipEventRepositoryImpl을 주입합니다.
-      ddipEventRepositoryProvider.overrideWith(
-        (ref) => FakeDdipEventRepositoryImpl(
-          ref,
-          webSocketDataSource: ref.watch(webSocketDataSourceProvider),
-        ),
-      ),
+      ddipEventRepositoryProvider.overrideWith((ref) {
+        // evaluationRepository를 주입받도록 수정합니다.
+        final webSocketDataSource = ref.watch(webSocketDataSourceProvider);
+        final evaluationRepository = ref.watch(evaluationRepositoryProvider);
 
-      // ProximityService는 실제 FCM을 테스트해야 할 수 있으므로 Real 구현체를 사용합니다.
+        return FakeDdipEventRepositoryImpl(
+          ref,
+          webSocketDataSource: webSocketDataSource,
+          evaluationRepository: evaluationRepository, // 주입
+        );
+      }),
+
       proximityServiceProvider.overrideWith((ref) => RealProximityService()),
     ];
 

@@ -11,6 +11,7 @@ class OngoingActivitySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // '진행중'인 활동 목록을 가져오는 로직은 기존과 동일합니다.
     final ongoingActivityAsync = ref.watch(
       userActivityProvider((userId: userId, type: UserActivityType.ongoing)),
     );
@@ -27,9 +28,12 @@ class OngoingActivitySection extends ConsumerWidget {
             child: Text('진행 중인 활동을 불러오는데 실패했습니다: $err'),
           ),
       data: (events) {
+        // 진행 중인 활동이 없으면 아무것도 표시하지 않습니다.
         if (events.isEmpty) {
           return const SizedBox.shrink();
         }
+
+        // --- 여기부터 UI를 그리는 방식이 변경됩니다 ---
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
@@ -66,7 +70,15 @@ class OngoingActivitySection extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: events.length,
                 itemBuilder: (context, index) {
-                  return OngoingListItem(event: events[index]);
+                  // ★★★ 핵심 변경점 ★★★
+                  // 1. 목록에서 원본 event 데이터를 가져옵니다.
+                  final event = events[index];
+                  // 2. 2단계에서 만든 '엔진'을 호출하여, 현재 이벤트에 대한 UI 요약본을 가져옵니다.
+                  final summary = ref.watch(
+                    ongoingMissionSummaryProvider(event),
+                  );
+                  // 3. 3단계에서 만든 새로운 UI 카드에 요약본을 전달하여 화면을 그립니다.
+                  return OngoingListItem(summary: summary);
                 },
                 separatorBuilder:
                     (context, index) => const SizedBox(height: 12),

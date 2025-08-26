@@ -2,16 +2,21 @@
 
 import 'package:collection/collection.dart';
 import 'package:ddip/core/providers/core_providers.dart';
+import 'package:ddip/features/activity/presentation/models/ongoing_mission_summary.dart';
+import 'package:ddip/features/auth/domain/entities/user.dart';
+import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/data/datasources/ddip_event_remote_data_source.dart';
 import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
+import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/get_ddip_events.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
 import 'package:ddip/features/ddip_event/presentation/notifiers/ddip_events_notifier.dart';
 import 'package:ddip/features/ddip_event/presentation/strategy/detail_sheet_strategy.dart';
+import 'package:ddip/features/evaluation/providers/evaluation_providers.dart';
 import 'package:ddip/features/map/providers/map_providers.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,14 +28,17 @@ final ddipEventDataSourceProvider = Provider<DdipEventRemoteDataSource>((ref) {
 });
 
 final ddipEventRepositoryProvider = Provider<DdipEventRepository>((ref) {
-  // 1. 어떤 WebSocketDataSource를 사용할지 webSocketDataSourceProvider에게 물어봅니다.
+  // 1. WebSocketDataSource를 가져옵니다.
   final webSocketDataSource = ref.watch(webSocketDataSourceProvider);
+  // 2. [추가] EvaluationRepository를 가져옵니다.
+  final evaluationRepository = ref.watch(evaluationRepositoryProvider);
 
-  // 2. 주입받은 DataSource를 사용하여 Repository 구현체를 생성합니다.
-  //    (이 코드는 main.dart에서 override될 때만 실제로 실행됩니다.)
+  // 3. [수정] FakeDdipEventRepositoryImpl을 생성할 때,
+  //    새로 추가된 evaluationRepository 파라미터에 2번에서 가져온 객체를 전달합니다.
   return FakeDdipEventRepositoryImpl(
     ref,
     webSocketDataSource: webSocketDataSource,
+    evaluationRepository: evaluationRepository,
   );
 });
 
@@ -143,3 +151,140 @@ final userActivityProvider = FutureProvider.autoDispose
 final commandBarVisibilityProvider = StateProvider.autoDispose<bool>(
   (ref) => true,
 );
+
+/// 특정 DdipEvent 객체를 OngoingMissionSummary 데이터로 가공(변환)하는 책임을 가지는 프로바이더입니다.
+final ongoingMissionSummaryProvider = Provider.autoDispose.family<
+  OngoingMissionSummary,
+  DdipEvent
+>((ref, event) {
+  final detailViewModelState = ref.watch(
+    eventDetailViewModelProvider(event.id),
+  );
+  final currentUser = ref.watch(authProvider)!;
+  final allUsers = ref.watch(mockUsersProvider);
+
+  // 파트너(상대방) 정보 계산
+  final isRequester = event.requesterId == currentUser.id;
+  final partnerId = isRequester ? event.selectedResponderId : event.requesterId;
+  final partner = allUsers.firstWhere(
+    (user) => user.id == partnerId,
+    orElse: () => User(id: partnerId ?? '', name: '상대방'),
+  );
+
+  // --- ★★★ 핵심 수정: 4개의 마일스톤 상태를 계산하는 로직 ---
+  List<MilestoneState> _calculateMilestoneStates() {
+    // 1. 매칭 (Matching)
+    final matchingMilestone = MilestoneState(
+      label: '매칭',
+      status: MilestoneStatus.completed,
+    );
+
+    // 2. 제출 (Submission)
+    MilestoneState submissionMilestone;
+    final isAnyPhotoRejected = event.photos.any(
+      (p) => p.status == PhotoStatus.rejected,
+    );
+
+    if (event.photos.isEmpty) {
+      submissionMilestone = MilestoneState(
+        label: '제출',
+        status: MilestoneStatus.inProgress,
+      );
+    } else if (isAnyPhotoRejected &&
+        event.photos.last.status == PhotoStatus.rejected) {
+      submissionMilestone = MilestoneState(
+        label: '2차 제출',
+        status: MilestoneStatus.inProgress,
+      );
+    } else {
+      final label = isAnyPhotoRejected ? '2차 제출' : '제출';
+      submissionMilestone = MilestoneState(
+        label: label,
+        status: MilestoneStatus.completed,
+      );
+    }
+
+    // 3. 검증 (Verification)
+    MilestoneState verificationMilestone;
+    final lastPhoto = event.photos.lastOrNull;
+    if (lastPhoto != null && lastPhoto.status == PhotoStatus.pending) {
+      String label = '검증';
+      if (lastPhoto.requesterQuestion != null &&
+          lastPhoto.responderAnswer == null) {
+        label = 'Q&A';
+      }
+      verificationMilestone = MilestoneState(
+        label: label,
+        status: MilestoneStatus.inProgress,
+      );
+    } else if (lastPhoto != null && lastPhoto.status == PhotoStatus.rejected) {
+      verificationMilestone = MilestoneState(
+        label: '반려됨',
+        status: MilestoneStatus.failed,
+      );
+    } else if (lastPhoto != null && lastPhoto.status == PhotoStatus.approved) {
+      verificationMilestone = MilestoneState(
+        label: '검증',
+        status: MilestoneStatus.completed,
+      );
+    } else {
+      verificationMilestone = MilestoneState(
+        label: '검증',
+        status: MilestoneStatus.pending,
+      );
+    }
+
+    // 4. 종료 (End)
+    MilestoneState endMilestone;
+    if (event.status == DdipEventStatus.completed) {
+      endMilestone = MilestoneState(
+        label: '성공',
+        status: MilestoneStatus.completed,
+      );
+      // 성공 시 모든 이전 단계는 완료 처리
+      submissionMilestone = MilestoneState(
+        label: submissionMilestone.label,
+        status: MilestoneStatus.completed,
+      );
+      verificationMilestone = MilestoneState(
+        label: verificationMilestone.label,
+        status: MilestoneStatus.completed,
+      );
+    } else if (event.status == DdipEventStatus.failed) {
+      endMilestone = MilestoneState(
+        label: '실패',
+        status: MilestoneStatus.failed,
+      );
+    } else {
+      endMilestone = MilestoneState(
+        label: '종료',
+        status: MilestoneStatus.pending,
+      );
+    }
+
+    return [
+      matchingMilestone,
+      submissionMilestone,
+      verificationMilestone,
+      endMilestone,
+    ];
+  }
+
+  // 최종적으로, UI에 필요한 모든 정보를 담은 OngoingMissionSummary 객체를 생성하여 반환합니다.
+  return OngoingMissionSummary(
+    event: event,
+    partnerName: partner.name,
+    accentColor: detailViewModelState.missionStage.guideColor,
+    guideIcon: detailViewModelState.missionStage.guideIcon,
+    guideText: detailViewModelState.missionStage.guideText,
+    timerEndTime:
+        detailViewModelState.missionStage.isActive
+            ? detailViewModelState.missionStage.endTime
+            : null,
+    timerTotalDuration:
+        detailViewModelState.missionStage.isActive
+            ? detailViewModelState.missionStage.totalDuration
+            : null,
+    milestones: _calculateMilestoneStates(),
+  );
+});

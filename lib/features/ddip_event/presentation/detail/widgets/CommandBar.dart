@@ -3,12 +3,12 @@
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
+import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ▼▼▼ [수정] 위젯 전체를 아래 코드로 교체합니다. ▼▼▼
 class CommandBar extends ConsumerWidget {
   final DdipEvent event;
 
@@ -17,38 +17,52 @@ class CommandBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authProvider);
-    if (currentUser == null)
-      return const SizedBox.shrink(); // 로그인 안했으면 아무것도 안보여줌
+    if (currentUser == null) return const SizedBox.shrink();
+
+    // ★★★ [오류 수정] ViewModel의 상태를 build 메소드 최상단에서 먼저 가져옵니다. ★★★
+    final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
+
+    // 로딩 중일 경우, 다른 모든 버튼 대신 로딩 인디케이터를 표시합니다.
+    if (viewModelState.isProcessing) {
+      return Container(
+        padding: const EdgeInsets.all(24.0),
+        width: double.infinity,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     final isRequester = event.requesterId == currentUser.id;
     final isSelectedResponder = event.selectedResponderId == currentUser.id;
-
-    // ✨ [핵심 로직 추가] 미션이 종료되었는지 (완료 또는 실패) 확인합니다.
-    final bool isMissionFinished =
+    final isMissionFinished =
         event.status == DdipEventStatus.completed ||
         event.status == DdipEventStatus.failed;
 
     // 1. 미션이 종료된 상태일 경우
     if (isMissionFinished) {
-      if (isRequester) {
-        // 요청자는 '수행자 평가하기' 버튼을 봅니다.
+      // 1-1. 이미 평가를 완료했다면, 비활성화된 '평가 완료' 버튼을 보여줍니다.
+      if (viewModelState.hasCurrentUserEvaluated) {
         return _buildEvaluationBar(
           context: context,
+          ref: ref,
+          text: '평가 완료',
+          icon: Icons.check_circle,
+          isEnabled: false,
+        );
+      }
+      // 1-2. 아직 평가하지 않았다면, '평가하기' 버튼을 보여줍니다.
+      else if (isRequester) {
+        return _buildEvaluationBar(
+          context: context,
+          ref: ref,
           text: '수행자 평가하기',
           icon: Icons.rate_review_outlined,
-          onPressed: () {
-            context.push('/feed/${event.id}/evaluate', extra: event);
-          },
         );
       } else if (isSelectedResponder) {
-        // 선택된 수행자는 '요청자 평가하기' 버튼을 봅니다.
         return _buildEvaluationBar(
           context: context,
+          ref: ref,
           text: '요청자 평가하기',
           icon: Icons.rate_review_outlined,
-          onPressed: () {
-            context.push('/feed/${event.id}/evaluate', extra: event);
-          },
         );
       }
     }
@@ -59,27 +73,15 @@ class CommandBar extends ConsumerWidget {
         : _buildForResponder(context, ref);
   }
 
-  // 1. 요청자를 위한 커맨드 바
+  // 요청자를 위한 커맨드 바
   Widget _buildForRequester(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(eventDetailViewModelProvider(event.id).notifier);
     final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
 
-    // --- 렌더링 조건 ---
-    final bool isMissionOngoing =
-        event.status == DdipEventStatus.open ||
-        event.status == DdipEventStatus.in_progress;
-    // [수정] 첫 사진이 제출된 이후에만 버튼이 보이도록 조건 추가
+    final bool isMissionOngoing = event.status == DdipEventStatus.in_progress;
     final bool hasPhotoBeenSubmitted = event.photos.isNotEmpty;
 
-    // 미션이 진행중이고, 사진이 한 장이라도 제출되었다면 '완료' 버튼 표시
     if (isMissionOngoing && hasPhotoBeenSubmitted) {
-      if (viewModelState.isProcessing) {
-        return const Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Center(child: CircularProgressIndicator()),
-        );
-      }
-
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         color: Colors.transparent,
@@ -101,18 +103,14 @@ class CommandBar extends ConsumerWidget {
         ),
       );
     }
-
-    // 그 외의 경우 (미션 시작 전, 미션 종료 후)에는 아무것도 표시하지 않음
     return const SizedBox.shrink();
   }
 
-  // 2. 수행자를 위한 커맨드 바 (기존 로직 복원 및 개선)
+  // 수행자를 위한 커맨드 바
   Widget _buildForResponder(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(eventDetailViewModelProvider(event.id).notifier);
-    final viewModelState = ref.watch(eventDetailViewModelProvider(event.id));
     final currentUser = ref.watch(authProvider);
 
-    // --- 역할 및 상태 판단 ---
     final isSelectedResponder = event.selectedResponderId == currentUser?.id;
     final hasApplied = event.applicants.contains(currentUser?.id);
     final hasPendingPhoto = event.photos.any(
@@ -121,47 +119,41 @@ class CommandBar extends ConsumerWidget {
 
     Widget actionWidget;
 
-    if (viewModelState.isProcessing) {
-      actionWidget = const Center(child: CircularProgressIndicator());
-    } else {
-      switch (event.status) {
-        case DdipEventStatus.open:
-          if (hasApplied) {
-            actionWidget = const _StatusIndicator(
-              icon: Icons.check_circle_outline,
-              text: '지원 완료! 요청자가 선택할 때까지 기다려주세요.',
-            );
-          } else {
-            actionWidget = _buildStyledButton(
-              text: '미션 지원하기',
-              onPressed: () => viewModel.handleButtonPress(context),
-              backgroundColor: Colors.blue,
-            );
-          }
-          break;
-        case DdipEventStatus.in_progress:
-          if (isSelectedResponder) {
-            actionWidget =
-                hasPendingPhoto
-                    ? const _StatusIndicator(
-                      icon: Icons.hourglass_top_rounded,
-                      text: '사진 제출 완료! 요청자가 확인 중입니다.',
-                    )
-                    : _buildStyledButton(
-                      text: '증거 사진 제출하기',
-                      icon: Icons.camera_alt,
-                      onPressed: () => viewModel.handleButtonPress(context),
-                      backgroundColor: Colors.green,
-                    );
-          } else {
-            // 선택되지 않은 다른 지원자 또는 로그인 안한 유저
-            actionWidget = const SizedBox.shrink();
-          }
-          break;
-        default:
-          // 완료 또는 실패 시
+    switch (event.status) {
+      case DdipEventStatus.open:
+        if (hasApplied) {
+          actionWidget = const _StatusIndicator(
+            icon: Icons.check_circle_outline,
+            text: '지원 완료! 요청자가 선택할 때까지 기다려주세요.',
+          );
+        } else {
+          actionWidget = _buildStyledButton(
+            text: '미션 지원하기',
+            onPressed: () => viewModel.handleButtonPress(context),
+            backgroundColor: Colors.blue,
+          );
+        }
+        break;
+      case DdipEventStatus.in_progress:
+        if (isSelectedResponder) {
+          actionWidget =
+              hasPendingPhoto
+                  ? const _StatusIndicator(
+                    icon: Icons.hourglass_top_rounded,
+                    text: '사진 제출 완료! 요청자가 확인 중입니다.',
+                  )
+                  : _buildStyledButton(
+                    text: '증거 사진 제출하기',
+                    icon: Icons.camera_alt,
+                    onPressed: () => viewModel.handleButtonPress(context),
+                    backgroundColor: Colors.green,
+                  );
+        } else {
           actionWidget = const SizedBox.shrink();
-      }
+        }
+        break;
+      default:
+        actionWidget = const SizedBox.shrink();
     }
 
     return Container(
@@ -210,12 +202,13 @@ class CommandBar extends ConsumerWidget {
     return SizedBox(width: double.infinity, child: buttonContent);
   }
 
-  // ▼▼▼ [신규 추가] 평가하기 버튼 UI를 위한 헬퍼 메소드 ▼▼▼
+  // 평가하기 버튼 UI를 위한 헬퍼 메소드
   Widget _buildEvaluationBar({
     required BuildContext context,
+    required WidgetRef ref,
     required String text,
     required IconData icon,
-    required VoidCallback onPressed,
+    bool isEnabled = true,
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -225,14 +218,22 @@ class CommandBar extends ConsumerWidget {
         child: FilledButton.icon(
           icon: Icon(icon),
           label: Text(text),
-          onPressed: onPressed,
+          onPressed:
+              isEnabled
+                  ? () {
+                    ref
+                        .read(eventDetailViewModelProvider(event.id).notifier)
+                        .navigateToEvaluation(context);
+                  }
+                  : null,
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
-            backgroundColor: Theme.of(context).primaryColor,
+            backgroundColor:
+                isEnabled ? Theme.of(context).primaryColor : Colors.grey,
           ),
         ),
       ),
@@ -277,5 +278,3 @@ class _StatusIndicator extends StatelessWidget {
     );
   }
 }
-
-// ▲▲▲ [수정] 위젯 전체를 아래 코드로 교체합니다. ▲▲▲

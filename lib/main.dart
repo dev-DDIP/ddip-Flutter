@@ -9,6 +9,7 @@ import 'package:ddip/features/ddip_event/data/datasources/fake_web_socket_data_s
 import 'package:ddip/features/ddip_event/data/datasources/web_socket_data_source.dart';
 import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repository_impl.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/evaluation/providers/evaluation_providers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -103,19 +104,21 @@ void main() async {
     // 앱의 각 부분(Repository, Service 등)이 어떤 구체적인 구현체를 사용할지
     // 앱의 최상위 지점에서 중앙 관리 방식으로 결정합니다.
     final overrides = [
-      // WebSocketDataSource가 필요한 곳에는 FakeWebSocketDataSource를 주입합니다.
       webSocketDataSourceProvider.overrideWithValue(FakeWebSocketDataSource()),
 
       // DdipEventRepository가 필요한 곳에는 FakeDdipEventRepositoryImpl을 주입합니다.
-      // 이 Repository는 내부적으로 webSocketDataSourceProvider를 통해 FakeDataSource를 사용하게 됩니다.
-      ddipEventRepositoryProvider.overrideWith(
-        (ref) => FakeDdipEventRepositoryImpl(
-          ref,
-          webSocketDataSource: ref.watch(webSocketDataSourceProvider),
-        ),
-      ),
+      ddipEventRepositoryProvider.overrideWith((ref) {
+        // evaluationRepository를 주입받도록 수정합니다.
+        final webSocketDataSource = ref.watch(webSocketDataSourceProvider);
+        final evaluationRepository = ref.watch(evaluationRepositoryProvider);
 
-      // ProximityService가 필요한 곳에는 RealProximityService를 주입합니다.
+        return FakeDdipEventRepositoryImpl(
+          ref,
+          webSocketDataSource: webSocketDataSource,
+          evaluationRepository: evaluationRepository, // 주입
+        );
+      }),
+
       proximityServiceProvider.overrideWith((ref) => RealProximityService()),
     ];
 

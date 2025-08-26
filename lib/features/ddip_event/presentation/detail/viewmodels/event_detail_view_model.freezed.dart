@@ -29,6 +29,7 @@ mixin _$EventDetailState {
       throw _privateConstructorUsedError; // [수정] required로 변경
   bool get showProgressBar => throw _privateConstructorUsedError;
   bool get showMissionControl => throw _privateConstructorUsedError;
+  bool get hasCurrentUserEvaluated => throw _privateConstructorUsedError;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
@@ -54,6 +55,7 @@ abstract class $EventDetailStateCopyWith<$Res> {
     List<ProgressStep> progressSteps,
     bool showProgressBar,
     bool showMissionControl,
+    bool hasCurrentUserEvaluated,
   });
 }
 
@@ -81,6 +83,7 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
     Object? progressSteps = null,
     Object? showProgressBar = null,
     Object? showMissionControl = null,
+    Object? hasCurrentUserEvaluated = null,
   }) {
     return _then(
       _value.copyWith(
@@ -129,6 +132,11 @@ class _$EventDetailStateCopyWithImpl<$Res, $Val extends EventDetailState>
                     ? _value.showMissionControl
                     : showMissionControl // ignore: cast_nullable_to_non_nullable
                         as bool,
+            hasCurrentUserEvaluated:
+                null == hasCurrentUserEvaluated
+                    ? _value.hasCurrentUserEvaluated
+                    : hasCurrentUserEvaluated // ignore: cast_nullable_to_non_nullable
+                        as bool,
           )
           as $Val,
     );
@@ -154,6 +162,7 @@ abstract class _$$EventDetailStateImplCopyWith<$Res>
     List<ProgressStep> progressSteps,
     bool showProgressBar,
     bool showMissionControl,
+    bool hasCurrentUserEvaluated,
   });
 }
 
@@ -180,6 +189,7 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
     Object? progressSteps = null,
     Object? showProgressBar = null,
     Object? showMissionControl = null,
+    Object? hasCurrentUserEvaluated = null,
   }) {
     return _then(
       _$EventDetailStateImpl(
@@ -228,6 +238,11 @@ class __$$EventDetailStateImplCopyWithImpl<$Res>
                 ? _value.showMissionControl
                 : showMissionControl // ignore: cast_nullable_to_non_nullable
                     as bool,
+        hasCurrentUserEvaluated:
+            null == hasCurrentUserEvaluated
+                ? _value.hasCurrentUserEvaluated
+                : hasCurrentUserEvaluated // ignore: cast_nullable_to_non_nullable
+                    as bool,
       ),
     );
   }
@@ -246,6 +261,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     required final List<ProgressStep> progressSteps,
     this.showProgressBar = true,
     this.showMissionControl = false,
+    this.hasCurrentUserEvaluated = false,
   }) : _progressSteps = progressSteps;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -280,10 +296,13 @@ class _$EventDetailStateImpl implements _EventDetailState {
   @override
   @JsonKey()
   final bool showMissionControl;
+  @override
+  @JsonKey()
+  final bool hasCurrentUserEvaluated;
 
   @override
   String toString() {
-    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps, showProgressBar: $showProgressBar, showMissionControl: $showMissionControl)';
+    return 'EventDetailState(event: $event, isProcessing: $isProcessing, buttonText: $buttonText, buttonIsEnabled: $buttonIsEnabled, buttonColor: $buttonColor, missionStage: $missionStage, progressSteps: $progressSteps, showProgressBar: $showProgressBar, showMissionControl: $showMissionControl, hasCurrentUserEvaluated: $hasCurrentUserEvaluated)';
   }
 
   @override
@@ -309,7 +328,12 @@ class _$EventDetailStateImpl implements _EventDetailState {
             (identical(other.showProgressBar, showProgressBar) ||
                 other.showProgressBar == showProgressBar) &&
             (identical(other.showMissionControl, showMissionControl) ||
-                other.showMissionControl == showMissionControl));
+                other.showMissionControl == showMissionControl) &&
+            (identical(
+                  other.hasCurrentUserEvaluated,
+                  hasCurrentUserEvaluated,
+                ) ||
+                other.hasCurrentUserEvaluated == hasCurrentUserEvaluated));
   }
 
   @override
@@ -324,6 +348,7 @@ class _$EventDetailStateImpl implements _EventDetailState {
     const DeepCollectionEquality().hash(_progressSteps),
     showProgressBar,
     showMissionControl,
+    hasCurrentUserEvaluated,
   );
 
   /// Create a copy of EventDetailState
@@ -349,6 +374,7 @@ abstract class _EventDetailState implements EventDetailState {
     required final List<ProgressStep> progressSteps,
     final bool showProgressBar,
     final bool showMissionControl,
+    final bool hasCurrentUserEvaluated,
   }) = _$EventDetailStateImpl;
 
   // AsyncValue를 사용해 로딩, 데이터, 에러 상태를 모두 표현합니다.
@@ -370,6 +396,8 @@ abstract class _EventDetailState implements EventDetailState {
   bool get showProgressBar;
   @override
   bool get showMissionControl;
+  @override
+  bool get hasCurrentUserEvaluated;
 
   /// Create a copy of EventDetailState
   /// with the given fields replaced by the non-null parameter values.
