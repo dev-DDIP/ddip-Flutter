@@ -1,11 +1,16 @@
+// lib/features/ddip_event/presentation/creation/screens/ddip_creation_screen.dart
+
 import 'package:ddip/features/auth/providers/auth_provider.dart';
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/presentation/creation/widgets/location_picker_screen.dart';
 import 'package:ddip/features/ddip_event/providers/ddip_event_providers.dart';
+import 'package:ddip/features/weather/providers/weather_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 class DdipCreationScreen extends ConsumerStatefulWidget {
@@ -22,8 +27,110 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
-
   NLatLng? _selectedPosition;
+
+  bool _isAnalyzing = false;
+  int? _weatherCode;
+  int? _hour;
+  int? _isWeekendCode;
+  String _analyzedInfoText = '';
+
+  static const _weatherConditionMap = {
+    'Clear': 0,
+    'Clouds': 0,
+    'Rain': 1,
+    'Drizzle': 1,
+    'Snow': 2,
+    'Thunderstorm': 5,
+    'Tornado': 5,
+    'Mist': 6,
+    'Haze': 6,
+    'Dust': 6,
+    'Fog': 6,
+    'Sand': 6,
+    'Ash': 6,
+    'Squall': 6,
+  };
+
+  Future<void> _analyzeRequestInfo() async {
+    setState(() {
+      _isAnalyzing = true;
+      _analyzedInfoText = 'AI 분석 중...';
+    });
+
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('위치 권한이 거부되었습니다.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final weatherData = await ref
+          .read(weatherRepositoryProvider)
+          .getCurrentWeather(position.latitude, position.longitude);
+      final weatherMain = weatherData.main;
+      final temp = weatherData.temp;
+      final locationName = weatherData.locationName;
+
+      int resultCode = _weatherConditionMap[weatherMain] ?? 0;
+      if (temp < 0)
+        resultCode = 3;
+      else if (temp > 30)
+        resultCode = 4;
+
+      final now = DateTime.now();
+      final currentHour = now.hour;
+      final weekendCode = (now.weekday >= 6) ? 1 : 0;
+
+      const dayOfWeekMap = {
+        1: '월',
+        2: '화',
+        3: '수',
+        4: '목',
+        5: '금',
+        6: '토',
+        7: '일',
+      };
+      final dayOfWeekString = dayOfWeekMap[now.weekday] ?? '';
+      final timeString = DateFormat('HH:mm:ss').format(now);
+
+      // ▼▼▼ 수정된 부분 (핵심 로직) ▼▼▼
+      // 제목과 내용을 가져와서 이스케이프 처리
+      final title = _titleController.text.replaceAll('\n', '\\n');
+      final content = _contentController.text.replaceAll('\n', '\\n');
+
+      setState(() {
+        _weatherCode = resultCode;
+        _hour = currentHour;
+        _isWeekendCode = weekendCode;
+
+        // 화면에 표시될 텍스트를 JSON 형식으로 구성 (제목과 내용 포함)
+        _analyzedInfoText = '''
+{
+  "title": "$title",
+  "content": "$content",
+  "weather": $_weatherCode ($weatherMain, ${temp.toStringAsFixed(1)}°C, $locationName),
+  "time": $_hour ($timeString),
+  "is_weekend": $_isWeekendCode ($dayOfWeekString요일)
+}''';
+      });
+      // ▲▲▲ 수정된 부분 (핵심 로직) ▲▲▲
+    } catch (e) {
+      setState(() {
+        _analyzedInfoText = '분석 실패: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isAnalyzing = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -52,11 +159,27 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
     }
 
     if (_formKey.currentState!.validate()) {
-      // [수정] 로딩 시작
       setState(() => _isLoading = true);
 
+      if (_weatherCode == null) _weatherCode = 0;
+      if (_hour == null || _isWeekendCode == null) {
+        final now = DateTime.now();
+        _hour = now.hour;
+        _isWeekendCode = (now.weekday >= 6) ? 1 : 0;
+      }
+
+      final requestPayload = {
+        'title': _titleController.text,
+        'content': _contentController.text,
+        'weather': _weatherCode,
+        'time': _hour,
+        'is_weekend': _isWeekendCode,
+      };
+
+      print('--- 최종 전송 데이터 ---');
+      print(requestPayload);
+
       final newEvent = DdipEvent(
-        // UUID는 전 세계적으로 거의 중복될 가능성이 없는 문자열 ID를 만드는 표준 방식
         id: const Uuid().v4(),
         title: _titleController.text,
         content: _contentController.text,
@@ -66,19 +189,12 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
         longitude: _selectedPosition!.longitude,
         status: DdipEventStatus.open,
         createdAt: DateTime.now(),
-        applicants: [],
-        photos: [],
       );
-
       try {
-        // [수정] Notifier 대신 UseCase를 직접 호출
         await ref.read(createDdipEventUseCaseProvider).call(newEvent);
-
         if (!mounted) return;
 
-        // [수정] 목록 새로고침을 위해 Notifier를 invalidate 함
         ref.invalidate(ddipEventsNotifierProvider);
-
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('요청이 성공적으로 등록되었습니다!')));
@@ -88,7 +204,6 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
       } finally {
-        // [수정] 로딩 종료
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -112,9 +227,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   controller: _titleController,
                   decoration: const InputDecoration(labelText: '제목'),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '제목을 입력해주세요.';
-                    }
+                    if (value == null || value.isEmpty) return '제목을 입력해주세요.';
                     return null;
                   },
                 ),
@@ -123,9 +236,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   controller: _contentController,
                   decoration: const InputDecoration(labelText: '내용'),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '내용을 입력해주세요.';
-                    }
+                    if (value == null || value.isEmpty) return '내용을 입력해주세요.';
                     return null;
                   },
                 ),
@@ -136,17 +247,49 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '보상 금액을 입력해주세요.';
-                    }
-                    if (int.tryParse(value) == null) {
-                      return '숫자만 입력해주세요.';
-                    }
+                    if (value == null || value.isEmpty) return '보상 금액을 입력해주세요.';
                     return null;
                   },
                 ),
 
-                const SizedBox(height: 16), // 3. 위젯들 사이에 간격 추가
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  icon:
+                      _isAnalyzing
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          )
+                          : const Icon(Icons.auto_awesome),
+                  label: const Text('AI 가격 추천'),
+                  onPressed: _isAnalyzing ? null : _analyzeRequestInfo,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+                if (_analyzedInfoText.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _analyzedInfoText,
+                        style: TextStyle(
+                          color: Colors.grey.shade800,
+                          height: 1.6,
+                          fontFamily: 'monospace',
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.map_outlined),
                   label: const Text('지도에서 위치 선택'),
@@ -156,37 +299,27 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                         builder: (context) => const LocationPickerScreen(),
                       ),
                     );
-                    if (result != null) {
-                      setState(() {
-                        _selectedPosition = result;
-                      });
-                    }
+                    if (result != null)
+                      setState(() => _selectedPosition = result);
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     textStyle: const TextStyle(fontSize: 16),
                     backgroundColor: Colors.white,
-                    // 버튼 배경색
                     foregroundColor: Colors.black,
-                    // 버튼 글자/아이콘 색
                     side: const BorderSide(color: Colors.grey),
-                    // 테두리
-                    elevation: 0, // 그림자 없애기
+                    elevation: 0,
                   ),
                 ),
-                const SizedBox(height: 8),
                 if (_selectedPosition != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
-                      '선택된 위치:\n'
-                      '위도: ${_selectedPosition!.latitude.toStringAsFixed(5)}, '
-                      '경도: ${_selectedPosition!.longitude.toStringAsFixed(5)}',
+                      '선택된 위치: 위도: ${_selectedPosition!.latitude.toStringAsFixed(5)}, 경도: ${_selectedPosition!.longitude.toStringAsFixed(5)}',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                   ),
-
                 const SizedBox(height: 32),
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -194,7 +327,10 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        textStyle: const TextStyle(fontSize: 16),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       child: const Text('요청 등록하기'),
                     ),
