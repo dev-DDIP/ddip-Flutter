@@ -62,8 +62,9 @@ dependencies:
   riverpod_annotation: ^2.3.5
   app_settings: ^6.1.1
   image_picker: ^1.1.2 # 최신 버전 확인 후 추가
-  tflite_flutter: ^0.11.0
-
+  #tflite_flutter: ^0.11.0
+  tflite_flutter:
+    path: ../flutter-tflite
 
 dev_dependencies:
   flutter_test:

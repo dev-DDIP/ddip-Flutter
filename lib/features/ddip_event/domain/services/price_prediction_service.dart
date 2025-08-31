@@ -78,7 +78,7 @@ class PricePredictionService {
     ],
   };
 
-  final int _maxSequenceLength = 80; // 파이썬 코드2.txt에 맞춰 80으로 수정
+  final int _maxSequenceLength = 50; // 파이썬 코드1.txt에 맞춰 80으로 수정
 
   Future<void> initialize() async {
     try {
@@ -86,7 +86,8 @@ class PricePredictionService {
       final tokenizerJson = await rootBundle.loadString(
         'assets/ml/tokenizer_word_index.json',
       );
-      _tokenizer = Map<String, int>.from(json.decode(tokenizerJson) as Map);
+      final decodedMap = json.decode(tokenizerJson) as Map<String, dynamic>;
+      _tokenizer = decodedMap.map((key, value) => MapEntry(key, value as int));
       print('✅ 1/2: 토크나이저 로드 성공.');
     } catch (e) {
       print('❌ 1/2: 토크나이저(JSON) 로드 실패! pubspec.yaml 경로 또는 실제 파일 위치를 확인해주세요.');
@@ -99,6 +100,21 @@ class PricePredictionService {
         'assets/ml/price_prediction_model.tflite',
       );
       print('✅ 2/2: AI 모델 로드 성공.');
+
+      print('--- TFLite 모델 입출력 명세서 ---');
+      final inputTensors = _interpreter!.getInputTensors();
+      for (var i = 0; i < inputTensors.length; i++) {
+        print(
+          'Input $i: shape=${inputTensors[i].shape}, type=${inputTensors[i].type}',
+        );
+      }
+      final outputTensors = _interpreter!.getOutputTensors();
+      for (var i = 0; i < outputTensors.length; i++) {
+        print(
+          'Output $i: shape=${outputTensors[i].shape}, type=${outputTensors[i].type}',
+        );
+      }
+      print('---------------------------------');
     } catch (e) {
       print(
         '❌ 2/2: AI 모델(TFLite) 로드 실패! 파일이 손상되었거나 tflite_flutter 패키지와의 호환성 문제일 수 있습니다.',
@@ -126,7 +142,6 @@ class PricePredictionService {
     return Int32List.fromList(paddedSequence);
   }
 
-  // ▼▼▼ [핵심 수정] predict 함수 내부에 print문 추가 ▼▼▼
   Future<int> predict({
     required String title,
     required String content,
@@ -139,7 +154,7 @@ class PricePredictionService {
       return 500;
     }
 
-    // --- 1. 데이터 전처리 ---
+    // --- 1. 데이터 전처리 (기존과 동일) ---
     final textPadded = _preprocessAndTokenize(title, content);
     final hourSin = sin(2 * pi * hour / 24);
     final hourCos = cos(2 * pi * hour / 24);
@@ -152,62 +167,63 @@ class PricePredictionService {
     final highKeyword =
         _keywordRules['상']!.any((k) => combinedText.contains(k)) ? 1.0 : 0.0;
 
-    // --- 2. [DEBUG] 텐서 변환 전 Raw 데이터 출력 ---
-    print(' ');
-    print('=============== [DEBUG] AI 모델 입력값 분석 ===============');
-    print('--- 텐서 변환 전 Raw 데이터 ---');
-    print('  - Text (Padded Sequence): ${textPadded.toString()}');
-    print('  - Weather: $weather');
-    print('  - Hour (Sin): $hourSin');
-    print('  - Hour (Cos): $hourCos');
-    print('  - Is Weekend: $weekendEncoded');
-    print(
-      '  - Keyword Features (Loss, High-Value): [$lossKeyword, $highKeyword]',
-    );
-    print('------------------------------------');
+    print('================================================');
+    print('🤖 AI 가격 예측 입력 데이터 종합 로그');
+    print('--- 원본 데이터 ---');
+    print('   - 제목+내용: $textPadded');
+    print('   - 날씨 코드: $weather');
+    print('   - 시간 (24시): $hour');
+    print('   - 주말 여부 (1=주말): $isWeekend');
+    print('================================================');
 
-    // --- 3. 모델 입력을 위한 텐서 준비 ---
+    // --- 2. 명확한 타입의 1차원 버퍼 생성 (기존과 동일) ---
+    final textInput = Int32List.fromList(textPadded.toList());
+    final hourSinInput = Float32List.fromList([hourSin]);
+    final hourCosInput = Float32List.fromList([hourCos]);
+    final weatherInput = Int32List.fromList([weather]);
+    final weekendInput = Float32List.fromList([weekendEncoded]);
+    final keywordInput = Float32List.fromList([lossKeyword, highKeyword]);
+
+    // --- 3. [수정] TFLite 모델 명세서에 맞춰 입력 순서 재배열 ---
     final inputs = [
-      [textPadded],
-      [
-        Float32List.fromList([hourSin]),
-      ],
-      [
-        Float32List.fromList([hourCos]),
-      ],
-      [
-        [weather],
-      ],
-      [
-        Float32List.fromList([weekendEncoded]),
-      ],
-      [
-        Float32List.fromList([lossKeyword, highKeyword]),
-      ],
+      hourCosInput.reshape([1, 1]), // Input 0: shape=[1, 1], type=float32
+      weatherInput.reshape([1, 1]), // Input 1: shape=[1, 1], type=int32
+      textInput.reshape([
+        1,
+        _maxSequenceLength,
+      ]), // Input 2: shape=[1, 80], type=int32
+      hourSinInput.reshape([1, 1]), // Input 3: shape=[1, 1], type=float32
+      weekendInput.reshape([1, 1]), // Input 4: shape=[1, 1], type=float32
+      keywordInput.reshape([1, 2]), // Input 5: shape=[1, 2], type=float32
     ];
 
-    // --- 4. [DEBUG] 모델에 전달되는 최종 텐서 형태 출력 ---
-    print('--- 모델에 전달되는 최종 텐서 형태 ---');
-    print('  - Input 0 (Text): ${inputs[0]}');
-    print('  - Input 1 (Hour Sin): ${inputs[1]}');
-    print('  - Input 2 (Hour Cos): ${inputs[2]}');
-    print('  - Input 3 (Weather): ${inputs[3]}');
-    print('  - Input 4 (Is Weekend): ${inputs[4]}');
-    print('  - Input 5 (Keywords): ${inputs[5]}');
-    print('=========================================================');
-    print(' ');
+    // --- 4. [수정] TFLite 모델 명세서에 맞춰 출력 순서 재배열 ---
+    var priceOutput = <List<double>>[
+      [0.0],
+    ]; // Output 0: shape=[1, 1], type=float32
+    var difficultyOutput = <List<double>>[
+      [0.0, 0.0, 0.0],
+    ]; // Output 1: shape=[1, 3], type=float32
 
-    // --- 5. 모델 출력 텐서 및 실행 ---
     final outputs = {
-      0: List.filled(1 * 3, 0.0).reshape([1, 3]),
-      1: List.filled(1 * 1, 0.0).reshape([1, 1]),
+      0: priceOutput, // 가격 예측 결과
+      1: difficultyOutput, // 난이도 분류 결과
     };
-    _interpreter!.runForMultipleInputs(inputs, outputs);
 
-    // --- 6. 결과 후처리 ---
-    final predictedPrice = (outputs[1] as List<List<double>>)[0][0];
-    final finalPrice = (predictedPrice / 100).round() * 100;
-    return max(0, finalPrice);
+    // --- 5. 모델 실행 ---
+    try {
+      _interpreter!.runForMultipleInputs(inputs, outputs);
+
+      // --- 6. [수정] 올바른 버퍼에서 결과 추출 ---
+      final predictedPrice = priceOutput[0][0];
+      print('✅ 모델 예측 성공: Raw Price = $predictedPrice');
+
+      final finalPrice = (predictedPrice / 100).round() * 100;
+      return max(500, finalPrice).toInt();
+    } catch (e) {
+      print('❌ 모델 실행 중 심각한 오류 발생: $e');
+      return 500;
+    }
   }
 
   void dispose() {
