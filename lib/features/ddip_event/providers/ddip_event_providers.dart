@@ -11,6 +11,7 @@ import 'package:ddip/features/ddip_event/data/repositories/fake_ddip_event_repos
 import 'package:ddip/features/ddip_event/domain/entities/ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/entities/photo.dart';
 import 'package:ddip/features/ddip_event/domain/repositories/ddip_event_repository.dart';
+import 'package:ddip/features/ddip_event/domain/services/price_prediction_service.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/create_ddip_event.dart';
 import 'package:ddip/features/ddip_event/domain/usecases/get_ddip_events.dart';
 import 'package:ddip/features/ddip_event/presentation/detail/viewmodels/event_detail_view_model.dart';
@@ -287,4 +288,22 @@ final ongoingMissionSummaryProvider = Provider.autoDispose.family<
             : null,
     milestones: _calculateMilestoneStates(),
   );
+});
+
+/// AI 가격 예측 서비스를 제공하는 FutureProvider입니다.
+/// 앱 전체에서 이 Provider를 통해 안전하게 서비스 인스턴스를 사용할 수 있습니다.
+final pricePredictionServiceProvider = FutureProvider<PricePredictionService>((
+  ref,
+) async {
+  // 1. 서비스 객체를 생성합니다.
+  final service = PricePredictionService();
+
+  // 2. 서비스의 비동기 초기화 메서드를 호출하고 완료될 때까지 기다립니다.
+  await service.initialize();
+
+  // 3. Provider가 소멸될 때 서비스의 dispose 메서드를 호출하여 자원을 정리합니다.
+  ref.onDispose(() => service.dispose());
+
+  // 4. 초기화가 완료된 서비스 객체를 반환합니다.
+  return service;
 });

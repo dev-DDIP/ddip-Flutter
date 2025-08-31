@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 class DdipCreationScreen extends ConsumerStatefulWidget {
@@ -30,11 +29,13 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   NLatLng? _selectedPosition;
 
   bool _isAnalyzing = false;
+
+  // ▼▼▼ [수정] AI 모델 입력을 위한 변수들은 유지합니다. ▼▼▼
   int? _weatherCode;
   int? _hour;
   int? _isWeekendCode;
-  String _analyzedInfoText = '';
 
+  // ▼▼▼ [수정] 날씨 정보를 숫자로 변환하기 위한 Map은 그대로 사용합니다. ▼▼▼
   static const _weatherConditionMap = {
     'Clear': 0,
     'Clouds': 0,
@@ -52,13 +53,20 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
     'Squall': 6,
   };
 
+  // ▼▼▼ [핵심 수정] _analyzeRequestInfo 함수 전체를 아래 내용으로 교체 ▼▼▼
   Future<void> _analyzeRequestInfo() async {
-    setState(() {
-      _isAnalyzing = true;
-      _analyzedInfoText = 'AI 분석 중...';
-    });
+    // 0. 유효성 검사: 제목과 내용이 비어있으면 실행하지 않음
+    if (_titleController.text.isEmpty || _contentController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('제목과 내용을 먼저 입력해주세요.')));
+      return;
+    }
+
+    setState(() => _isAnalyzing = true);
 
     try {
+      // 1. 위치 및 날씨, 시간 정보 수집 (기존과 동일)
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -67,68 +75,59 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
           permission == LocationPermission.deniedForever) {
         throw Exception('위치 권한이 거부되었습니다.');
       }
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
+      final position = await Geolocator.getCurrentPosition();
       final weatherData = await ref
           .read(weatherRepositoryProvider)
           .getCurrentWeather(position.latitude, position.longitude);
-      final weatherMain = weatherData.main;
-      final temp = weatherData.temp;
-      final locationName = weatherData.locationName;
 
-      int resultCode = _weatherConditionMap[weatherMain] ?? 0;
-      if (temp < 0)
+      int resultCode = _weatherConditionMap[weatherData.main] ?? 0;
+      if (weatherData.temp < 0)
         resultCode = 3;
-      else if (temp > 30)
+      else if (weatherData.temp > 30)
         resultCode = 4;
 
       final now = DateTime.now();
-      final currentHour = now.hour;
-      final weekendCode = (now.weekday >= 6) ? 1 : 0;
+      _weatherCode = resultCode;
+      _hour = now.hour;
+      _isWeekendCode = (now.weekday >= 6) ? 1 : 0;
 
-      const dayOfWeekMap = {
-        1: '월',
-        2: '화',
-        3: '수',
-        4: '목',
-        5: '금',
-        6: '토',
-        7: '일',
-      };
-      final dayOfWeekString = dayOfWeekMap[now.weekday] ?? '';
-      final timeString = DateFormat('HH:mm:ss').format(now);
+      // 2. Riverpod Provider를 통해 AI 서비스 인스턴스를 가져옴
+      // .future를 사용하여 서비스 초기화가 완료될 때까지 기다림
+      final priceService = await ref.read(
+        pricePredictionServiceProvider.future,
+      );
 
-      // ▼▼▼ 수정된 부분 (핵심 로직) ▼▼▼
-      // 제목과 내용을 가져와서 이스케이프 처리
-      final title = _titleController.text.replaceAll('\n', '\\n');
-      final content = _contentController.text.replaceAll('\n', '\\n');
+      // 3. AI 서비스의 predict 함수 호출
+      final predictedPrice = await priceService.predict(
+        title: _titleController.text,
+        content: _contentController.text,
+        weather: _weatherCode!,
+        hour: _hour!,
+        isWeekend: _isWeekendCode!,
+      );
 
-      setState(() {
-        _weatherCode = resultCode;
-        _hour = currentHour;
-        _isWeekendCode = weekendCode;
+      // 4. 예측된 가격으로 '보상 금액' 필드 업데이트
+      _rewardController.text = predictedPrice.toString();
 
-        // 화면에 표시될 텍스트를 JSON 형식으로 구성 (제목과 내용 포함)
-        _analyzedInfoText = '''
-{
-  "title": "$title",
-  "content": "$content",
-  "weather": $_weatherCode ($weatherMain, ${temp.toStringAsFixed(1)}°C, $locationName),
-  "time": $_hour ($timeString),
-  "is_weekend": $_isWeekendCode ($dayOfWeekString요일)
-}''';
-      });
-      // ▲▲▲ 수정된 부분 (핵심 로직) ▲▲▲
+      // 5. 사용자에게 성공 피드백 제공
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🤖 AI가 추천 가격 ${predictedPrice}원을 입력했습니다.'),
+            backgroundColor: Colors.indigo,
+          ),
+        );
+      }
     } catch (e) {
-      setState(() {
-        _analyzedInfoText = '분석 실패: ${e.toString()}';
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('AI 가격 추천 중 오류 발생: $e')));
+      }
     } finally {
-      setState(() {
-        _isAnalyzing = false;
-      });
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+      }
     }
   }
 
@@ -141,6 +140,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
   }
 
   void _submit() async {
+    // submit 로직은 기존과 동일하므로 수정하지 않습니다.
     FocusScope.of(context).unfocus();
 
     final currentUser = ref.read(authProvider);
@@ -161,24 +161,6 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      if (_weatherCode == null) _weatherCode = 0;
-      if (_hour == null || _isWeekendCode == null) {
-        final now = DateTime.now();
-        _hour = now.hour;
-        _isWeekendCode = (now.weekday >= 6) ? 1 : 0;
-      }
-
-      final requestPayload = {
-        'title': _titleController.text,
-        'content': _contentController.text,
-        'weather': _weatherCode,
-        'time': _hour,
-        'is_weekend': _isWeekendCode,
-      };
-
-      print('--- 최종 전송 데이터 ---');
-      print(requestPayload);
-
       final newEvent = DdipEvent(
         id: const Uuid().v4(),
         title: _titleController.text,
@@ -190,6 +172,7 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
         status: DdipEventStatus.open,
         createdAt: DateTime.now(),
       );
+
       try {
         await ref.read(createDdipEventUseCaseProvider).call(newEvent);
         if (!mounted) return;
@@ -213,6 +196,8 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // build 메서드 내 UI 구조는 기존과 거의 동일합니다.
+    // _analyzedInfoText를 보여주던 부분만 삭제되었습니다.
     return Scaffold(
       appBar: AppBar(title: const Text('새로운 띱 요청')),
       body: SingleChildScrollView(
@@ -251,7 +236,6 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   icon:
@@ -268,27 +252,8 @@ class _DdipCreationScreenState extends ConsumerState<DdipCreationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
-                if (_analyzedInfoText.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Container(
-                      padding: const EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _analyzedInfoText,
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
-                          height: 1.6,
-                          fontFamily: 'monospace',
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-
+                // ▼▼▼ 기존에 분석 결과를 보여주던 UI는 삭제합니다. ▼▼▼
+                // if (_analyzedInfoText.isNotEmpty) ...
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.map_outlined),
